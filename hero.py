@@ -2,7 +2,6 @@
 
 import pygame
 
-
 # Window dimensions
 SCREEN_WIDTH = 512
 SCREEN_HEIGHT = 480
@@ -177,10 +176,10 @@ class Game:
                     "#": self.tiles['wall'],
                     ".": self.tiles['ground'],
                     " ": self.tiles['blank']
-                }                                
-                if tile in tile_actions:
-                    self.screen.blit(tile_actions[tile], (x, y))
+                }                       
                 
+                tile_to_blit = tile_actions.get(tile, self.tiles['blank'])
+                self.screen.blit(tile_to_blit, (x, y))
 
     ##################################################################################################
     # Game loop
