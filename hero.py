@@ -15,20 +15,20 @@ DEAD_ZONE = 0.1  # Adjust this value (e.g., 0.1, 0.2) as needed
 MAPS = [
     [
         "###S############",
-        "#....#.........#",
-        "#..E.#.........#",
-        "#..R.#.........#",
-        "#..............#",
-        "#..............#",
-        "#..............#",
-        "#..............#",
-        "#..............#",
-        "#..............#",
-        "#..............#",
-        "#..............#",
-        "#..............#",
-        "#..............#",
-        "################",
+        "###  ###########",
+        "###  ######### #",
+        "#    #######   #",
+        "#          E   #",
+        "#............  #",
+        "#............  #",
+        "###..########  #",
+        "#              #",
+        "#.  ...........#",
+        "#           R ##",
+        "#...  ........##",
+        "####  ##########",
+        "                ",
+        "                ",
     ]
 ]
 
@@ -37,7 +37,7 @@ MAPS = [
 ##################################################################################################
 class Player:
     def __init__(self):
-        self.image = None
+        self.image = pygame.image.load("sprites/player.png").convert_alpha()  # Handles transparency
         self.x = 0
         self.y = 0
         
@@ -45,8 +45,6 @@ class Player:
     # Initialize player
     ##################################################################################################
     def init(self):
-        self.image = pygame.image.load("sprites/player.png").convert_alpha()  # Handles transparency
-
         # Find the "S" tile (start position)
         player_start_x = None
         player_start_y = None
@@ -101,8 +99,23 @@ class Player:
         # Draw the player
         screen.blit(self.image, (player_x_rounded, player_y_rounded))
             
+##################################################################################################
+# Enemy
+##################################################################################################
+class Enemy:
+    def __init__(self, x, y):
+        self.image = pygame.image.load("sprites/enemy.png").convert_alpha()
+        self.x = x
+        self.y = y
+        self.speed = 20  # Adjust as needed
 
+    def update(self, dt, screen):
+        # Implement enemy movement logic here (e.g., patrol pattern)
+        # Update the enemy's x and y coordinates based on its behavior
+        screen.blit(self.image, (round(self.x), round(self.y)))
+        pass  # Replace with actual movement logic
 
+        
 ##################################################################################################
 # Game
 ##################################################################################################
@@ -115,15 +128,23 @@ class Game:
         self.tiles = {}
         self.score = 0
         self.level = 0
-        self.player = Player()
+        self.player = None
+        self.enemies = []
+        self.bombs = 3
+        self.lives = 5
 
     ##################################################################################################
     # Load assets
     ##################################################################################################
     def load_assets(self):
         self.tiles['wall'] = pygame.image.load("tiles/wall.png").convert_alpha()
-        self.tiles['ground'] = pygame.image.load("tiles/ground.png").convert_alpha()
+        self.tiles['floor'] = pygame.image.load("tiles/floor.png").convert_alpha()
         self.tiles['blank'] = pygame.image.load("tiles/blank.png").convert_alpha()
+        
+        self.font = pygame.font.Font("fonts/PressStart2P-vaV7.ttf", 16)
+        
+        self.sprites['bomb'] = pygame.image.load("sprites/bomb.png").convert_alpha()
+        self.sprites['life'] = pygame.image.load("sprites/player.png").convert_alpha()        
 
     ##################################################################################################
     # Initialize game
@@ -161,25 +182,66 @@ class Game:
 
         # Load tile images
         self.load_assets()
+        
         # Load and init player
+        self.player = Player()
         self.player.init()        
 
     ##################################################################################################
     # Render level
     ##################################################################################################
     def render_level(self, level_map):
+        tile_actions = {
+            "#": self.tiles['wall'],
+            ".": self.tiles['floor'],
+            " ": self.tiles['blank']
+        }                       
         for row_index, row in enumerate(level_map):
             for col_index, tile in enumerate(row):
                 x = col_index * TILE_SIZE
                 y = row_index * TILE_SIZE
-                tile_actions = {
-                    "#": self.tiles['wall'],
-                    ".": self.tiles['ground'],
-                    " ": self.tiles['blank']
-                }                       
+                if tile == "E":
+                    self.enemies.append(Enemy(x, y))
+                else:
+                    tile_to_blit = tile_actions.get(tile, self.tiles['blank'])
+                    self.screen.blit(tile_to_blit, (x, y))
+    ##################################################################################################
+    # HUD
+    ##################################################################################################                    
+    def render_hud(self):
+        # Define la altura del área HUD (por ejemplo, 32 píxeles)
+        hud_height = 32
+        hud_y = SCREEN_HEIGHT - hud_height
+
+        # (Opcional) Dibuja un fondo semitransparente para el HUD
+        hud_background = pygame.Surface((SCREEN_WIDTH, hud_height))
+        hud_background.set_alpha(128)  # 0 transparente, 255 opaco
+        hud_background.fill((0, 0, 0))
+        self.screen.blit(hud_background, (0, hud_y))
+
+        # Dibujar el puntaje (score)
+        score_text = f"Score: {self.score}"
+        score_surface = self.font.render(score_text, True, (255, 255, 255))
+        self.screen.blit(score_surface, (10, hud_y + 5))
+
+        # Dibujar el nivel (level)
+        level_text = f"Level: {self.level}"
+        level_surface = self.font.render(level_text, True, (255, 255, 255))
+        self.screen.blit(level_surface, (150, hud_y + 5))
+
+        # Dibujar las bombas con su sprite y cantidad
+        # Ajusta las coordenadas según lo necesites
+        self.screen.blit(self.sprites['bomb'], (300, hud_y + 2))
+        bombs_text = f"x {self.bombs}"
+        bombs_surface = self.font.render(bombs_text, True, (255, 255, 255))
+        self.screen.blit(bombs_surface, (330, hud_y + 5))
+
+        # Dibujar las vidas con su sprite y cantidad
+        self.screen.blit(self.sprites['life'], (400, hud_y + 2))
+        lives_text = f"x {self.lives}"
+        lives_surface = self.font.render(lives_text, True, (255, 255, 255))
+        self.screen.blit(lives_surface, (430, hud_y + 5))
                 
-                tile_to_blit = tile_actions.get(tile, self.tiles['blank'])
-                self.screen.blit(tile_to_blit, (x, y))
 
     ##################################################################################################
     # Game loop
@@ -198,6 +260,9 @@ class Game:
             # Render the level
             self.render_level(MAPS[self.level])
             
+            # Update HUD
+            self.render_hud()                
+
             # Calculate time elapsed since last frame
             dt = self.clock.tick(FPS) / 1000.0  # Convert milliseconds to seconds
 
@@ -218,7 +283,11 @@ class Game:
 
             # Update player
             self.player.update(self.screen)
-                            
+            
+            # Update enemies
+            for enemy in self.enemies:
+                enemy.update(dt, self.screen)
+                                            
             pygame.display.flip()
 
 
