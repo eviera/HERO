@@ -21,7 +21,7 @@ class Enemy:
         self.vertical_speed = 20
         self.exploding = False
         self.explosion_timer = 0
-        self.explosion_duration = 0.3
+        self.explosion_duration = 0.2  # Más corto para que desaparezca rápido
 
     def update(self, dt, level_map):
         if not self.active:
@@ -69,16 +69,19 @@ class Enemy:
         screen_y = self.y + self.vertical_offset - camera_y
         if -50 < screen_y < VIEWPORT_HEIGHT + 50:
             if self.exploding:
-                # Draw explosion animation
+                # Draw explosion animation - más pequeña y marrón
                 progress = self.explosion_timer / self.explosion_duration
-                radius = int(16 + progress * 20)
-                alpha = int(255 * (1 - progress))
+                radius = int(8 + progress * 10)  # Radio más pequeño (máx ~18)
 
-                # Draw expanding circles for explosion
-                for i in range(3):
-                    r = radius - i * 8
+                # Draw expanding circles for explosion with brown colors
+                for i in range(2):  # Solo 2 círculos en lugar de 3
+                    r = radius - i * 5
                     if r > 0:
-                        color = (255, 200 - i * 50, 0)  # Orange to yellow
+                        # Colores marrones: marrón oscuro -> marrón claro
+                        if i == 0:
+                            color = (139, 69, 19)  # Marrón medio
+                        else:
+                            color = (101, 67, 33)  # Marrón oscuro
                         pygame.draw.circle(screen, color,
                                          (int(self.x + 16), int(screen_y + 16)), r)
             elif self.image:

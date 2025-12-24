@@ -481,6 +481,11 @@ class Game:
             if dynamite.exploded:
                 explosion_rect = dynamite.get_explosion_rect()
                 if explosion_rect:
+                    # Check if player is in blast radius
+                    if player_rect.colliderect(explosion_rect):
+                        self.player_hit()
+                        return
+
                     # Destroy enemies
                     for enemy in self.enemies:
                         if enemy.active and not enemy.exploding and explosion_rect.colliderect(enemy.get_rect()):
@@ -568,8 +573,10 @@ class Game:
         self.update_camera()
 
         # Update enemies
-        for enemy in self.enemies:
+        for enemy in self.enemies[:]:
             enemy.update(dt, self.level_map)
+            if not enemy.active:
+                self.enemies.remove(enemy)
 
         # Update lasers
         for laser in self.lasers[:]:
