@@ -353,6 +353,7 @@ class Game:
             self.sounds['shoot'] = pygame.mixer.Sound("sounds/shoot.wav")
             self.sounds['explosion'] = pygame.mixer.Sound("sounds/explosion.wav")
             self.sounds['death'] = pygame.mixer.Sound("sounds/death.wav")
+            self.sounds['splatter'] = pygame.mixer.Sound("sounds/splatter.wav")
             print("Sounds loaded successfully")
         except Exception as e:
             print(f"Error loading sounds: {e}")
@@ -466,6 +467,11 @@ class Game:
                     enemy.exploding = True
                     laser.active = False
                     self.score += 50
+
+                    # Play splatter sound
+                    if 'splatter' in self.sounds:
+                        self.sounds['splatter'].play()
+
                     break
 
         # Dynamite explosions
@@ -478,6 +484,10 @@ class Game:
                         if enemy.active and not enemy.exploding and explosion_rect.colliderect(enemy.get_rect()):
                             enemy.exploding = True
                             self.score += 75
+
+                            # Play splatter sound
+                            if 'splatter' in self.sounds:
+                                self.sounds['splatter'].play()
 
                     # Destroy blocks
                     for row_index in range(len(self.level_map)):
