@@ -14,8 +14,8 @@ FPS = 60
 TILE_SIZE = 32
 
 # Game constants - FÍSICAS CORRECTAS
-GRAVITY = 800  # Fuerte gravedad constante
-PROPULSOR_POWER = 900  # Poder del propulsor
+GRAVITY = 400  # Gravedad constante (reducida para caída más suave)
+PROPULSOR_POWER = 500  # Poder del propulsor
 PLAYER_SPEED_X = 150  # Velocidad horizontal
 MAX_FALL_SPEED = 400  # Velocidad máxima de caída
 LASER_SPEED = 400
@@ -115,7 +115,7 @@ class Laser:
 
         if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
             tile = level_map[tile_y][tile_x]
-            if tile == '#':  # Wall indestructible
+            if tile == '#' or tile == '.':  # Wall and floor indestructible
                 self.active = False
 
     def get_rect(self):
@@ -203,9 +203,19 @@ class Enemy:
         self.move_timer = 0
         self.vertical_offset = 0
         self.vertical_speed = 20
+        self.exploding = False
+        self.explosion_timer = 0
+        self.explosion_duration = 0.3
 
     def update(self, dt, level_map):
         if not self.active:
+            return
+
+        # Handle explosion animation
+        if self.exploding:
+            self.explosion_timer += dt
+            if self.explosion_timer >= self.explosion_duration:
+                self.active = False
             return
 
         if self.enemy_type == "spider":
@@ -218,7 +228,7 @@ class Enemy:
 
             if tile_x < 0 or tile_x >= LEVEL_WIDTH or \
                (0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]) and
-                (level_map[tile_y][tile_x] == '#' or level_map[tile_y][tile_x] == 'B')):
+                (level_map[tile_y][tile_x] == '#' or level_map[tile_y][tile_x] == 'B' or level_map[tile_y][tile_x] == '.')):
                 self.direction *= -1
         else:
             # Bats fly horizontally with oscillation
@@ -229,7 +239,7 @@ class Enemy:
             tile_y = int(self.y / TILE_SIZE)
 
             if tile_x < 0 or tile_x >= LEVEL_WIDTH or \
-               (0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]) and level_map[tile_y][tile_x] == '#'):
+               (0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]) and (level_map[tile_y][tile_x] == '#' or level_map[tile_y][tile_x] == '.')):
                 self.direction *= -1
 
             # Vertical oscillation for bats
@@ -242,7 +252,20 @@ class Enemy:
     def draw(self, screen, camera_y):
         screen_y = self.y + self.vertical_offset - camera_y
         if -50 < screen_y < VIEWPORT_HEIGHT + 50:
-            if self.image:
+            if self.exploding:
+                # Draw explosion animation
+                progress = self.explosion_timer / self.explosion_duration
+                radius = int(16 + progress * 20)
+                alpha = int(255 * (1 - progress))
+
+                # Draw expanding circles for explosion
+                for i in range(3):
+                    r = radius - i * 8
+                    if r > 0:
+                        color = (255, 200 - i * 50, 0)  # Orange to yellow
+                        pygame.draw.circle(screen, color,
+                                         (int(self.x + 16), int(screen_y + 16)), r)
+            elif self.image:
                 screen.blit(self.image, (int(self.x), int(screen_y)))
             else:
                 # Draw simple enemy
@@ -259,6 +282,7 @@ class Miner:
         self.rescued = False
         self.width = 32
         self.height = 32
+        self.image = None
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
@@ -266,17 +290,21 @@ class Miner:
     def draw(self, screen, camera_y):
         screen_y = self.y - camera_y
         if -50 < screen_y < VIEWPORT_HEIGHT + 50:
-            # Draw miner
-            pygame.draw.circle(screen, COLOR_GREEN, (int(self.x + 16), int(screen_y + 10)), 8)
-            pygame.draw.rect(screen, COLOR_GREEN, (int(self.x + 12), int(screen_y + 18), 8, 12))
-            # Arms waving
-            wave = math.sin(pygame.time.get_ticks() / 200) * 5
-            pygame.draw.line(screen, COLOR_GREEN,
-                           (int(self.x + 16), int(screen_y + 20)),
-                           (int(self.x + 10 + wave), int(screen_y + 26)), 2)
-            pygame.draw.line(screen, COLOR_GREEN,
-                           (int(self.x + 16), int(screen_y + 20)),
-                           (int(self.x + 22 - wave), int(screen_y + 26)), 2)
+            if self.image:
+                # Draw sprite
+                screen.blit(self.image, (int(self.x), int(screen_y)))
+            else:
+                # Fallback: Draw miner
+                pygame.draw.circle(screen, COLOR_GREEN, (int(self.x + 16), int(screen_y + 10)), 8)
+                pygame.draw.rect(screen, COLOR_GREEN, (int(self.x + 12), int(screen_y + 18), 8, 12))
+                # Arms waving
+                wave = math.sin(pygame.time.get_ticks() / 200) * 5
+                pygame.draw.line(screen, COLOR_GREEN,
+                               (int(self.x + 16), int(screen_y + 20)),
+                               (int(self.x + 10 + wave), int(screen_y + 26)), 2)
+                pygame.draw.line(screen, COLOR_GREEN,
+                               (int(self.x + 16), int(screen_y + 20)),
+                               (int(self.x + 22 - wave), int(screen_y + 26)), 2)
 
 ##################################################################################################
 # Player Class - CORRECTO
@@ -382,7 +410,7 @@ class Player:
 
             if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
                 tile = level_map[tile_y][tile_x]
-                if tile == '#' or tile == 'B':
+                if tile == '#' or tile == 'B' or tile == '.':
                     return True
 
         return False
@@ -393,9 +421,9 @@ class Player:
     def draw(self, screen, camera_y):
         screen_y = self.y - camera_y
         if self.image:
-            # Voltear sprite según orientación
+            # Voltear sprite según orientación (invertido)
             img = self.image
-            if not self.facing_right:
+            if self.facing_right:
                 img = pygame.transform.flip(self.image, True, False)
             screen.blit(img, (int(self.x), int(screen_y)))
         else:
@@ -438,26 +466,25 @@ LEVELS = [
         "################",
         "#  S           #",
         "#              #",
-        "#  ###    ###  #",
         "#              #",
         "#      E       #",
         "#              #",
         "#  BBB         #",
-        "# ..........   #",
+        "#  ###.......  #",
         "#              #",
-        "#        ###   #",
         "#              #",
         "#   E          #",
         "#              #",
         "#     BBB      #",
-        "# .........    #",
+        "#     ###....  #",
         "#              #",
-        "#    ###       #",
         "#              #",
         "#        A     #",
         "#              #",
         "#      BBB     #",
-        "# ..........   #",
+        "#      ###...  #",
+        "#              #",
+        "#              #",
         "#              #",
         "#       M      #",
         "#..............#",
@@ -471,29 +498,29 @@ LEVELS = [
         "################",
         "#       S      #",
         "#              #",
-        "# ###      ### #",
         "#              #",
         "#   E      E   #",
         "#              #",
         "#    BBBBB     #",
-        "#...........   #",
+        "#    #####...  #",
         "#              #",
-        "#  ###    ###  #",
         "#              #",
         "#     A        #",
         "#              #",
         "#   BBB   BBB  #",
-        "#..........    #",
+        "#   ###   ###  #",
         "#              #",
-        "# ###      ### #",
         "#              #",
         "#  E       A   #",
         "#              #",
         "#     BBBBB    #",
-        "#..............#",
+        "#     #####..  #",
+        "#              #",
         "#              #",
         "#       M      #",
         "#..............#",
+        "################",
+        "################",
         "################",
         "################",
         "################",
@@ -504,29 +531,29 @@ LEVELS = [
         "################",
         "#      S       #",
         "#              #",
-        "####       #####",
         "#              #",
         "#  E           #",
-        "#         #####",
-        "#  BBB         #",
-        "#...      #####",
         "#              #",
-        "#####      ####",
+        "#  BBB    #####",
+        "#  ###    #####",
+        "#         #####",
         "#      A       #",
         "#              #",
-        "####      #####",
-        "#   BBB        #",
-        "#..       #####",
-        "#              #",
+        "#####          #",
         "#####     #####",
+        "#####     #####",
+        "#   BBB   #####",
+        "#   ###   #####",
         "#     E        #",
         "#              #",
-        "####       ####",
+        "#####     #####",
+        "#####     #####",
         "#    BBBBB     #",
-        "#...........   #",
+        "#    #####...  #",
         "#              #",
         "#       M      #",
         "#..............#",
+        "################",
         "################",
         "################",
         "################",
@@ -537,28 +564,28 @@ LEVELS = [
         "################",
         "#       S      #",
         "#              #",
-        "# ###  E  ###  #",
         "#              #",
+        "#        E     #",
         "# BBBBBBBBBBB  #",
-        "#..........    #",
+        "# ############ #",
         "#              #",
-        "# ###  A  ###  #",
-        "#              #",
+        "#    A         #",
         "# BBBBBBBBBBB  #",
-        "#..........    #",
+        "# ############ #",
         "#              #",
-        "# ###  E  ###  #",
-        "#              #",
+        "#        E     #",
         "# BBBBBBBBBBB  #",
-        "#..........    #",
+        "# ############ #",
         "#              #",
-        "# ###  A  ###  #",
-        "#              #",
+        "#    A         #",
         "# BBBBBBBBBBB  #",
-        "#..........    #",
+        "# ############ #",
+        "#              #",
         "#              #",
         "#       M      #",
         "#..............#",
+        "################",
+        "################",
         "################",
         "################",
         "################",
@@ -570,27 +597,27 @@ LEVELS = [
         "################",
         "#      S       #",
         "#              #",
-        "#####     ######",
-        "#   E          #",
-        "#   BBB   ######",
-        "#...           #",
-        "#         ######",
-        "######         #",
-        "#      A       #",
-        "#     BBB ######",
-        "#...           #",
-        "#          #####",
-        "######         #",
-        "#    E         #",
-        "#  BBB    ######",
-        "#...           #",
-        "#         ######",
-        "######         #",
-        "#        A     #",
-        "#    BBBBB     #",
-        "#...........   #",
         "#              #",
-        "######    ######",
+        "#   E          #",
+        "#   BBB        #",
+        "#   ###   #####",
+        "#         #####",
+        "#####     #####",
+        "#####          #",
+        "#####  A       #",
+        "#####          #",
+        "#####     #####",
+        "#####     #####",
+        "#    E    #####",
+        "#  BBB    #####",
+        "#  ###    #####",
+        "#         #####",
+        "#####     #####",
+        "#####          #",
+        "#####  A       #",
+        "#    BBBBB     #",
+        "#    #####...  #",
+        "#              #",
         "#       M      #",
         "#..............#",
         "################",
@@ -714,6 +741,7 @@ class Game:
             self.sprites['enemy'] = pygame.image.load("sprites/enemy.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['bomb'] = pygame.image.load("sprites/bomb.png").convert_alpha()
+            self.sprites['miner'] = pygame.image.load("sprites/miner.png").convert_alpha()
             print("Sprites loaded successfully")
         except Exception as e:
             print(f"Error loading sprites: {e}")
@@ -771,6 +799,8 @@ class Game:
                     self.enemies.append(enemy)
                 elif tile == "M":
                     self.miner = Miner(x, y)
+                    if 'miner' in self.sprites:
+                        self.miner.image = self.sprites['miner']
 
         # Reset camera to player
         self.camera_y = self.player.y - VIEWPORT_HEIGHT / 2
@@ -829,8 +859,8 @@ class Game:
                 continue
             laser_rect = laser.get_rect()
             for enemy in self.enemies:
-                if enemy.active and laser_rect.colliderect(enemy.get_rect()):
-                    enemy.active = False
+                if enemy.active and not enemy.exploding and laser_rect.colliderect(enemy.get_rect()):
+                    enemy.exploding = True
                     laser.active = False
                     self.score += 50
                     break
@@ -842,8 +872,8 @@ class Game:
                 if explosion_rect:
                     # Destroy enemies
                     for enemy in self.enemies:
-                        if enemy.active and explosion_rect.colliderect(enemy.get_rect()):
-                            enemy.active = False
+                        if enemy.active and not enemy.exploding and explosion_rect.colliderect(enemy.get_rect()):
+                            enemy.exploding = True
                             self.score += 75
 
                     # Destroy blocks
