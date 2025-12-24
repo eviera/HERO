@@ -23,6 +23,32 @@ class Enemy:
         self.explosion_timer = 0
         self.explosion_duration = 0.2  # Más corto para que desaparezca rápido
 
+    def check_collision(self, x, y, level_map):
+        """Check collision with tiles using all 4 corners"""
+        corners = [
+            (x + 2, y + 2),
+            (x + self.width - 3, y + 2),
+            (x + 2, y + self.height - 3),
+            (x + self.width - 3, y + self.height - 3)
+        ]
+
+        for corner_x, corner_y in corners:
+            tile_x = int(corner_x / TILE_SIZE)
+            tile_y = int(corner_y / TILE_SIZE)
+
+            if tile_y < 0 or tile_y >= LEVEL_HEIGHT:
+                return True
+            if tile_x < 0 or tile_x >= LEVEL_WIDTH:
+                return True
+
+            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
+                tile = level_map[tile_y][tile_x]
+                # Colisiona con paredes, bloques, pisos
+                if tile == '#' or tile == 'B' or tile == '.':
+                    return True
+
+        return False
+
     def update(self, dt, level_map):
         if not self.active:
             return
@@ -36,27 +62,28 @@ class Enemy:
 
         if self.enemy_type == "spider":
             # Spiders move on the ground horizontally
-            self.x += self.direction * self.speed * dt
+            # Calculate new position
+            new_x = self.x + self.direction * self.speed * dt
 
-            # Check walls and change direction
-            tile_x = int(self.x / TILE_SIZE)
-            tile_y = int(self.y / TILE_SIZE)
-
-            if tile_x < 0 or tile_x >= LEVEL_WIDTH or \
-               (0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]) and
-                (level_map[tile_y][tile_x] == '#' or level_map[tile_y][tile_x] == 'B' or level_map[tile_y][tile_x] == '.')):
+            # Check collision at new position
+            if self.check_collision(new_x, self.y, level_map):
+                # Hit wall - change direction but don't move
                 self.direction *= -1
+            else:
+                # No collision - safe to move
+                self.x = new_x
         else:
             # Bats fly horizontally with oscillation
-            self.x += self.direction * self.speed * dt
+            # Calculate new position
+            new_x = self.x + self.direction * self.speed * dt
 
-            # Check walls and change direction
-            tile_x = int(self.x / TILE_SIZE)
-            tile_y = int(self.y / TILE_SIZE)
-
-            if tile_x < 0 or tile_x >= LEVEL_WIDTH or \
-               (0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]) and (level_map[tile_y][tile_x] == '#' or level_map[tile_y][tile_x] == '.')):
+            # Check collision at new position
+            if self.check_collision(new_x, self.y, level_map):
+                # Hit wall - change direction but don't move
                 self.direction *= -1
+            else:
+                # No collision - safe to move
+                self.x = new_x
 
             # Vertical oscillation for bats
             self.move_timer += dt

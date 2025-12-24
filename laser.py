@@ -8,8 +8,8 @@ class Laser:
         self.x = x
         self.y = y
         self.direction = direction  # 1 = right, -1 = left
-        self.width = 16
-        self.height = 4
+        self.width = LASER_WIDTH
+        self.height = LASER_HEIGHT
         self.active = True
         self.color = COLOR_YELLOW
 
@@ -21,14 +21,24 @@ class Laser:
             self.active = False
             return
 
-        # Check collision with walls
-        tile_x = int(self.x / TILE_SIZE)
-        tile_y = int(self.y / TILE_SIZE)
+        # Check collision with tiles - check all corners of the laser rect
+        corners = [
+            (self.x, self.y),                           # Top-left
+            (self.x + self.width, self.y),              # Top-right
+            (self.x, self.y + self.height),             # Bottom-left
+            (self.x + self.width, self.y + self.height) # Bottom-right
+        ]
 
-        if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
-            tile = level_map[tile_y][tile_x]
-            if tile == '#' or tile == '.':  # Wall and floor indestructible
-                self.active = False
+        for corner_x, corner_y in corners:
+            tile_x = int(corner_x / TILE_SIZE)
+            tile_y = int(corner_y / TILE_SIZE)
+
+            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
+                tile = level_map[tile_y][tile_x]
+                # Colisiona con paredes, pisos y bloques destructibles
+                if tile == '#' or tile == '.' or tile == 'B':
+                    self.active = False
+                    return
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)

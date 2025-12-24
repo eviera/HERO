@@ -13,6 +13,7 @@ class Player:
         self.height = 32
         self.facing_right = True
         self.using_propulsor = False
+        self.is_grounded = False
         self.image = None
 
     def init(self, level_map):
@@ -46,10 +47,10 @@ class Player:
         # Check if grounded (standing on something)
         # Test a position slightly below current position
         # Need to check far enough that collision points (y+29) would detect ground
-        is_grounded = self.check_collision(self.x, self.y + 2, level_map)
+        self.is_grounded = self.check_collision(self.x, self.y + 2, level_map)
 
         # GRAVITY - only apply if not grounded or using propulsor
-        if not is_grounded or self.vel_y < 0:
+        if not self.is_grounded or self.vel_y < 0:
             self.vel_y += GRAVITY * dt
         else:
             # Grounded and not jumping - zero velocity to prevent accumulation

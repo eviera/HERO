@@ -370,6 +370,11 @@ class Game:
         self.state = STATE_PLAYING
         self.energy = MAX_ENERGY
 
+        # Stop helicopter sound when starting new level
+        if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
+            self.sounds['helicopter'].stop()
+            self.helicopter_playing = False
+
         # Generate level
         self.level_map = generate_level(self.level_num)
 
@@ -520,6 +525,11 @@ class Game:
         """Player takes damage"""
         self.lives -= 1
 
+        # Stop helicopter sound
+        if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
+            self.sounds['helicopter'].stop()
+            self.helicopter_playing = False
+
         # Play death sound
         if 'death' in self.sounds:
             self.sounds['death'].play()
@@ -534,6 +544,12 @@ class Game:
         self.miner.rescued = True
         bonus = int(self.energy) + (self.dynamite_count * 50)
         self.score += 1000 + bonus
+
+        # Stop helicopter sound
+        if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
+            self.sounds['helicopter'].stop()
+            self.helicopter_playing = False
+
         self.state = STATE_LEVEL_COMPLETE
         self.level_complete_timer = 2.0
 
@@ -556,15 +572,16 @@ class Game:
         self.player.update(dt, self.keys, self.joy_axis_x, self.joy_axis_y,
                           self.level_map, self)
 
-        # Helicopter sound when flying
+        # Helicopter sound when flying (in the air, not on ground)
         if 'helicopter' in self.sounds:
-            if self.player.using_propulsor:
+            # Play sound when player is in the air (not grounded)
+            if not self.player.is_grounded:
                 # Start playing if not already
                 if not hasattr(self, 'helicopter_playing') or not self.helicopter_playing:
                     self.sounds['helicopter'].play(loops=-1)  # Loop indefinitely
                     self.helicopter_playing = True
             else:
-                # Stop playing if it's playing
+                # Stop playing if it's playing (player is on ground)
                 if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
                     self.sounds['helicopter'].stop()
                     self.helicopter_playing = False
