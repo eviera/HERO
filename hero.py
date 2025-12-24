@@ -63,7 +63,7 @@ def add_score(name, score):
 #   (espacio) = Aire
 
 LEVELS = [
-    # Nivel 1 - Tutorial simple
+    # Nivel 1 - Tutorial: Rescate con dinamita
     [
         "################",
         "#  S           #",
@@ -83,13 +83,13 @@ LEVELS = [
         "#              #",
         "#        A     #",
         "#              #",
-        "#      BBB     #",
-        "#      ###...  #",
         "#              #",
         "#              #",
         "#              #",
-        "#       M      #",
+        "#      ###     #",
+        "#      #M#     #",
         "#..............#",
+        "################",
         "################",
         "################",
         "################",
@@ -423,7 +423,9 @@ class Game:
     def drop_dynamite(self):
         """Player drops dynamite"""
         if self.dynamite_count > 0:
-            dynamite = Dynamite(self.player.x + 8, self.player.y + 32)
+            # Coloca la bomba enfrente del héroe según su dirección
+            offset_x = 24 if self.player.facing_right else -8
+            dynamite = Dynamite(self.player.x + offset_x, self.player.y + 16)
             self.dynamites.append(dynamite)
             self.dynamite_count -= 1
 
@@ -489,10 +491,11 @@ class Game:
                             if 'splatter' in self.sounds:
                                 self.sounds['splatter'].play()
 
-                    # Destroy blocks
+                    # Destroy blocks and walls
                     for row_index in range(len(self.level_map)):
                         for col_index in range(len(self.level_map[0])):
-                            if self.level_map[row_index][col_index] == 'B':
+                            tile = self.level_map[row_index][col_index]
+                            if tile == 'B' or tile == '#':  # Destruye bloques Y paredes
                                 tile_x = col_index * TILE_SIZE
                                 tile_y = row_index * TILE_SIZE
                                 tile_rect = pygame.Rect(tile_x, tile_y, TILE_SIZE, TILE_SIZE)
@@ -501,7 +504,8 @@ class Game:
                                     row = list(self.level_map[row_index])
                                     row[col_index] = ' '
                                     self.level_map[row_index] = "".join(row)
-                                    self.score += 10
+                                    # Más puntos por destruir paredes que bloques
+                                    self.score += 20 if tile == '#' else 10
 
                     # Play sound once
                     if 'explosion' in self.sounds and dynamite.explosion_time > 0.4:
@@ -575,7 +579,7 @@ class Game:
 
         # Update dynamites
         for dynamite in self.dynamites[:]:
-            dynamite.update(dt)
+            dynamite.update(dt, self.level_map)
             if not dynamite.active:
                 self.dynamites.remove(dynamite)
 
@@ -689,9 +693,32 @@ class Game:
         quit_rect = quit_txt.get_rect(center=(SCREEN_WIDTH//2, 230))
         self.screen.blit(quit_txt, quit_rect)
 
+        # Controls
+        controls_title = self.small_font.render("CONTROLS", True, COLOR_YELLOW)
+        controls_rect = controls_title.get_rect(center=(SCREEN_WIDTH//2, 270))
+        self.screen.blit(controls_title, controls_rect)
+
+        # Keyboard controls
+        arrow_text = self.small_font.render("Arrows: Move/Fly", True, COLOR_WHITE)
+        arrow_rect = arrow_text.get_rect(center=(SCREEN_WIDTH//2, 295))
+        self.screen.blit(arrow_text, arrow_rect)
+
+        space_text = self.small_font.render("SPACE: Shoot", True, COLOR_WHITE)
+        space_rect = space_text.get_rect(center=(SCREEN_WIDTH//2, 315))
+        self.screen.blit(space_text, space_rect)
+
+        bomb_text = self.small_font.render("Z: Drop Bomb", True, COLOR_WHITE)
+        bomb_rect = bomb_text.get_rect(center=(SCREEN_WIDTH//2, 335))
+        self.screen.blit(bomb_text, bomb_rect)
+
+        # Xbox controls
+        xbox_text = self.small_font.render("Xbox: Stick/X/B", True, COLOR_GRAY)
+        xbox_rect = xbox_text.get_rect(center=(SCREEN_WIDTH//2, 355))
+        self.screen.blit(xbox_text, xbox_rect)
+
         # High scores
         scores_title = self.small_font.render("HIGH SCORES", True, COLOR_YELLOW)
-        scores_rect = scores_title.get_rect(center=(SCREEN_WIDTH//2, 280))
+        scores_rect = scores_title.get_rect(center=(SCREEN_WIDTH//2, 390))
         self.screen.blit(scores_title, scores_rect)
 
         scores = load_scores()[:3]
@@ -700,7 +727,7 @@ class Game:
                 f"{i+1}. {score['name']}: {score['score']}",
                 True, COLOR_WHITE
             )
-            rect = text.get_rect(center=(SCREEN_WIDTH//2, 310 + i*25))
+            rect = text.get_rect(center=(SCREEN_WIDTH//2, 420 + i*20))
             self.screen.blit(text, rect)
 
     def render_entering_name(self):
@@ -800,7 +827,7 @@ class Game:
                     elif self.state == STATE_PLAYING:
                         if event.key == pygame.K_SPACE:
                             self.shoot_laser()
-                        elif event.key == pygame.K_DOWN or event.key == pygame.K_LCTRL:
+                        elif event.key == pygame.K_z:
                             self.drop_dynamite()
 
                     elif self.state == STATE_ENTERING_NAME:

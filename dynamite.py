@@ -14,12 +14,46 @@ class Dynamite:
         self.active = True
         self.width = 16
         self.height = 16
+        self.on_ground = False
 
-    def update(self, dt):
+    def check_collision(self, x, y, level_map):
+        """Check collision with tiles"""
+        # Check bottom corners
+        corners = [
+            (x + 2, y + self.height - 1),
+            (x + self.width - 3, y + self.height - 1)
+        ]
+
+        for corner_x, corner_y in corners:
+            tile_x = int(corner_x / TILE_SIZE)
+            tile_y = int(corner_y / TILE_SIZE)
+
+            if tile_y < 0 or tile_y >= LEVEL_HEIGHT:
+                return True
+            if tile_x < 0 or tile_x >= LEVEL_WIDTH:
+                return True
+
+            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
+                tile = level_map[tile_y][tile_x]
+                if tile == '#' or tile == 'B' or tile == '.':
+                    return True
+
+        return False
+
+    def update(self, dt, level_map):
         if not self.exploded:
-            # Dynamite falls
-            self.vel_y += GRAVITY * 0.3 * dt  # Cae más lento
-            self.y += self.vel_y
+            # Apply gravity if not on ground
+            if not self.on_ground:
+                self.vel_y += GRAVITY * 0.3 * dt  # Cae más lento
+                new_y = self.y + self.vel_y * dt
+
+                # Check if would collide
+                if self.check_collision(self.x, new_y, level_map):
+                    # Stop falling
+                    self.vel_y = 0
+                    self.on_ground = True
+                else:
+                    self.y = new_y
 
             # Countdown fuse
             self.fuse_time -= dt
