@@ -1,24 +1,38 @@
-# H.E.R.O. Remake - Complete Game
+# H.E.R.O. Remake - CORRECTO basado en Atari 2600
 # Helicopter Emergency Rescue Operation
 
 import pygame
 import json
 import os
 import math
+import random
 
 # Window dimensions
 SCREEN_WIDTH = 512
 SCREEN_HEIGHT = 480
 FPS = 60
 TILE_SIZE = 32
-PLAYER_SPEED = 150
-BULLET_SPEED = 300
-ENEMY_SPEED = 50
-DEAD_ZONE = 0.1
-GRAVITY = 600
-HOVER_POWER = 500
-ENERGY_DRAIN_RATE = 5  # Energy per second
-MAX_ENERGY = 100
+
+# Game constants - FÍSICAS CORRECTAS
+GRAVITY = 800  # Fuerte gravedad constante
+PROPULSOR_POWER = 900  # Poder del propulsor
+PLAYER_SPEED_X = 150  # Velocidad horizontal
+MAX_FALL_SPEED = 400  # Velocidad máxima de caída
+LASER_SPEED = 400
+ENERGY_DRAIN_PASSIVE = 3  # Energía por segundo (pasivo)
+ENERGY_DRAIN_PROPULSOR = 12  # Energía por segundo al volar
+MAX_ENERGY = 2550  # Suficiente para jugar un nivel
+DYNAMITE_FUSE_TIME = 3.0  # Tiempo antes de explotar
+DYNAMITE_EXPLOSION_RADIUS = 80
+DEAD_ZONE = 0.15
+
+# Level dimensions - NIVELES VERTICALES
+LEVEL_WIDTH = 16  # tiles
+LEVEL_HEIGHT = 30  # tiles - 2-3 pantallas de largo
+
+# Viewport (lo que se ve en pantalla)
+VIEWPORT_WIDTH = SCREEN_WIDTH
+VIEWPORT_HEIGHT = SCREEN_HEIGHT - 64  # Menos el HUD
 
 # Game States
 STATE_SPLASH = "splash"
@@ -36,90 +50,7 @@ COLOR_BLUE = (0, 100, 255)
 COLOR_YELLOW = (255, 255, 0)
 COLOR_ORANGE = (255, 165, 0)
 COLOR_GRAY = (128, 128, 128)
-
-# Level maps (16x13 for game area, plus 2 rows for HUD)
-MAPS = [
-    # Level 1 - Tutorial level
-    [
-        "################",
-        "S              #",
-        "#              #",
-        "#    ###       #",
-        "#    #E#       #",
-        "#    ###       #",
-        "#              #",
-        "#       B      #",
-        "#              #",
-        "#     E        #",
-        "#          R  ##",
-        "#............###",
-        "################",
-    ],
-    # Level 2 - Vertical descent
-    [
-        "####S###########",
-        "####E###########",
-        "####.###########",
-        "####.######E####",
-        "###...##########",
-        "####.###########",
-        "####.###########",
-        "#....E#######E##",
-        "##....##########",
-        "###..###########",
-        "####.R##########",
-        "####..##########",
-        "################",
-    ],
-    # Level 3 - Horizontal maze
-    [
-        "################",
-        "S....E....E....#",
-        "#..............#",
-        "#BBB...BBB...BB#",
-        "#..............#",
-        "#....E.....E...#",
-        "#..............#",
-        "#.BBB....BBB.BB#",
-        "#..............#",
-        "#.....E........#",
-        "#..............R",
-        "#..............#",
-        "################",
-    ],
-    # Level 4 - Complex structure
-    [
-        "###S############",
-        "###.###E########",
-        "##...###########",
-        "##.#...##E######",
-        "#...###.########",
-        "#.###...#####E##",
-        "#.#BBB#.########",
-        "#....E..########",
-        "###.....########",
-        "####.#..########",
-        "#####.#.##R#####",
-        "######...#######",
-        "################",
-    ],
-    # Level 5 - Magma level
-    [
-        "####S###########",
-        "####.###########",
-        "###...MMMMMM####",
-        "##.....MMMMM####",
-        "##.###MMMM######",
-        "#...##MMMM###E##",
-        "#.E.##MMM#######",
-        "#...BBMMM####E##",
-        "##...EMMM#######",
-        "###...MMM#######",
-        "####...MM####R##",
-        "#####.......####",
-        "################",
-    ],
-]
+COLOR_MAGENTA = (255, 0, 255)
 
 # Scores file
 SCORES_FILE = "scores.json"
@@ -134,7 +65,6 @@ def load_scores():
         try:
             with open(SCORES_FILE, 'r') as f:
                 scores = json.load(f)
-                # Ensure it's a list
                 if isinstance(scores, list):
                     return scores
         except:
@@ -154,76 +84,107 @@ def add_score(name, score):
     scores = load_scores()
     scores.append({"name": name, "score": score})
     scores.sort(key=lambda x: x["score"], reverse=True)
-    scores = scores[:10]  # Keep only top 10
+    scores = scores[:10]
     save_scores(scores)
     return scores
 
 ##################################################################################################
-# Bullet Class
+# Laser Class
 ##################################################################################################
-class Bullet:
+class Laser:
     def __init__(self, x, y, direction):
         self.x = x
         self.y = y
         self.direction = direction  # 1 = right, -1 = left
-        self.width = 8
+        self.width = 16
         self.height = 4
         self.active = True
+        self.color = COLOR_YELLOW
 
-    def update(self, dt):
-        self.x += self.direction * BULLET_SPEED * dt
+    def update(self, dt, level_map):
+        self.x += self.direction * LASER_SPEED * dt
 
-        # Check if out of bounds
-        if self.x < 0 or self.x > SCREEN_WIDTH:
+        # Check bounds
+        if self.x < 0 or self.x > LEVEL_WIDTH * TILE_SIZE:
             self.active = False
+            return
+
+        # Check collision with walls
+        tile_x = int(self.x / TILE_SIZE)
+        tile_y = int(self.y / TILE_SIZE)
+
+        if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
+            tile = level_map[tile_y][tile_x]
+            if tile == '#':  # Wall indestructible
+                self.active = False
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, COLOR_YELLOW, (int(self.x), int(self.y), self.width, self.height))
+    def draw(self, screen, camera_y):
+        screen_y = self.y - camera_y
+        if -50 < screen_y < VIEWPORT_HEIGHT + 50:
+            pygame.draw.rect(screen, self.color,
+                           (int(self.x), int(screen_y), self.width, self.height))
 
 ##################################################################################################
-# Bomb/Dynamite Class
+# Dynamite Class
 ##################################################################################################
 class Dynamite:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.timer = 2.0  # 2 seconds to explode
+        self.vel_y = 0
+        self.fuse_time = DYNAMITE_FUSE_TIME
         self.exploded = False
-        self.explosion_timer = 0.3  # Explosion lasts 0.3 seconds
+        self.explosion_time = 0.5
         self.active = True
-        self.explosion_radius = 64
+        self.width = 16
+        self.height = 16
 
     def update(self, dt):
         if not self.exploded:
-            self.timer -= dt
-            if self.timer <= 0:
+            # Dynamite falls
+            self.vel_y += GRAVITY * 0.3 * dt  # Cae más lento
+            self.y += self.vel_y
+
+            # Countdown fuse
+            self.fuse_time -= dt
+            if self.fuse_time <= 0:
                 self.exploded = True
         else:
-            self.explosion_timer -= dt
-            if self.explosion_timer <= 0:
+            self.explosion_time -= dt
+            if self.explosion_time <= 0:
                 self.active = False
-
-    def draw(self, screen):
-        if not self.exploded:
-            # Draw dynamite (red square)
-            pygame.draw.rect(screen, COLOR_RED, (int(self.x), int(self.y), 16, 16))
-        else:
-            # Draw explosion (yellow/orange circle)
-            pygame.draw.circle(screen, COLOR_ORANGE, (int(self.x + 8), int(self.y + 8)),
-                             int(self.explosion_radius))
-            pygame.draw.circle(screen, COLOR_YELLOW, (int(self.x + 8), int(self.y + 8)),
-                             int(self.explosion_radius * 0.6))
 
     def get_explosion_rect(self):
         if self.exploded:
-            return pygame.Rect(self.x - self.explosion_radius/2,
-                             self.y - self.explosion_radius/2,
-                             self.explosion_radius,
-                             self.explosion_radius)
+            return pygame.Rect(
+                self.x - DYNAMITE_EXPLOSION_RADIUS/2,
+                self.y - DYNAMITE_EXPLOSION_RADIUS/2,
+                DYNAMITE_EXPLOSION_RADIUS,
+                DYNAMITE_EXPLOSION_RADIUS
+            )
         return None
+
+    def draw(self, screen, camera_y):
+        screen_y = self.y - camera_y
+        if -100 < screen_y < VIEWPORT_HEIGHT + 100:
+            if not self.exploded:
+                # Draw dynamite
+                pygame.draw.rect(screen, COLOR_RED,
+                               (int(self.x), int(screen_y), self.width, self.height))
+                # Fuse blinking
+                if self.fuse_time % 0.3 < 0.15:
+                    pygame.draw.circle(screen, COLOR_YELLOW,
+                                     (int(self.x + 8), int(screen_y)), 3)
+            else:
+                # Draw explosion
+                radius = int(DYNAMITE_EXPLOSION_RADIUS * (self.explosion_time / 0.5))
+                pygame.draw.circle(screen, COLOR_ORANGE,
+                                 (int(self.x), int(screen_y)), radius)
+                pygame.draw.circle(screen, COLOR_YELLOW,
+                                 (int(self.x), int(screen_y)), int(radius * 0.6))
 
 ##################################################################################################
 # Enemy Class
@@ -233,61 +194,63 @@ class Enemy:
         self.x = x
         self.y = y
         self.enemy_type = enemy_type
-        self.speed = ENEMY_SPEED
-        self.direction = 1  # 1 = right, -1 = left
+        self.speed = 40 if enemy_type == "bat" else 30
+        self.direction = random.choice([-1, 1])
         self.active = True
         self.width = 32
         self.height = 32
-
-        # AI behavior
+        self.image = None
         self.move_timer = 0
-        self.move_duration = 2.0  # Change direction every 2 seconds
+        self.vertical_offset = 0
+        self.vertical_speed = 20
 
     def update(self, dt, level_map):
         if not self.active:
             return
 
-        # Simple patrol AI
-        self.move_timer += dt
-        if self.move_timer >= self.move_duration:
-            self.direction *= -1
-            self.move_timer = 0
+        if self.enemy_type == "spider":
+            # Spiders move on the ground horizontally
+            self.x += self.direction * self.speed * dt
 
-        # Move horizontally
-        new_x = self.x + self.direction * self.speed * dt
+            # Check walls and change direction
+            tile_x = int(self.x / TILE_SIZE)
+            tile_y = int(self.y / TILE_SIZE)
 
-        # Check collision with walls
-        if not self.check_wall_collision(new_x, self.y, level_map):
-            self.x = new_x
+            if tile_x < 0 or tile_x >= LEVEL_WIDTH or \
+               (0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]) and
+                (level_map[tile_y][tile_x] == '#' or level_map[tile_y][tile_x] == 'B')):
+                self.direction *= -1
         else:
-            self.direction *= -1
+            # Bats fly horizontally with oscillation
+            self.x += self.direction * self.speed * dt
 
-    def check_wall_collision(self, x, y, level_map):
-        """Check if position collides with walls"""
-        tile_x = int(x / TILE_SIZE)
-        tile_y = int(y / TILE_SIZE)
+            # Check walls and change direction
+            tile_x = int(self.x / TILE_SIZE)
+            tile_y = int(self.y / TILE_SIZE)
 
-        if tile_y < 0 or tile_y >= len(level_map):
-            return True
-        if tile_x < 0 or tile_x >= len(level_map[0]):
-            return True
+            if tile_x < 0 or tile_x >= LEVEL_WIDTH or \
+               (0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]) and level_map[tile_y][tile_x] == '#'):
+                self.direction *= -1
 
-        tile = level_map[tile_y][tile_x]
-        return tile == "#" or tile == "B"
+            # Vertical oscillation for bats
+            self.move_timer += dt
+            self.vertical_offset = math.sin(self.move_timer * 3) * 15
 
     def get_rect(self):
-        return pygame.Rect(self.x, self.y, self.width, self.height)
+        return pygame.Rect(self.x, self.y + self.vertical_offset, self.width, self.height)
 
-    def draw(self, screen):
-        if self.active:
-            # Draw enemy as red circle with wings
-            pygame.draw.circle(screen, COLOR_RED, (int(self.x + 16), int(self.y + 16)), 12)
-            # Simple wings
-            pygame.draw.circle(screen, COLOR_RED, (int(self.x + 8), int(self.y + 16)), 6)
-            pygame.draw.circle(screen, COLOR_RED, (int(self.x + 24), int(self.y + 16)), 6)
+    def draw(self, screen, camera_y):
+        screen_y = self.y + self.vertical_offset - camera_y
+        if -50 < screen_y < VIEWPORT_HEIGHT + 50:
+            if self.image:
+                screen.blit(self.image, (int(self.x), int(screen_y)))
+            else:
+                # Draw simple enemy
+                pygame.draw.circle(screen, COLOR_RED,
+                                 (int(self.x + 16), int(screen_y + 16)), 12)
 
 ##################################################################################################
-# Miner Class (objective to rescue)
+# Miner Class
 ##################################################################################################
 class Miner:
     def __init__(self, x, y):
@@ -300,28 +263,35 @@ class Miner:
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def draw(self, screen):
-        if not self.rescued:
-            # Draw miner as green person
-            pygame.draw.circle(screen, COLOR_GREEN, (int(self.x + 16), int(self.y + 10)), 8)  # Head
-            pygame.draw.rect(screen, COLOR_GREEN, (int(self.x + 12), int(self.y + 18), 8, 12))  # Body
-            pygame.draw.line(screen, COLOR_GREEN, (int(self.x + 16), int(self.y + 20)),
-                           (int(self.x + 10), int(self.y + 26)), 2)  # Arm
-            pygame.draw.line(screen, COLOR_GREEN, (int(self.x + 16), int(self.y + 20)),
-                           (int(self.x + 22), int(self.y + 26)), 2)  # Arm
+    def draw(self, screen, camera_y):
+        screen_y = self.y - camera_y
+        if -50 < screen_y < VIEWPORT_HEIGHT + 50:
+            # Draw miner
+            pygame.draw.circle(screen, COLOR_GREEN, (int(self.x + 16), int(screen_y + 10)), 8)
+            pygame.draw.rect(screen, COLOR_GREEN, (int(self.x + 12), int(screen_y + 18), 8, 12))
+            # Arms waving
+            wave = math.sin(pygame.time.get_ticks() / 200) * 5
+            pygame.draw.line(screen, COLOR_GREEN,
+                           (int(self.x + 16), int(screen_y + 20)),
+                           (int(self.x + 10 + wave), int(screen_y + 26)), 2)
+            pygame.draw.line(screen, COLOR_GREEN,
+                           (int(self.x + 16), int(screen_y + 20)),
+                           (int(self.x + 22 - wave), int(screen_y + 26)), 2)
 
 ##################################################################################################
-# Player Class
+# Player Class - CORRECTO
 ##################################################################################################
 class Player:
     def __init__(self):
         self.x = 0
         self.y = 0
+        self.vel_x = 0
+        self.vel_y = 0
         self.width = 32
         self.height = 32
-        self.vel_y = 0
         self.facing_right = True
-        self.hovering = False
+        self.using_propulsor = False
+        self.image = None
 
     def init(self, level_map):
         """Initialize player position from map"""
@@ -330,16 +300,15 @@ class Player:
                 if tile == "S":
                     self.x = col_index * TILE_SIZE
                     self.y = row_index * TILE_SIZE
+                    self.vel_x = 0
                     self.vel_y = 0
                     return
-
-        # Default position if "S" not found
-        self.x = TILE_SIZE
-        self.y = TILE_SIZE
-        self.vel_y = 0
+        # Default
+        self.x = TILE_SIZE * 2
+        self.y = TILE_SIZE * 2
 
     def update(self, dt, keys, joy_axis_x, joy_axis_y, level_map, game):
-        """Update player physics and movement"""
+        """Update player with CORRECT HERO physics"""
 
         # Horizontal movement
         move_x = 0
@@ -350,102 +319,292 @@ class Player:
             move_x = 1
             self.facing_right = True
 
-        # Apply horizontal movement
-        new_x = self.x + move_x * PLAYER_SPEED * dt
+        self.vel_x = move_x * PLAYER_SPEED_X
+
+        # GRAVITY ALWAYS APPLIES
+        self.vel_y += GRAVITY * dt
+
+        # Propulsor - MANTENER PRESIONADO para volar
+        self.using_propulsor = False
+        if keys[pygame.K_UP] or joy_axis_y < -DEAD_ZONE:
+            self.using_propulsor = True
+            self.vel_y -= PROPULSOR_POWER * dt
+            game.energy -= ENERGY_DRAIN_PROPULSOR * dt
+
+        # Limit fall speed
+        if self.vel_y > MAX_FALL_SPEED:
+            self.vel_y = MAX_FALL_SPEED
+
+        # Apply velocities
+        new_x = self.x + self.vel_x * dt
+        new_y = self.y + self.vel_y * dt
+
+        # Check horizontal collision
         if not self.check_collision(new_x, self.y, level_map):
             self.x = new_x
-
-        # Hovering (flying up)
-        self.hovering = False
-        if keys[pygame.K_UP] or joy_axis_y < -DEAD_ZONE:
-            self.hovering = True
-            self.vel_y = -HOVER_POWER * dt
-            # Drain energy while hovering
-            game.energy -= ENERGY_DRAIN_RATE * 2 * dt
         else:
-            # Apply gravity
-            self.vel_y += GRAVITY * dt
-
-        # Apply vertical velocity
-        new_y = self.y + self.vel_y
+            self.vel_x = 0
 
         # Check vertical collision
-        if self.check_collision(self.x, new_y, level_map):
-            # Hit something, stop vertical movement
-            self.vel_y = 0
-            # Snap to tile boundary
-            if self.vel_y > 0:  # Was falling
-                self.y = int(self.y / TILE_SIZE) * TILE_SIZE
-        else:
+        if not self.check_collision(self.x, new_y, level_map):
             self.y = new_y
+        else:
+            # Hit floor or ceiling
+            if self.vel_y > 0:  # Was falling
+                self.vel_y = 0
+            elif self.vel_y < 0:  # Hit ceiling
+                self.vel_y = 0
 
-        # Keep in bounds
-        self.x = max(0, min(self.x, SCREEN_WIDTH - self.width))
-        self.y = max(0, min(self.y, SCREEN_HEIGHT - self.height - 64))  # Account for HUD
+        # Keep in level bounds
+        self.x = max(0, min(self.x, LEVEL_WIDTH * TILE_SIZE - self.width))
+        self.y = max(0, min(self.y, LEVEL_HEIGHT * TILE_SIZE - self.height))
 
-        # Drain energy over time
-        game.energy -= ENERGY_DRAIN_RATE * dt
+        # Passive energy drain
+        game.energy -= ENERGY_DRAIN_PASSIVE * dt
 
     def check_collision(self, x, y, level_map):
-        """Check if position collides with solid tiles"""
-        # Check all four corners of the player
+        """Check collision with tiles"""
         corners = [
-            (x, y),
-            (x + self.width - 1, y),
-            (x, y + self.height - 1),
-            (x + self.width - 1, y + self.height - 1)
+            (x + 2, y + 2),
+            (x + self.width - 3, y + 2),
+            (x + 2, y + self.height - 3),
+            (x + self.width - 3, y + self.height - 3)
         ]
 
         for corner_x, corner_y in corners:
             tile_x = int(corner_x / TILE_SIZE)
             tile_y = int(corner_y / TILE_SIZE)
 
-            if tile_y < 0 or tile_y >= len(level_map):
+            if tile_y < 0 or tile_y >= LEVEL_HEIGHT:
                 return True
-            if tile_x < 0 or tile_x >= len(level_map[0]):
+            if tile_x < 0 or tile_x >= LEVEL_WIDTH:
                 return True
-
-            tile = level_map[tile_y][tile_x]
-            if tile == "#" or tile == "B":
-                return True
-
-        return False
-
-    def check_magma_collision(self, level_map):
-        """Check if touching magma tiles"""
-        corners = [
-            (self.x, self.y),
-            (self.x + self.width - 1, self.y),
-            (self.x, self.y + self.height - 1),
-            (self.x + self.width - 1, self.y + self.height - 1)
-        ]
-
-        for corner_x, corner_y in corners:
-            tile_x = int(corner_x / TILE_SIZE)
-            tile_y = int(corner_y / TILE_SIZE)
 
             if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
-                if level_map[tile_y][tile_x] == "M":
+                tile = level_map[tile_y][tile_x]
+                if tile == '#' or tile == 'B':
                     return True
+
         return False
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def draw(self, screen):
-        # Draw player as blue helicopter
-        # Body
-        pygame.draw.rect(screen, COLOR_BLUE, (int(self.x + 8), int(self.y + 12), 16, 12))
-        # Rotor
-        rotor_y = int(self.y + 8)
-        pygame.draw.line(screen, COLOR_WHITE, (int(self.x), rotor_y), (int(self.x + 32), rotor_y), 2)
-        # Cockpit
-        pygame.draw.circle(screen, (100, 150, 255), (int(self.x + 16), int(self.y + 16)), 6)
-        # Landing skids
-        pygame.draw.line(screen, COLOR_GRAY, (int(self.x + 8), int(self.y + 24)),
-                        (int(self.x + 8), int(self.y + 28)), 2)
-        pygame.draw.line(screen, COLOR_GRAY, (int(self.x + 24), int(self.y + 24)),
-                        (int(self.x + 24), int(self.y + 28)), 2)
+    def draw(self, screen, camera_y):
+        screen_y = self.y - camera_y
+        if self.image:
+            # Voltear sprite según orientación
+            img = self.image
+            if not self.facing_right:
+                img = pygame.transform.flip(self.image, True, False)
+            screen.blit(img, (int(self.x), int(screen_y)))
+        else:
+            # Draw simple helicopter
+            pygame.draw.rect(screen, COLOR_BLUE,
+                           (int(self.x + 8), int(screen_y + 12), 16, 12))
+            # Rotor
+            rotor_y = int(screen_y + 8)
+            if self.using_propulsor:
+                # Rotor spinning
+                offset = (pygame.time.get_ticks() % 100) / 100 * 32
+                pygame.draw.line(screen, COLOR_WHITE,
+                               (int(self.x + offset), rotor_y),
+                               (int(self.x + offset), rotor_y), 3)
+            else:
+                pygame.draw.line(screen, COLOR_WHITE,
+                               (int(self.x), rotor_y),
+                               (int(self.x + 32), rotor_y), 2)
+            # Cockpit
+            pygame.draw.circle(screen, (100, 150, 255),
+                             (int(self.x + 16), int(screen_y + 16)), 6)
+
+##################################################################################################
+# Level Generator
+##################################################################################################
+# NIVELES FIJOS - No procedurales
+# Leyenda:
+#   S = Start (jugador)
+#   M = Miner (persona a rescatar)
+#   E = Enemy bat (murciélago)
+#   A = Spider (araña)
+#   B = Bloque destructible (solo se rompe con dinamita)
+#   # = Pared sólida
+#   . = Suelo/plataforma
+#   (espacio) = Aire
+
+LEVELS = [
+    # Nivel 1 - Tutorial simple
+    [
+        "################",
+        "#  S           #",
+        "#              #",
+        "#  ###    ###  #",
+        "#              #",
+        "#      E       #",
+        "#              #",
+        "#  BBB         #",
+        "# ..........   #",
+        "#              #",
+        "#        ###   #",
+        "#              #",
+        "#   E          #",
+        "#              #",
+        "#     BBB      #",
+        "# .........    #",
+        "#              #",
+        "#    ###       #",
+        "#              #",
+        "#        A     #",
+        "#              #",
+        "#      BBB     #",
+        "# ..........   #",
+        "#              #",
+        "#       M      #",
+        "#..............#",
+        "################",
+        "################",
+        "################",
+        "################"
+    ],
+    # Nivel 2 - Más enemigos
+    [
+        "################",
+        "#       S      #",
+        "#              #",
+        "# ###      ### #",
+        "#              #",
+        "#   E      E   #",
+        "#              #",
+        "#    BBBBB     #",
+        "#...........   #",
+        "#              #",
+        "#  ###    ###  #",
+        "#              #",
+        "#     A        #",
+        "#              #",
+        "#   BBB   BBB  #",
+        "#..........    #",
+        "#              #",
+        "# ###      ### #",
+        "#              #",
+        "#  E       A   #",
+        "#              #",
+        "#     BBBBB    #",
+        "#..............#",
+        "#              #",
+        "#       M      #",
+        "#..............#",
+        "################",
+        "################",
+        "################",
+        "################"
+    ],
+    # Nivel 3 - Laberinto estrecho
+    [
+        "################",
+        "#      S       #",
+        "#              #",
+        "####       #####",
+        "#              #",
+        "#  E           #",
+        "#         #####",
+        "#  BBB         #",
+        "#...      #####",
+        "#              #",
+        "#####      ####",
+        "#      A       #",
+        "#              #",
+        "####      #####",
+        "#   BBB        #",
+        "#..       #####",
+        "#              #",
+        "#####     #####",
+        "#     E        #",
+        "#              #",
+        "####       ####",
+        "#    BBBBB     #",
+        "#...........   #",
+        "#              #",
+        "#       M      #",
+        "#..............#",
+        "################",
+        "################",
+        "################",
+        "################"
+    ],
+    # Nivel 4 - Muchos bloques
+    [
+        "################",
+        "#       S      #",
+        "#              #",
+        "# ###  E  ###  #",
+        "#              #",
+        "# BBBBBBBBBBB  #",
+        "#..........    #",
+        "#              #",
+        "# ###  A  ###  #",
+        "#              #",
+        "# BBBBBBBBBBB  #",
+        "#..........    #",
+        "#              #",
+        "# ###  E  ###  #",
+        "#              #",
+        "# BBBBBBBBBBB  #",
+        "#..........    #",
+        "#              #",
+        "# ###  A  ###  #",
+        "#              #",
+        "# BBBBBBBBBBB  #",
+        "#..........    #",
+        "#              #",
+        "#       M      #",
+        "#..............#",
+        "################",
+        "################",
+        "################",
+        "################",
+        "################"
+    ],
+    # Nivel 5 - Difícil
+    [
+        "################",
+        "#      S       #",
+        "#              #",
+        "#####     ######",
+        "#   E          #",
+        "#   BBB   ######",
+        "#...           #",
+        "#         ######",
+        "######         #",
+        "#      A       #",
+        "#     BBB ######",
+        "#...           #",
+        "#          #####",
+        "######         #",
+        "#    E         #",
+        "#  BBB    ######",
+        "#...           #",
+        "#         ######",
+        "######         #",
+        "#        A     #",
+        "#    BBBBB     #",
+        "#...........   #",
+        "#              #",
+        "######    ######",
+        "#       M      #",
+        "#..............#",
+        "################",
+        "################",
+        "################",
+        "################"
+    ]
+]
+
+def generate_level(level_num):
+    """Return a fixed level from LEVELS array"""
+    if level_num < 0 or level_num >= len(LEVELS):
+        level_num = 0
+    return LEVELS[level_num]
 
 ##################################################################################################
 # Game Class
@@ -456,43 +615,52 @@ class Game:
         self.clock = None
         self.xbox_controller = None
         self.tiles = {}
+        self.sprites = {}
+        self.sounds = {}
         self.font = None
         self.small_font = None
 
         # Game state
         self.state = STATE_SPLASH
         self.score = 0
-        self.level = 0
-        self.lives = 3
-        self.bombs = 5
+        self.level_num = 0
+        self.lives = 5
+        self.dynamite_count = 6
         self.energy = MAX_ENERGY
+
+        # Level data
+        self.level_map = []
 
         # Entities
         self.player = None
         self.enemies = []
-        self.bullets = []
+        self.lasers = []
         self.dynamites = []
         self.miner = None
+
+        # Camera
+        self.camera_y = 0
 
         # Input
         self.keys = []
         self.joy_axis_x = 0
         self.joy_axis_y = 0
 
+        # Timers
+        self.shoot_cooldown = 0
+        self.level_complete_timer = 0
+
+        # Sound state
+        self.helicopter_playing = False
+
         # Name entry
         self.player_name = ""
 
-        # Score tracking for extra lives
+        # Score tracking
         self.last_life_score = 0
 
-        # Level complete tracking
-        self.level_complete_timer = 0
-
-        # Shooting cooldown
-        self.shoot_cooldown = 0
-
     def init(self):
-        """Initialize pygame and game resources"""
+        """Initialize pygame and resources"""
         pygame.init()
         pygame.mixer.init()
 
@@ -500,21 +668,17 @@ class Game:
         pygame.joystick.init()
         joystick_count = pygame.joystick.get_count()
 
-        # Find Xbox controller
         for i in range(joystick_count):
             joystick = pygame.joystick.Joystick(i)
             if "Xbox" in joystick.get_name() or "Controller" in joystick.get_name():
                 self.xbox_controller = joystick
                 self.xbox_controller.init()
-                print(f"Found controller: {joystick.get_name()}")
+                print(f"Controller found: {joystick.get_name()}")
                 break
-
-        if self.xbox_controller is None:
-            print("No controller found. Using keyboard controls.")
 
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
         self.clock = pygame.time.Clock()
-        pygame.display.set_caption("H.E.R.O. Remake")
+        pygame.display.set_caption("H.E.R.O. - Atari 2600 Remake")
 
         # Load fonts
         try:
@@ -524,22 +688,14 @@ class Game:
             self.font = pygame.font.Font(None, 24)
             self.small_font = pygame.font.Font(None, 16)
 
-        # Load sounds
-        try:
-            self.shoot_sound = pygame.mixer.Sound("sounds/shoot.wav")
-            self.explosion_sound = pygame.mixer.Sound("sounds/explosion.wav")
-        except:
-            print("Could not load sound files")
-            self.shoot_sound = None
-            self.explosion_sound = None
-
-        # Load tile images or create colored surfaces
+        # Load tiles
         try:
             self.tiles['wall'] = pygame.image.load("tiles/wall.png").convert_alpha()
             self.tiles['floor'] = pygame.image.load("tiles/floor.png").convert_alpha()
             self.tiles['blank'] = pygame.image.load("tiles/blank.png").convert_alpha()
-        except:
-            # Create simple colored tiles
+        except Exception as e:
+            print(f"Error loading tiles: {e}")
+            # Create fallback tiles
             self.tiles['wall'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['wall'].fill(COLOR_GRAY)
             self.tiles['floor'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
@@ -547,140 +703,166 @@ class Game:
             self.tiles['blank'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['blank'].fill(COLOR_BLACK)
 
-        # Create magma tile
-        self.tiles['magma'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
-        self.tiles['magma'].fill(COLOR_ORANGE)
-        pygame.draw.rect(self.tiles['magma'], COLOR_RED, (4, 4, 24, 24))
-
-        # Create destructible block tile
+        # Destructible block tile
         self.tiles['block'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
-        self.tiles['block'].fill((139, 90, 43))
-        pygame.draw.rect(self.tiles['block'], (160, 100, 50), (2, 2, 28, 28))
+        self.tiles['block'].fill(COLOR_MAGENTA)
+        pygame.draw.rect(self.tiles['block'], (200, 0, 200), (2, 2, 28, 28))
+
+        # Load sprites
+        try:
+            self.sprites['player'] = pygame.image.load("sprites/player.png").convert_alpha()
+            self.sprites['enemy'] = pygame.image.load("sprites/enemy.png").convert_alpha()
+            self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
+            self.sprites['bomb'] = pygame.image.load("sprites/bomb.png").convert_alpha()
+            print("Sprites loaded successfully")
+        except Exception as e:
+            print(f"Error loading sprites: {e}")
+
+        # Load sounds
+        try:
+            self.sounds['shoot'] = pygame.mixer.Sound("sounds/shoot.wav")
+            self.sounds['explosion'] = pygame.mixer.Sound("sounds/explosion.wav")
+            print("Sounds loaded successfully")
+        except Exception as e:
+            print(f"Error loading sounds: {e}")
+
+        # Load helicopter sound (optional)
+        try:
+            self.sounds['helicopter'] = pygame.mixer.Sound("sounds/helicopter.wav")
+            print("Helicopter sound loaded")
+        except:
+            pass  # Helicopter sound is optional
 
     def start_level(self):
-        """Initialize a level"""
+        """Start a new level"""
         self.state = STATE_PLAYING
         self.energy = MAX_ENERGY
 
+        # Generate level
+        self.level_map = generate_level(self.level_num)
+
         # Clear entities
         self.enemies = []
-        self.bullets = []
+        self.lasers = []
         self.dynamites = []
         self.miner = None
 
         # Create player
         self.player = Player()
-        self.player.init(MAPS[self.level])
+        self.player.init(self.level_map)
+        if 'player' in self.sprites:
+            self.player.image = self.sprites['player']
 
         # Parse level and create entities
-        level_map = MAPS[self.level]
-        for row_index, row in enumerate(level_map):
+        for row_index, row in enumerate(self.level_map):
             for col_index, tile in enumerate(row):
                 x = col_index * TILE_SIZE
                 y = row_index * TILE_SIZE
 
                 if tile == "E":
-                    self.enemies.append(Enemy(x, y))
-                elif tile == "R":
-                    # Create miner at the R position (Rescue)
-                    if not self.miner:
-                        self.miner = Miner(x, y)
+                    enemy = Enemy(x, y, "bat")
+                    if 'enemy' in self.sprites:
+                        enemy.image = self.sprites['enemy']
+                    self.enemies.append(enemy)
+                elif tile == "A":
+                    enemy = Enemy(x, y, "spider")
+                    if 'spider' in self.sprites:
+                        enemy.image = self.sprites['spider']
+                    self.enemies.append(enemy)
+                elif tile == "M":
+                    self.miner = Miner(x, y)
 
-    def shoot(self):
-        """Player shoots a laser"""
+        # Reset camera to player
+        self.camera_y = self.player.y - VIEWPORT_HEIGHT / 2
+
+    def shoot_laser(self):
+        """Player shoots laser"""
         if self.shoot_cooldown <= 0:
             direction = 1 if self.player.facing_right else -1
-            bullet = Bullet(self.player.x + 16, self.player.y + 16, direction)
-            self.bullets.append(bullet)
-            self.shoot_cooldown = 0.3  # 0.3 second cooldown
+            laser = Laser(self.player.x + 16, self.player.y + 16, direction)
+            self.lasers.append(laser)
+            self.shoot_cooldown = 0.2
 
-            if self.shoot_sound:
-                self.shoot_sound.play()
+            if 'shoot' in self.sounds:
+                self.sounds['shoot'].play()
 
-    def place_dynamite(self):
-        """Player places dynamite"""
-        if self.bombs > 0:
-            dynamite = Dynamite(self.player.x, self.player.y + 32)
+    def drop_dynamite(self):
+        """Player drops dynamite"""
+        if self.dynamite_count > 0:
+            dynamite = Dynamite(self.player.x + 8, self.player.y + 32)
             self.dynamites.append(dynamite)
-            self.bombs -= 1
+            self.dynamite_count -= 1
+
+    def update_camera(self):
+        """Update camera to follow player"""
+        target_y = self.player.y - VIEWPORT_HEIGHT / 2
+
+        # Smooth camera
+        self.camera_y += (target_y - self.camera_y) * 0.1
+
+        # Keep camera in bounds
+        self.camera_y = max(0, min(self.camera_y,
+                                   LEVEL_HEIGHT * TILE_SIZE - VIEWPORT_HEIGHT))
 
     def check_collisions(self):
-        """Check all collision interactions"""
+        """Check all collisions"""
         if not self.player:
             return
 
         player_rect = self.player.get_rect()
 
-        # Check player vs enemies
+        # Player vs enemies
         for enemy in self.enemies:
             if enemy.active and player_rect.colliderect(enemy.get_rect()):
                 self.player_hit()
                 return
 
-        # Check player vs miner (rescue)
+        # Player vs miner
         if self.miner and not self.miner.rescued:
             if player_rect.colliderect(self.miner.get_rect()):
                 self.rescue_miner()
                 return
 
-        # Check bullets vs enemies
-        for bullet in self.bullets[:]:
-            if not bullet.active:
+        # Lasers vs enemies
+        for laser in self.lasers[:]:
+            if not laser.active:
                 continue
-            bullet_rect = bullet.get_rect()
-
+            laser_rect = laser.get_rect()
             for enemy in self.enemies:
-                if enemy.active and bullet_rect.colliderect(enemy.get_rect()):
+                if enemy.active and laser_rect.colliderect(enemy.get_rect()):
                     enemy.active = False
-                    bullet.active = False
-                    self.score += 100
+                    laser.active = False
+                    self.score += 50
                     break
 
-            # Check bullet vs blocks
-            tile_x = int(bullet.x / TILE_SIZE)
-            tile_y = int(bullet.y / TILE_SIZE)
-            level_map = MAPS[self.level]
-
-            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
-                if level_map[tile_y][tile_x] == "B":
-                    # Destroy block
-                    row = list(level_map[tile_y])
-                    row[tile_x] = " "
-                    MAPS[self.level][tile_y] = "".join(row)
-                    bullet.active = False
-                    self.score += 50
-
-        # Check dynamite explosions
+        # Dynamite explosions
         for dynamite in self.dynamites[:]:
             if dynamite.exploded:
                 explosion_rect = dynamite.get_explosion_rect()
                 if explosion_rect:
-                    # Destroy enemies in explosion
+                    # Destroy enemies
                     for enemy in self.enemies:
                         if enemy.active and explosion_rect.colliderect(enemy.get_rect()):
                             enemy.active = False
-                            self.score += 150
+                            self.score += 75
 
-                    # Destroy blocks in explosion
-                    level_map = MAPS[self.level]
-                    for row_index in range(len(level_map)):
-                        for col_index in range(len(level_map[0])):
-                            tile_x = col_index * TILE_SIZE
-                            tile_y = row_index * TILE_SIZE
-                            tile_rect = pygame.Rect(tile_x, tile_y, TILE_SIZE, TILE_SIZE)
+                    # Destroy blocks
+                    for row_index in range(len(self.level_map)):
+                        for col_index in range(len(self.level_map[0])):
+                            if self.level_map[row_index][col_index] == 'B':
+                                tile_x = col_index * TILE_SIZE
+                                tile_y = row_index * TILE_SIZE
+                                tile_rect = pygame.Rect(tile_x, tile_y, TILE_SIZE, TILE_SIZE)
 
-                            if explosion_rect.colliderect(tile_rect) and level_map[row_index][col_index] == "B":
-                                row = list(level_map[row_index])
-                                row[col_index] = " "
-                                MAPS[self.level][row_index] = "".join(row)
-                                self.score += 25
+                                if explosion_rect.colliderect(tile_rect):
+                                    row = list(self.level_map[row_index])
+                                    row[col_index] = ' '
+                                    self.level_map[row_index] = "".join(row)
+                                    self.score += 10
 
-                if self.explosion_sound and dynamite.explosion_timer > 0.25:
-                    self.explosion_sound.play()
-
-        # Check magma collision
-        if self.player.check_magma_collision(MAPS[self.level]):
-            self.player_hit()
+                    # Play sound once
+                    if 'explosion' in self.sounds and dynamite.explosion_time > 0.4:
+                        self.sounds['explosion'].play()
 
     def player_hit(self):
         """Player takes damage"""
@@ -688,55 +870,60 @@ class Game:
         if self.lives <= 0:
             self.state = STATE_ENTERING_NAME
         else:
-            # Restart level
             self.start_level()
 
     def rescue_miner(self):
-        """Player rescues the miner"""
-        if not self.miner.rescued:
-            self.miner.rescued = True
-
-            # Award points
-            bonus_points = int(self.energy * 10)  # Bonus for remaining energy
-            bonus_points += self.bombs * 100  # Bonus for remaining bombs
-            self.score += 1000 + bonus_points
-
-            self.state = STATE_LEVEL_COMPLETE
-            self.level_complete_timer = 2.0
+        """Rescue miner and complete level"""
+        self.miner.rescued = True
+        bonus = int(self.energy) + (self.dynamite_count * 50)
+        self.score += 1000 + bonus
+        self.state = STATE_LEVEL_COMPLETE
+        self.level_complete_timer = 2.0
 
     def next_level(self):
         """Advance to next level"""
-        self.level += 1
-        if self.level >= len(MAPS):
-            # Game complete!
+        self.level_num += 1
+        if self.level_num >= 5:
+            # Won game!
             self.state = STATE_ENTERING_NAME
         else:
             self.start_level()
 
-    def check_extra_life(self):
-        """Check if player earned an extra life"""
-        if self.score >= self.last_life_score + 20000:
-            self.lives += 1
-            self.last_life_score = self.score
-
     def update_playing(self, dt):
-        """Update game state during play"""
+        """Update game during play"""
         if self.energy <= 0:
             self.player_hit()
             return
 
         # Update player
-        self.player.update(dt, self.keys, self.joy_axis_x, self.joy_axis_y, MAPS[self.level], self)
+        self.player.update(dt, self.keys, self.joy_axis_x, self.joy_axis_y,
+                          self.level_map, self)
+
+        # Helicopter sound when flying
+        if 'helicopter' in self.sounds:
+            if self.player.using_propulsor:
+                # Start playing if not already
+                if not hasattr(self, 'helicopter_playing') or not self.helicopter_playing:
+                    self.sounds['helicopter'].play(loops=-1)  # Loop indefinitely
+                    self.helicopter_playing = True
+            else:
+                # Stop playing if it's playing
+                if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
+                    self.sounds['helicopter'].stop()
+                    self.helicopter_playing = False
+
+        # Update camera
+        self.update_camera()
 
         # Update enemies
         for enemy in self.enemies:
-            enemy.update(dt, MAPS[self.level])
+            enemy.update(dt, self.level_map)
 
-        # Update bullets
-        for bullet in self.bullets[:]:
-            bullet.update(dt)
-            if not bullet.active:
-                self.bullets.remove(bullet)
+        # Update lasers
+        for laser in self.lasers[:]:
+            laser.update(dt, self.level_map)
+            if not laser.active:
+                self.lasers.remove(laser)
 
         # Update dynamites
         for dynamite in self.dynamites[:]:
@@ -747,12 +934,14 @@ class Game:
         # Check collisions
         self.check_collisions()
 
-        # Check for extra life
-        self.check_extra_life()
-
-        # Update shooting cooldown
+        # Update timers
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= dt
+
+        # Check for extra life
+        if self.score >= self.last_life_score + 20000:
+            self.lives += 1
+            self.last_life_score = self.score
 
     def update_level_complete(self, dt):
         """Update level complete state"""
@@ -761,160 +950,153 @@ class Game:
             self.next_level()
 
     def render_level(self):
-        """Render the current level"""
-        level_map = MAPS[self.level]
+        """Render visible part of level"""
+        # Calculate visible tiles
+        start_row = max(0, int(self.camera_y / TILE_SIZE) - 1)
+        end_row = min(LEVEL_HEIGHT, int((self.camera_y + VIEWPORT_HEIGHT) / TILE_SIZE) + 2)
 
-        for row_index, row in enumerate(level_map):
+        for row_index in range(start_row, end_row):
+            if row_index >= len(self.level_map):
+                break
+
+            row = self.level_map[row_index]
             for col_index, tile in enumerate(row):
                 x = col_index * TILE_SIZE
-                y = row_index * TILE_SIZE
+                y = row_index * TILE_SIZE - self.camera_y
 
-                if tile == "#":
-                    self.screen.blit(self.tiles['wall'], (x, y))
-                elif tile == ".":
-                    self.screen.blit(self.tiles['floor'], (x, y))
-                elif tile == "B":
-                    self.screen.blit(self.tiles['block'], (x, y))
-                elif tile == "M":
-                    # Draw magma
-                    self.screen.blit(self.tiles['magma'], (x, y))
+                if tile == '#':
+                    self.screen.blit(self.tiles['wall'], (x, int(y)))
+                elif tile == '.':
+                    self.screen.blit(self.tiles['floor'], (x, int(y)))
+                elif tile == 'B':
+                    self.screen.blit(self.tiles['block'], (x, int(y)))
                 else:
-                    # For blank spaces, S (start), E (enemy), and R (rescue/miner)
-                    self.screen.blit(self.tiles['blank'], (x, y))
+                    self.screen.blit(self.tiles['blank'], (x, int(y)))
 
     def render_hud(self):
-        """Render heads-up display"""
-        hud_y = SCREEN_HEIGHT - 64
-        hud_background = pygame.Surface((SCREEN_WIDTH, 64))
-        hud_background.set_alpha(200)
-        hud_background.fill(COLOR_BLACK)
-        self.screen.blit(hud_background, (0, hud_y))
+        """Render HUD"""
+        hud_y = VIEWPORT_HEIGHT
+        hud_bg = pygame.Surface((SCREEN_WIDTH, 64))
+        hud_bg.fill(COLOR_BLACK)
+        self.screen.blit(hud_bg, (0, hud_y))
 
         # Score
-        score_text = self.small_font.render(f"SCORE: {self.score}", True, COLOR_WHITE)
+        score_text = self.small_font.render(f"SCORE:{self.score}", True, COLOR_WHITE)
         self.screen.blit(score_text, (10, hud_y + 5))
 
         # Level
-        level_text = self.small_font.render(f"LVL: {self.level + 1}", True, COLOR_WHITE)
+        level_text = self.small_font.render(f"LVL:{self.level_num+1}", True, COLOR_WHITE)
         self.screen.blit(level_text, (10, hud_y + 25))
 
         # Lives
-        lives_text = self.small_font.render(f"LIVES: {self.lives}", True, COLOR_WHITE)
+        lives_text = self.small_font.render(f"LIVES:{self.lives}", True, COLOR_WHITE)
         self.screen.blit(lives_text, (150, hud_y + 5))
 
-        # Bombs
-        bombs_text = self.small_font.render(f"BOMBS: {self.bombs}", True, COLOR_WHITE)
-        self.screen.blit(bombs_text, (150, hud_y + 25))
+        # Dynamite
+        dyn_text = self.small_font.render(f"BOMBS:{self.dynamite_count}", True, COLOR_WHITE)
+        self.screen.blit(dyn_text, (150, hud_y + 25))
 
         # Energy bar
         energy_text = self.small_font.render("ENERGY", True, COLOR_WHITE)
         self.screen.blit(energy_text, (300, hud_y + 5))
 
-        # Energy bar background
-        pygame.draw.rect(self.screen, COLOR_RED, (300, hud_y + 25, 200, 20))
-        # Energy bar fill
-        energy_width = int((self.energy / MAX_ENERGY) * 200)
+        bar_width = 200
+        bar_height = 20
+        bar_x = 300
+        bar_y = hud_y + 25
+
+        # Background
+        pygame.draw.rect(self.screen, COLOR_RED, (bar_x, bar_y, bar_width, bar_height))
+
+        # Energy fill
+        energy_width = int((self.energy / MAX_ENERGY) * bar_width)
         if energy_width > 0:
-            energy_color = COLOR_GREEN if self.energy > 30 else COLOR_YELLOW if self.energy > 15 else COLOR_RED
-            pygame.draw.rect(self.screen, energy_color, (300, hud_y + 25, energy_width, 20))
-        # Energy bar border
-        pygame.draw.rect(self.screen, COLOR_WHITE, (300, hud_y + 25, 200, 20), 2)
+            color = COLOR_GREEN if self.energy > MAX_ENERGY * 0.3 else COLOR_YELLOW if self.energy > MAX_ENERGY * 0.15 else COLOR_RED
+            pygame.draw.rect(self.screen, color, (bar_x, bar_y, energy_width, bar_height))
+
+        # Border
+        pygame.draw.rect(self.screen, COLOR_WHITE, (bar_x, bar_y, bar_width, bar_height), 2)
 
     def render_splash(self):
-        """Render splash screen / main menu"""
+        """Render splash screen"""
         self.screen.fill(COLOR_BLACK)
 
-        # Title
-        title_text = self.font.render("H.E.R.O.", True, COLOR_WHITE)
-        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 80))
-        self.screen.blit(title_text, title_rect)
+        title = self.font.render("H.E.R.O.", True, COLOR_WHITE)
+        title_rect = title.get_rect(center=(SCREEN_WIDTH//2, 80))
+        self.screen.blit(title, title_rect)
 
-        subtitle_text = self.small_font.render("Helicopter Emergency", True, COLOR_GRAY)
-        subtitle_rect = subtitle_text.get_rect(center=(SCREEN_WIDTH // 2, 120))
-        self.screen.blit(subtitle_text, subtitle_rect)
+        subtitle = self.small_font.render("Helicopter Emergency", True, COLOR_GRAY)
+        subtitle_rect = subtitle.get_rect(center=(SCREEN_WIDTH//2, 120))
+        self.screen.blit(subtitle, subtitle_rect)
 
-        subtitle2_text = self.small_font.render("Rescue Operation", True, COLOR_GRAY)
-        subtitle2_rect = subtitle2_text.get_rect(center=(SCREEN_WIDTH // 2, 140))
-        self.screen.blit(subtitle2_text, subtitle2_rect)
+        subtitle2 = self.small_font.render("Rescue Operation", True, COLOR_GRAY)
+        subtitle2_rect = subtitle2.get_rect(center=(SCREEN_WIDTH//2, 140))
+        self.screen.blit(subtitle2, subtitle2_rect)
 
-        # Menu options
-        play_text = self.small_font.render("Press SPACE or A to Play", True, COLOR_GREEN)
-        play_rect = play_text.get_rect(center=(SCREEN_WIDTH // 2, 200))
-        self.screen.blit(play_text, play_rect)
+        play = self.small_font.render("Press SPACE or A to Play", True, COLOR_GREEN)
+        play_rect = play.get_rect(center=(SCREEN_WIDTH//2, 200))
+        self.screen.blit(play, play_rect)
 
-        quit_text = self.small_font.render("Press ESC to Quit", True, COLOR_RED)
-        quit_rect = quit_text.get_rect(center=(SCREEN_WIDTH // 2, 230))
-        self.screen.blit(quit_text, quit_rect)
+        quit_txt = self.small_font.render("Press ESC to Quit", True, COLOR_RED)
+        quit_rect = quit_txt.get_rect(center=(SCREEN_WIDTH//2, 230))
+        self.screen.blit(quit_txt, quit_rect)
 
         # High scores
         scores_title = self.small_font.render("HIGH SCORES", True, COLOR_YELLOW)
-        scores_rect = scores_title.get_rect(center=(SCREEN_WIDTH // 2, 280))
+        scores_rect = scores_title.get_rect(center=(SCREEN_WIDTH//2, 280))
         self.screen.blit(scores_title, scores_rect)
 
-        scores = load_scores()[:3]  # Top 3
-        for i, score_entry in enumerate(scores):
-            score_text = self.small_font.render(
-                f"{i + 1}. {score_entry['name']}: {score_entry['score']}",
+        scores = load_scores()[:3]
+        for i, score in enumerate(scores):
+            text = self.small_font.render(
+                f"{i+1}. {score['name']}: {score['score']}",
                 True, COLOR_WHITE
             )
-            score_rect = score_text.get_rect(center=(SCREEN_WIDTH // 2, 310 + i * 25))
-            self.screen.blit(score_text, score_rect)
-
-        # Controls
-        controls_text = self.small_font.render("Controls:", True, COLOR_GRAY)
-        self.screen.blit(controls_text, (20, 400))
-
-        controls1 = self.small_font.render("ARROWS/STICK: Move", True, COLOR_GRAY)
-        self.screen.blit(controls1, (20, 420))
-
-        controls2 = self.small_font.render("SPACE/X: Shoot", True, COLOR_GRAY)
-        self.screen.blit(controls2, (20, 440))
-
-        controls3 = self.small_font.render("DOWN+CTRL/B: Dynamite", True, COLOR_GRAY)
-        self.screen.blit(controls3, (20, 460))
+            rect = text.get_rect(center=(SCREEN_WIDTH//2, 310 + i*25))
+            self.screen.blit(text, rect)
 
     def render_entering_name(self):
         """Render name entry screen"""
         self.screen.fill(COLOR_BLACK)
 
-        # Game Over
-        game_over_text = self.font.render("GAME OVER", True, COLOR_RED)
-        game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH // 2, 100))
-        self.screen.blit(game_over_text, game_over_rect)
+        game_over = self.font.render("GAME OVER", True, COLOR_RED)
+        go_rect = game_over.get_rect(center=(SCREEN_WIDTH//2, 100))
+        self.screen.blit(game_over, go_rect)
 
-        # Final score
         score_text = self.small_font.render(f"Final Score: {self.score}", True, COLOR_WHITE)
-        score_rect = score_text.get_rect(center=(SCREEN_WIDTH // 2, 150))
+        score_rect = score_text.get_rect(center=(SCREEN_WIDTH//2, 150))
         self.screen.blit(score_text, score_rect)
 
-        # Name entry
-        name_prompt = self.small_font.render("Enter Your Name:", True, COLOR_WHITE)
-        name_rect = name_prompt.get_rect(center=(SCREEN_WIDTH // 2, 200))
-        self.screen.blit(name_prompt, name_rect)
+        prompt = self.small_font.render("Enter Your Name:", True, COLOR_WHITE)
+        prompt_rect = prompt.get_rect(center=(SCREEN_WIDTH//2, 200))
+        self.screen.blit(prompt, prompt_rect)
 
-        # Current name
-        name_text = self.font.render(self.player_name + "_", True, COLOR_GREEN)
-        name_text_rect = name_text.get_rect(center=(SCREEN_WIDTH // 2, 240))
-        self.screen.blit(name_text, name_text_rect)
+        name = self.font.render(self.player_name + "_", True, COLOR_GREEN)
+        name_rect = name.get_rect(center=(SCREEN_WIDTH//2, 240))
+        self.screen.blit(name, name_rect)
 
-        # Instructions
-        instr_text = self.small_font.render("Press ENTER when done", True, COLOR_GRAY)
-        instr_rect = instr_text.get_rect(center=(SCREEN_WIDTH // 2, 300))
-        self.screen.blit(instr_text, instr_rect)
+        instr = self.small_font.render("Press ENTER when done", True, COLOR_GRAY)
+        instr_rect = instr.get_rect(center=(SCREEN_WIDTH//2, 300))
+        self.screen.blit(instr, instr_rect)
 
     def render_level_complete(self):
         """Render level complete overlay"""
-        # Draw normal game
         self.render_level()
 
         if self.miner:
-            self.miner.draw(self.screen)
+            self.miner.draw(self.screen, self.camera_y)
 
         for enemy in self.enemies:
-            enemy.draw(self.screen)
+            enemy.draw(self.screen, self.camera_y)
+
+        for laser in self.lasers:
+            laser.draw(self.screen, self.camera_y)
+
+        for dynamite in self.dynamites:
+            dynamite.draw(self.screen, self.camera_y)
 
         if self.player:
-            self.player.draw(self.screen)
+            self.player.draw(self.screen, self.camera_y)
 
         self.render_hud()
 
@@ -924,10 +1106,9 @@ class Game:
         overlay.fill(COLOR_BLACK)
         self.screen.blit(overlay, (0, 0))
 
-        # Level complete text
-        complete_text = self.font.render("LEVEL COMPLETE!", True, COLOR_GREEN)
-        complete_rect = complete_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-        self.screen.blit(complete_text, complete_rect)
+        complete = self.font.render("LEVEL COMPLETE!", True, COLOR_GREEN)
+        complete_rect = complete.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2))
+        self.screen.blit(complete, complete_rect)
 
     def loop(self):
         """Main game loop"""
@@ -936,7 +1117,7 @@ class Game:
         while running:
             dt = self.clock.tick(FPS) / 1000.0
 
-            # Get input state
+            # Get input
             self.keys = pygame.key.get_pressed()
 
             if self.xbox_controller:
@@ -959,10 +1140,10 @@ class Game:
                 elif event.type == pygame.KEYDOWN:
                     if self.state == STATE_SPLASH:
                         if event.key == pygame.K_SPACE:
-                            self.level = 0
+                            self.level_num = 0
                             self.score = 0
-                            self.lives = 3
-                            self.bombs = 5
+                            self.lives = 5
+                            self.dynamite_count = 6
                             self.last_life_score = 0
                             self.start_level()
                         elif event.key == pygame.K_ESCAPE:
@@ -970,10 +1151,9 @@ class Game:
 
                     elif self.state == STATE_PLAYING:
                         if event.key == pygame.K_SPACE:
-                            self.shoot()
-                        elif event.key == pygame.K_LCTRL or event.key == pygame.K_RCTRL:
-                            if self.keys[pygame.K_DOWN]:
-                                self.place_dynamite()
+                            self.shoot_laser()
+                        elif event.key == pygame.K_DOWN or event.key == pygame.K_LCTRL:
+                            self.drop_dynamite()
 
                     elif self.state == STATE_ENTERING_NAME:
                         if event.key == pygame.K_RETURN:
@@ -988,21 +1168,21 @@ class Game:
 
                 elif event.type == pygame.JOYBUTTONDOWN:
                     if self.state == STATE_SPLASH:
-                        if event.button == 0:  # A button
-                            self.level = 0
+                        if event.button == 0:  # A
+                            self.level_num = 0
                             self.score = 0
-                            self.lives = 3
-                            self.bombs = 5
+                            self.lives = 5
+                            self.dynamite_count = 6
                             self.last_life_score = 0
                             self.start_level()
 
                     elif self.state == STATE_PLAYING:
-                        if event.button == 2:  # X button
-                            self.shoot()
-                        elif event.button == 1:  # B button
-                            self.place_dynamite()
+                        if event.button == 2:  # X
+                            self.shoot_laser()
+                        elif event.button == 1:  # B
+                            self.drop_dynamite()
 
-            # Update game state
+            # Update
             if self.state == STATE_PLAYING:
                 self.update_playing(dt)
             elif self.state == STATE_LEVEL_COMPLETE:
@@ -1013,28 +1193,31 @@ class Game:
 
             if self.state == STATE_SPLASH:
                 self.render_splash()
+
             elif self.state == STATE_PLAYING:
                 self.render_level()
 
                 # Draw entities
                 if self.miner:
-                    self.miner.draw(self.screen)
+                    self.miner.draw(self.screen, self.camera_y)
 
                 for enemy in self.enemies:
-                    enemy.draw(self.screen)
+                    enemy.draw(self.screen, self.camera_y)
 
-                for bullet in self.bullets:
-                    bullet.draw(self.screen)
+                for laser in self.lasers:
+                    laser.draw(self.screen, self.camera_y)
 
                 for dynamite in self.dynamites:
-                    dynamite.draw(self.screen)
+                    dynamite.draw(self.screen, self.camera_y)
 
                 if self.player:
-                    self.player.draw(self.screen)
+                    self.player.draw(self.screen, self.camera_y)
 
                 self.render_hud()
+
             elif self.state == STATE_LEVEL_COMPLETE:
                 self.render_level_complete()
+
             elif self.state == STATE_ENTERING_NAME:
                 self.render_entering_name()
 

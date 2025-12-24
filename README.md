@@ -14,6 +14,8 @@ Controla a Roderick Hero, equipado con un helicóptero personal, mientras navega
 
 - **5 Niveles Únicos** con dificultad progresiva
 - **Pantalla de Inicio (Splash Screen)** con los top 3 high scores
+- **🆕 Imagen de Fondo Ilustrativa** en el menú principal
+- **🆕 Modo Demo Automático** con IA que juega sola
 - **Sistema de Puntuación Persistente** guardado en JSON
 - **Pantalla de Game Over** con entrada de nombre para registrar tu score
 - **Física Realista** con gravedad y vuelo con helicóptero
@@ -114,6 +116,31 @@ Controla a Roderick Hero, equipado con un helicóptero personal, mientras navega
 - Bloques destructibles cerca del magma
 - Requiere precisión extrema
 - El nivel más difícil
+
+## 🆕 Modo Demo Automático
+
+### ¿Qué es el Modo Demo?
+
+Después de 3 segundos en la pantalla de inicio, el juego **automáticamente inicia una demostración** donde una IA juega los primeros 2 niveles en bucle infinito.
+
+### Características del Demo:
+
+- **IA Inteligente**: Se mueve hacia el minero, dispara a enemigos y usa dinamita
+- **Loop Infinito**: Juega niveles 1 y 2 continuamente
+- **Salir fácil**: Presiona cualquier tecla para volver al menú
+
+### Controles en Demo:
+
+- **Cualquier tecla** → Vuelve al menú principal
+- **Cualquier botón** (control) → Vuelve al menú principal
+
+### Comportamiento de la IA:
+
+✅ Navega automáticamente hacia el minero
+✅ Dispara a enemigos cercanos
+✅ Usa dinamita para destruir bloques
+✅ Vuela cuando es necesario
+✅ Reinicia automáticamente al morir
 
 ## HUD (Heads-Up Display)
 

@@ -6,7 +6,12 @@
       "Bash(timeout 5 type:*)",
       "Bash(powershell:*)",
       "Bash(dir:*)",
-      "Bash(timeout 10 python:*)"
+      "Bash(timeout 10 python:*)",
+      "Bash(timeout 15 python:*)",
+      "Bash(cat:*)",
+      "Bash(timeout 8 python:*)",
+      "Bash(file:*)",
+      "Bash(timeout 3 type:*)"
     ]
   }
 }

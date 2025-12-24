@@ -1,0 +1,4 @@
+pygame 2.6.1 (SDL 2.28.4, Python 3.13.0)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+No controller found. Using keyboard controls.
+No background image found, will generate from demo...
