@@ -43,8 +43,17 @@ class Player:
 
         self.vel_x = move_x * PLAYER_SPEED_X
 
-        # GRAVITY ALWAYS APPLIES
-        self.vel_y += GRAVITY * dt
+        # Check if grounded (standing on something)
+        # Test a position slightly below current position
+        # Need to check far enough that collision points (y+29) would detect ground
+        is_grounded = self.check_collision(self.x, self.y + 2, level_map)
+
+        # GRAVITY - only apply if not grounded or using propulsor
+        if not is_grounded or self.vel_y < 0:
+            self.vel_y += GRAVITY * dt
+        else:
+            # Grounded and not jumping - zero velocity to prevent accumulation
+            self.vel_y = 0
 
         # Propulsor - MANTENER PRESIONADO para volar
         self.using_propulsor = False
@@ -71,11 +80,8 @@ class Player:
         if not self.check_collision(self.x, new_y, level_map):
             self.y = new_y
         else:
-            # Hit floor or ceiling
-            if self.vel_y > 0:  # Was falling
-                self.vel_y = 0
-            elif self.vel_y < 0:  # Hit ceiling
-                self.vel_y = 0
+            # Hit floor or ceiling - stop at last valid position
+            self.vel_y = 0
 
         # Keep in level bounds
         self.x = max(0, min(self.x, LEVEL_WIDTH * TILE_SIZE - self.width))
