@@ -246,6 +246,8 @@ class Game:
         self.tiles = {}
         self.sprites = {}
         self.sounds = {}
+        self.background_image = None
+        self.gray_overlay = None
         self.font = None
         self.small_font = None
 
@@ -354,16 +356,24 @@ class Game:
             self.sounds['explosion'] = pygame.mixer.Sound("sounds/explosion.wav")
             self.sounds['death'] = pygame.mixer.Sound("sounds/death.wav")
             self.sounds['splatter'] = pygame.mixer.Sound("sounds/splatter.wav")
+            self.sounds['helicopter'] = pygame.mixer.Sound("sounds/helicopter.wav")
             print("Sounds loaded successfully")
         except Exception as e:
             print(f"Error loading sounds: {e}")
-
-        # Load helicopter sound (optional)
+            
+        # Load background image
         try:
-            self.sounds['helicopter'] = pygame.mixer.Sound("sounds/helicopter.wav")
-            print("Helicopter sound loaded")
-        except:
-            pass  # Helicopter sound is optional
+            self.background_image = pygame.image.load("images/hero_background.png").convert_alpha()
+            self.background_image = pygame.transform.scale(self.background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            
+            self.gray_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.gray_overlay.set_alpha(80)      
+            self.gray_overlay.fill((128, 128, 128))
+            
+            print("Background image loaded successfully")
+        except Exception as e:
+            print(f"Error loading background image: {e}")
+            
 
     def start_level(self):
         """Start a new level"""
@@ -693,10 +703,30 @@ class Game:
         # Border
         pygame.draw.rect(self.screen, COLOR_WHITE, (bar_x, bar_y, bar_width, bar_height), 2)
 
+    def draw_text_with_outline(self, font, text, color, outline_color, center, outline=1):
+        # Texto base
+        text_surf = self.font.render(text, True, color)
+        text_rect = text_surf.get_rect(center=center)
+
+        # Outline (dibujos alrededor)
+        for dx in (-outline, 0, outline):
+            for dy in (-outline, 0, outline):
+                if dx != 0 or dy != 0:
+                    outline_surf = self.font.render(text, True, outline_color)
+                    outline_rect = outline_surf.get_rect(center=(center[0] + dx, center[1] + dy))
+                    self.screen.blit(outline_surf, outline_rect)
+
+        # Texto principal arriba
+        self.screen.blit(text_surf, text_rect)
+
+
     def render_splash(self):
         """Render splash screen"""
-        self.screen.fill(COLOR_BLACK)
+        self.screen.blit(self.background_image, (0, 0))
+        self.screen.blit(self.gray_overlay, (0, 0))
 
+
+        """
         title = self.font.render("H.E.R.O.", True, COLOR_WHITE)
         title_rect = title.get_rect(center=(SCREEN_WIDTH//2, 80))
         self.screen.blit(title, title_rect)
@@ -708,51 +738,20 @@ class Game:
         subtitle2 = self.small_font.render("Rescue Operation", True, COLOR_GRAY)
         subtitle2_rect = subtitle2.get_rect(center=(SCREEN_WIDTH//2, 140))
         self.screen.blit(subtitle2, subtitle2_rect)
+        """
 
-        play = self.small_font.render("Press SPACE or A to Play", True, COLOR_GREEN)
-        play_rect = play.get_rect(center=(SCREEN_WIDTH//2, 200))
-        self.screen.blit(play, play_rect)
-
-        quit_txt = self.small_font.render("Press ESC to Quit", True, COLOR_RED)
-        quit_rect = quit_txt.get_rect(center=(SCREEN_WIDTH//2, 230))
-        self.screen.blit(quit_txt, quit_rect)
-
-        # Controls
-        controls_title = self.small_font.render("CONTROLS", True, COLOR_YELLOW)
-        controls_rect = controls_title.get_rect(center=(SCREEN_WIDTH//2, 270))
-        self.screen.blit(controls_title, controls_rect)
-
-        # Keyboard controls
-        arrow_text = self.small_font.render("Arrows: Move/Fly", True, COLOR_WHITE)
-        arrow_rect = arrow_text.get_rect(center=(SCREEN_WIDTH//2, 295))
-        self.screen.blit(arrow_text, arrow_rect)
-
-        space_text = self.small_font.render("SPACE: Shoot", True, COLOR_WHITE)
-        space_rect = space_text.get_rect(center=(SCREEN_WIDTH//2, 315))
-        self.screen.blit(space_text, space_rect)
-
-        bomb_text = self.small_font.render("Z: Drop Bomb", True, COLOR_WHITE)
-        bomb_rect = bomb_text.get_rect(center=(SCREEN_WIDTH//2, 335))
-        self.screen.blit(bomb_text, bomb_rect)
-
-        # Xbox controls
-        xbox_text = self.small_font.render("Xbox: Stick/X/B", True, COLOR_GRAY)
-        xbox_rect = xbox_text.get_rect(center=(SCREEN_WIDTH//2, 355))
-        self.screen.blit(xbox_text, xbox_rect)
-
-        # High scores
-        scores_title = self.small_font.render("HIGH SCORES", True, COLOR_YELLOW)
-        scores_rect = scores_title.get_rect(center=(SCREEN_WIDTH//2, 390))
-        self.screen.blit(scores_title, scores_rect)
+        self.draw_text_with_outline(self.small_font, "Press SPACE to Play", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 200))
+        self.draw_text_with_outline(self.small_font, "Press ESC to Quit", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 230))
+        self.draw_text_with_outline(self.small_font, "CONTROLS", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 270))
+        self.draw_text_with_outline(self.small_font, "Arrows: Move/Fly", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 295))
+        self.draw_text_with_outline(self.small_font, "SPACE: Shoot", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 315))
+        self.draw_text_with_outline(self.small_font, "Z: Drop Bomb", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 335))
+        self.draw_text_with_outline(self.small_font, "Xbox: Stick/X/B", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 355))
+        self.draw_text_with_outline(self.small_font, "HIGH SCORES", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 390))
 
         scores = load_scores()[:3]
         for i, score in enumerate(scores):
-            text = self.small_font.render(
-                f"{i+1}. {score['name']}: {score['score']}",
-                True, COLOR_WHITE
-            )
-            rect = text.get_rect(center=(SCREEN_WIDTH//2, 420 + i*20))
-            self.screen.blit(text, rect)
+            self.draw_text_with_outline(self.small_font, f"{i+1}. {score['name']}: {score['score']}", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 420 + i*20))
 
     def render_entering_name(self):
         """Render name entry screen"""
@@ -853,6 +852,13 @@ class Game:
                             self.shoot_laser()
                         elif event.key == pygame.K_z:
                             self.drop_dynamite()
+                        elif event.key == pygame.K_ESCAPE:
+                            # Stop helicopter sound
+                            if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
+                                self.sounds['helicopter'].stop()
+                                self.helicopter_playing = False
+                            # Return to splash screen
+                            self.state = STATE_SPLASH
 
                     elif self.state == STATE_ENTERING_NAME:
                         if event.key == pygame.K_RETURN:
