@@ -256,7 +256,7 @@ class Game:
         self.score = 0
         self.level_num = 0
         self.lives = 5
-        self.dynamite_count = 6
+        self.dynamite_count = DYNAMITE_QUANTITY
         self.energy = MAX_ENERGY
 
         # Level data
@@ -379,6 +379,7 @@ class Game:
         """Start a new level"""
         self.state = STATE_PLAYING
         self.energy = MAX_ENERGY
+        self.dynamite_count = DYNAMITE_QUANTITY  # Restore bombs for new level
 
         # Stop helicopter sound when starting new level
         if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
@@ -513,7 +514,7 @@ class Game:
 
                     # Destroy blocks and walls
                     for row_index in range(len(self.level_map)):
-                        for col_index in range(len(self.level_map[0])):
+                        for col_index in range(len(self.level_map[row_index])):
                             tile = self.level_map[row_index][col_index]
                             if tile == 'B' or tile == '#':  # Destruye bloques Y paredes
                                 tile_x = col_index * TILE_SIZE

@@ -22,6 +22,7 @@ ENERGY_DRAIN_PROPULSOR = 40  # Energía por segundo al volar
 MAX_ENERGY = 2550  # Suficiente para jugar un nivel
 DYNAMITE_FUSE_TIME = 3.0  # Tiempo antes de explotar
 DYNAMITE_EXPLOSION_RADIUS = 80
+DYNAMITE_QUANTITY = 3
 DEAD_ZONE = 0.15
 
 # Level dimensions - NIVELES VERTICALES
