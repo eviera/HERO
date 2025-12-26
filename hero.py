@@ -314,7 +314,7 @@ class Game:
         # Load fonts
         try:
             self.font = pygame.font.Font("fonts/PressStart2P-vaV7.ttf", 16)
-            self.small_font = pygame.font.Font("fonts/PressStart2P-vaV7.ttf", 10)
+            self.small_font = pygame.font.Font("fonts/PressStart2P-vaV7.ttf", 13)
         except:
             self.font = pygame.font.Font(None, 24)
             self.small_font = pygame.font.Font(None, 16)
@@ -367,7 +367,7 @@ class Game:
             self.background_image = pygame.transform.scale(self.background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
             
             self.gray_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            self.gray_overlay.set_alpha(80)      
+            self.gray_overlay.set_alpha(140)      
             self.gray_overlay.fill((128, 128, 128))
             
             print("Background image loaded successfully")
@@ -705,14 +705,14 @@ class Game:
 
     def draw_text_with_outline(self, font, text, color, outline_color, center, outline=1):
         # Texto base
-        text_surf = self.font.render(text, True, color)
+        text_surf = font.render(text, True, color)
         text_rect = text_surf.get_rect(center=center)
 
         # Outline (dibujos alrededor)
         for dx in (-outline, 0, outline):
             for dy in (-outline, 0, outline):
                 if dx != 0 or dy != 0:
-                    outline_surf = self.font.render(text, True, outline_color)
+                    outline_surf = font.render(text, True, outline_color)
                     outline_rect = outline_surf.get_rect(center=(center[0] + dx, center[1] + dy))
                     self.screen.blit(outline_surf, outline_rect)
 
