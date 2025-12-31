@@ -283,6 +283,7 @@ class Game:
 
         # Sound state
         self.helicopter_playing = False
+        self.splash_theme_playing = False
 
         # Name entry
         self.player_name = ""
@@ -357,6 +358,7 @@ class Game:
             self.sounds['death'] = pygame.mixer.Sound("sounds/death.wav")
             self.sounds['splatter'] = pygame.mixer.Sound("sounds/splatter.wav")
             self.sounds['helicopter'] = pygame.mixer.Sound("sounds/helicopter.wav")
+            self.sounds['splash_theme'] = pygame.mixer.Sound("sounds/splash_screen_theme.wav")
             print("Sounds loaded successfully")
         except Exception as e:
             print(f"Error loading sounds: {e}")
@@ -893,6 +895,19 @@ class Game:
                 self.update_playing(dt)
             elif self.state == STATE_LEVEL_COMPLETE:
                 self.update_level_complete(dt)
+
+            # Splash theme music management
+            if 'splash_theme' in self.sounds:
+                if self.state == STATE_SPLASH:
+                    # Start playing if not already
+                    if not self.splash_theme_playing:
+                        self.sounds['splash_theme'].play(loops=-1)  # Loop indefinitely
+                        self.splash_theme_playing = True
+                else:
+                    # Stop playing if we're not in splash screen
+                    if self.splash_theme_playing:
+                        self.sounds['splash_theme'].stop()
+                        self.splash_theme_playing = False
 
             # Render
             self.screen.fill(COLOR_BLACK)
