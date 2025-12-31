@@ -14,6 +14,7 @@ from dynamite import Dynamite
 from enemy import Enemy
 from miner import Miner
 from player import Player
+from audio_effects import apply_sid_to_sound
 
 ##################################################################################################
 # Utility Functions
@@ -358,7 +359,18 @@ class Game:
             self.sounds['death'] = pygame.mixer.Sound("sounds/death.wav")
             self.sounds['splatter'] = pygame.mixer.Sound("sounds/splatter.wav")
             self.sounds['helicopter'] = pygame.mixer.Sound("sounds/helicopter.wav")
-            self.sounds['splash_theme'] = pygame.mixer.Sound("sounds/splash_screen_theme.wav")
+
+            # Load splash theme original
+            splash_original = pygame.mixer.Sound("sounds/splash_screen_theme.wav")
+
+            # Apply SID emulation effects
+            print("Applying SID effects to splash theme...")
+            self.sounds['splash_theme'] = apply_sid_to_sound(
+                splash_original,
+                intensity=SID_INTENSITY
+            )
+            print(f"SID effects applied (intensity: {SID_INTENSITY})")
+
             print("Sounds loaded successfully")
         except Exception as e:
             print(f"Error loading sounds: {e}")

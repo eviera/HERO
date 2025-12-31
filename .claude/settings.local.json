@@ -12,7 +12,9 @@
       "Bash(timeout 8 python:*)",
       "Bash(file:*)",
       "Bash(timeout 3 type:*)",
-      "Bash(timeout 3 python:*)"
+      "Bash(timeout 3 python:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)"
     ]
   }
 }
