@@ -12,7 +12,7 @@ class Dynamite:
         self.exploded = False
         self.explosion_time = 0.5
         self.active = True
-        self.width = 16
+        self.width = 8
         self.height = 16
         self.on_ground = False
 
@@ -84,7 +84,7 @@ class Dynamite:
                 # Fuse blinking
                 if self.fuse_time % 0.3 < 0.15:
                     pygame.draw.circle(screen, COLOR_YELLOW,
-                                     (int(self.x + 8), int(screen_y)), 3)
+                                     (int(self.x + (self.width) / 2), int(screen_y)), 3)
             else:
                 # Draw explosion
                 radius = int(DYNAMITE_EXPLOSION_RADIUS * (self.explosion_time / 0.5))

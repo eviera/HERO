@@ -234,7 +234,8 @@ def generate_level(level_num):
     """Return a fixed level from LEVELS array"""
     if level_num < 0 or level_num >= len(LEVELS):
         level_num = 0
-    return LEVELS[level_num]
+    # Devolver copia para no modificar el nivel original
+    return list(LEVELS[level_num])
 
 ##################################################################################################
 # Game Class
