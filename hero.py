@@ -150,6 +150,9 @@ class Game:
         self.helicopter_playing = False
         self.splash_theme_playing = False
 
+        # Quit confirmation
+        self.show_quit_confirm = False
+
         # Name entry
         self.player_name = ""
 
@@ -223,6 +226,7 @@ class Game:
             self.sounds['death'] = pygame.mixer.Sound("sounds/death.wav")
             self.sounds['splatter'] = pygame.mixer.Sound("sounds/splatter.wav")
             self.sounds['helicopter'] = pygame.mixer.Sound("sounds/helicopter.wav")
+            self.sounds['win_screen'] = pygame.mixer.Sound("sounds/win_screen.wav")
 
             # Load splash theme original
             splash_original = pygame.mixer.Sound("sounds/splash_screen_theme.wav")
@@ -439,6 +443,10 @@ class Game:
         if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
             self.sounds['helicopter'].stop()
             self.helicopter_playing = False
+
+        # Play win sound
+        if 'win_screen' in self.sounds:
+            self.sounds['win_screen'].play()
 
         self.state = STATE_LEVEL_COMPLETE
         self.level_complete_timer = 2.0
@@ -716,6 +724,14 @@ class Game:
                     running = False
 
                 elif event.type == pygame.KEYDOWN:
+                    # Quit confirmation dialog
+                    if self.show_quit_confirm:
+                        if event.key in (pygame.K_y, pygame.K_ESCAPE):
+                            running = False
+                        else:
+                            self.show_quit_confirm = False
+                        continue
+
                     if self.state == STATE_SPLASH:
                         if event.key == pygame.K_SPACE:
                             self.level_num = 0
@@ -725,7 +741,7 @@ class Game:
                             self.last_life_score = 0
                             self.start_level()
                         elif event.key == pygame.K_ESCAPE:
-                            running = False
+                            self.show_quit_confirm = True
 
                     elif self.state == STATE_PLAYING:
                         if event.key == pygame.K_SPACE:
@@ -818,6 +834,17 @@ class Game:
 
             elif self.state == STATE_ENTERING_NAME:
                 self.render_entering_name()
+
+            # Quit confirmation overlay
+            if self.show_quit_confirm:
+                overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+                overlay.set_alpha(220)
+                overlay.fill(COLOR_BLACK)
+                self.screen.blit(overlay, (0, 0))
+
+                quit_text = self.font.render("Do you want to quit (Y/N)?", True, COLOR_WHITE)
+                quit_rect = quit_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))
+                self.screen.blit(quit_text, quit_rect)
 
             pygame.display.flip()
 
