@@ -54,6 +54,9 @@ COLOR_MAGENTA = (255, 0, 255)
 # Scores file
 SCORES_FILE = "scores.json"
 
+# Screens file (niveles del juego)
+SCREENS_FILE = "screens.json"
+
 # SID Audio Effects (Commodore 64 emulation)
 SID_INTENSITY = 'light'  # 'light', 'medium', o 'heavy'
 SID_BITDEPTH = 8         # bits (1-8)

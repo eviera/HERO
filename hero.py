@@ -52,7 +52,7 @@ def add_score(name, score):
 ##################################################################################################
 # Level Generator
 ##################################################################################################
-# NIVELES FIJOS - No procedurales
+# Niveles cargados desde screens.json
 # Leyenda:
 #   S = Start (jugador)
 #   M = Miner (persona a rescatar)
@@ -63,175 +63,38 @@ def add_score(name, score):
 #   . = Suelo/plataforma
 #   (espacio) = Aire
 
-LEVELS = [
-    # Nivel 1 - Tutorial: Rescate con dinamita
-    [
-        "################",
-        "#  S           #",
-        "#              #",
-        "#              #",
-        "#      E       #",
-        "#              #",
-        "#  BBB         #",
-        "#  ###.......  #",
-        "#              #",
-        "#              #",
-        "#   E          #",
-        "#              #",
-        "#     BBB      #",
-        "#     ###....  #",
-        "#              #",
-        "#              #",
-        "#        A     #",
-        "#              #",
-        "#              #",
-        "#              #",
-        "#              #",
-        "#      ###     #",
-        "#      #M#     #",
-        "#..............#",
-        "################",
-        "################",
-        "################",
-        "################",
-        "################"
-    ],
-    # Nivel 2 - Minero encerrado
-    [
-        "################",
-        "#   S          #",
-        "#              #",
-        "#  E        E  #",
-        "#              #",
-        "#  BBBBB       #",
-        "#  #####.....  #",
-        "#              #",
-        "#       A      #",
-        "#              #",
-        "#####      #####",
-        "#       E      #",
-        "#   A          #",
-        "#              #",
-        "#       BBBBB  #",
-        "#  .....#####  #",
-        "#              #",
-        "#  E       E   #",
-        "#       A      #",
-        "#####      #####",
-        "#              #",
-        "#   E      A   #",
-        "#              #",
-        "#   ########   #",
-        "#   #BBBBBB#   #",
-        "#   #      #   #",
-        "#   #  M   #   #",
-        "#...########...#",
-        "################",
-        "################"
-    ],
-    # Nivel 3 - Laberinto estrecho
-    [
-        "################",
-        "#      S       #",
-        "#              #",
-        "#              #",
-        "#  E           #",
-        "#              #",
-        "#  BBB    #####",
-        "#  ###    #####",
-        "#         #####",
-        "#      A       #",
-        "#              #",
-        "#####          #",
-        "#####     #####",
-        "#####     #####",
-        "#   BBB   #####",
-        "#   ###   #####",
-        "#     E        #",
-        "#              #",
-        "#####     #####",
-        "#####     #####",
-        "#    BBBBB     #",
-        "#    #####...  #",
-        "#              #",
-        "#       M      #",
-        "#..............#",
-        "################",
-        "################",
-        "################",
-        "################",
-        "################"
-    ],
-    # Nivel 4 - Muchos bloques
-    [
-        "################",
-        "#       S      #",
-        "#              #",
-        "#              #",
-        "#        E     #",
-        "# BBBBBBBBBBB  #",
-        "# ############ #",
-        "#              #",
-        "#    A         #",
-        "# BBBBBBBBBBB  #",
-        "# ############ #",
-        "#              #",
-        "#        E     #",
-        "# BBBBBBBBBBB  #",
-        "# ############ #",
-        "#              #",
-        "#    A         #",
-        "# BBBBBBBBBBB  #",
-        "# ############ #",
-        "#              #",
-        "#              #",
-        "#       M      #",
-        "#..............#",
-        "################",
-        "################",
-        "################",
-        "################",
-        "################",
-        "################",
-        "################"
-    ],
-    # Nivel 5 - Difícil
-    [
-        "################",
-        "#      S       #",
-        "#              #",
-        "#              #",
-        "#   E          #",
-        "#   BBB        #",
-        "#   ###   #####",
-        "#         #####",
-        "#####     #####",
-        "#####          #",
-        "#####  A       #",
-        "#####          #",
-        "#####     #####",
-        "#####     #####",
-        "#    E    #####",
-        "#  BBB    #####",
-        "#  ###    #####",
-        "#         #####",
-        "#####     #####",
-        "#####          #",
-        "#####  A       #",
-        "#    BBBBB     #",
-        "#    #####...  #",
-        "#              #",
-        "#       M      #",
-        "#..............#",
-        "################",
-        "################",
-        "################",
-        "################"
-    ]
-]
+def load_levels_from_file():
+    """Cargar niveles desde screens.json"""
+    if os.path.exists(SCREENS_FILE):
+        try:
+            with open(SCREENS_FILE, 'r', encoding='utf-8') as f:
+                screens = json.load(f)
+                levels = []
+                for s in screens:
+                    level_map = s["map"]
+                    # Normalizar dimensiones
+                    normalized = []
+                    for row in level_map:
+                        if len(row) < LEVEL_WIDTH:
+                            row = row + '#' * (LEVEL_WIDTH - len(row))
+                        normalized.append(row[:LEVEL_WIDTH])
+                    while len(normalized) < LEVEL_HEIGHT:
+                        normalized.append('#' * LEVEL_WIDTH)
+                    levels.append(normalized[:LEVEL_HEIGHT])
+                return levels
+        except Exception as e:
+            print(f"Error cargando niveles: {e}")
+    return []
+
+LEVELS = load_levels_from_file()
 
 def generate_level(level_num):
-    """Return a fixed level from LEVELS array"""
+    """Return a level loaded from screens.json"""
+    if len(LEVELS) == 0:
+        print("ERROR: No se encontraron niveles en screens.json")
+        # Nivel de emergencia
+        empty = ['#' * LEVEL_WIDTH] * LEVEL_HEIGHT
+        return list(empty)
     if level_num < 0 or level_num >= len(LEVELS):
         level_num = 0
     # Devolver copia para no modificar el nivel original
@@ -583,7 +446,7 @@ class Game:
     def next_level(self):
         """Advance to next level"""
         self.level_num += 1
-        if self.level_num >= 5:
+        if self.level_num >= len(LEVELS):
             # Won game!
             self.state = STATE_ENTERING_NAME
         else:
