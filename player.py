@@ -33,20 +33,26 @@ class Player:
     def update(self, dt, keys, joy_axis_x, joy_axis_y, level_map, game):
         """Update player with CORRECT HERO physics"""
 
-        # Horizontal movement
+        # Horizontal movement - gradual con joystick, fijo con teclado
         move_x = 0
-        if keys[pygame.K_LEFT] or joy_axis_x < -DEAD_ZONE:
+        if keys[pygame.K_LEFT]:
             move_x = -1
             self.facing_right = False
-        elif keys[pygame.K_RIGHT] or joy_axis_x > DEAD_ZONE:
+        elif keys[pygame.K_RIGHT]:
             move_x = 1
+            self.facing_right = True
+
+        # Joystick horizontal: intensidad gradual
+        if joy_axis_x < -DEAD_ZONE:
+            move_x = joy_axis_x  # Valor entre -1.0 y -DEAD_ZONE
+            self.facing_right = False
+        elif joy_axis_x > DEAD_ZONE:
+            move_x = joy_axis_x  # Valor entre DEAD_ZONE y 1.0
             self.facing_right = True
 
         self.vel_x = move_x * PLAYER_SPEED_X
 
         # Check if grounded (standing on something)
-        # Test a position slightly below current position
-        # Need to check far enough that collision points (y+29) would detect ground
         self.is_grounded = self.check_collision(self.x, self.y + 2, level_map)
 
         # GRAVITY - only apply if not grounded or using propulsor
@@ -56,12 +62,28 @@ class Player:
             # Grounded and not jumping - zero velocity to prevent accumulation
             self.vel_y = 0
 
-        # Propulsor - MANTENER PRESIONADO para volar
+        # Propulsor - gradual con joystick, fijo con teclado
+        # Solo funciona si hay energia
         self.using_propulsor = False
-        if keys[pygame.K_UP] or joy_axis_y < -DEAD_ZONE:
-            self.using_propulsor = True
-            self.vel_y -= PROPULSOR_POWER * dt
-            game.energy -= ENERGY_DRAIN_PROPULSOR * dt
+        if game.energy > 0:
+            if keys[pygame.K_UP]:
+                # Teclado: potencia completa
+                self.using_propulsor = True
+                self.vel_y -= PROPULSOR_POWER * dt
+                game.energy -= ENERGY_DRAIN_PROPULSOR * dt
+            elif joy_axis_y < -DEAD_ZONE:
+                # Joystick arriba: potencia gradual segun inclinacion
+                intensity = abs(joy_axis_y)  # 0.15 a 1.0
+                self.using_propulsor = True
+                self.vel_y -= PROPULSOR_POWER * intensity * dt
+                game.energy -= ENERGY_DRAIN_PROPULSOR * intensity * dt
+
+        # Descenso activo - helice invertida para bajar mas rapido
+        if keys[pygame.K_DOWN]:
+            self.vel_y += DIVE_POWER * dt
+        elif joy_axis_y > DEAD_ZONE:
+            intensity = abs(joy_axis_y)
+            self.vel_y += DIVE_POWER * intensity * dt
 
         # Limit fall speed
         if self.vel_y > MAX_FALL_SPEED:
@@ -88,8 +110,9 @@ class Player:
         self.x = max(0, min(self.x, LEVEL_WIDTH * TILE_SIZE - self.width))
         self.y = max(0, min(self.y, LEVEL_HEIGHT * TILE_SIZE - self.height))
 
-        # Passive energy drain
-        game.energy -= ENERGY_DRAIN_PASSIVE * dt
+        # Energia: recuperar en el suelo, no drenar pasivamente
+        if self.is_grounded and not self.using_propulsor:
+            game.energy = min(game.energy + ENERGY_RECOVERY * dt, MAX_ENERGY)
 
     def check_collision(self, x, y, level_map):
         """Check collision with tiles"""

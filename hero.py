@@ -462,9 +462,8 @@ class Game:
 
     def update_playing(self, dt):
         """Update game during play"""
-        if self.energy <= 0:
-            self.player_hit()
-            return
+        if self.energy < 0:
+            self.energy = 0
 
         # Update player
         self.player.update(dt, self.keys, self.joy_axis_x, self.joy_axis_y,
@@ -580,7 +579,7 @@ class Game:
         bar_y = hud_y + 25
 
         # Background
-        pygame.draw.rect(self.screen, COLOR_RED, (bar_x, bar_y, bar_width, bar_height))
+        pygame.draw.rect(self.screen, (0, 0, 80), (bar_x, bar_y, bar_width, bar_height))
 
         # Energy fill
         energy_width = int((self.energy / MAX_ENERGY) * bar_width)
