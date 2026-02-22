@@ -14,7 +14,9 @@
       "Bash(timeout 3 type:*)",
       "Bash(timeout 3 python:*)",
       "Bash(find:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(cd:*)"
     ]
   }
 }

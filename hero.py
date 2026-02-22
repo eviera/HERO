@@ -96,36 +96,36 @@ LEVELS = [
         "################",
         "################"
     ],
-    # Nivel 2 - Más enemigos
+    # Nivel 2 - Minero encerrado
     [
         "################",
-        "#       S      #",
+        "#   S          #",
         "#              #",
+        "#  E        E  #",
         "#              #",
-        "#   E      E   #",
+        "#  BBBBB       #",
+        "#  #####.....  #",
         "#              #",
-        "#    BBBBB     #",
-        "#    #####...  #",
+        "#       A      #",
         "#              #",
+        "#####      #####",
+        "#       E      #",
+        "#   A          #",
         "#              #",
-        "#     A        #",
+        "#       BBBBB  #",
+        "#  .....#####  #",
         "#              #",
-        "#   BBB   BBB  #",
-        "#   ###   ###  #",
+        "#  E       E   #",
+        "#       A      #",
+        "#####      #####",
         "#              #",
+        "#   E      A   #",
         "#              #",
-        "#  E       A   #",
-        "#              #",
-        "#     BBBBB    #",
-        "#     #####..  #",
-        "#              #",
-        "#              #",
-        "#       M      #",
-        "#..............#",
-        "################",
-        "################",
-        "################",
-        "################",
+        "#   ########   #",
+        "#   #BBBBBB#   #",
+        "#   #      #   #",
+        "#   #  M   #   #",
+        "#...########...#",
         "################",
         "################"
     ],
@@ -365,12 +365,13 @@ class Game:
             splash_original = pygame.mixer.Sound("sounds/splash_screen_theme.wav")
 
             # Apply SID emulation effects
-            print("Applying SID effects to splash theme...")
-            self.sounds['splash_theme'] = apply_sid_to_sound(
-                splash_original,
-                intensity=SID_INTENSITY
-            )
-            print(f"SID effects applied (intensity: {SID_INTENSITY})")
+            # print("Applying SID effects to splash theme...")
+            # self.sounds['splash_theme'] = apply_sid_to_sound(
+            #     splash_original,
+            #     intensity=SID_INTENSITY
+            # )
+            # print(f"SID effects applied (intensity: {SID_INTENSITY})")
+            self.sounds['splash_theme'] = splash_original
 
             print("Sounds loaded successfully")
         except Exception as e:
