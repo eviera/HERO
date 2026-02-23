@@ -4,6 +4,8 @@
 import pygame
 import json
 import os
+import math
+import array
 
 # Import constants
 from constants import *
@@ -115,6 +117,9 @@ class Game:
         self.gray_overlay = None
         self.font = None
         self.small_font = None
+        self.hud_font = None
+        self.hud_player_icon = None
+        self.hud_bomb_icon = None
 
         # Game state
         self.state = STATE_SPLASH
@@ -159,6 +164,14 @@ class Game:
         # Score tracking
         self.last_life_score = 0
 
+        # Level complete animation (ColecoVision style)
+        self.level_complete_phase = 0     # 0=energy drain, 1=bombs, 2=display
+        self.bomb_explosion_effects = []  # Efectos activos de explosion en HUD
+        self.score_beep_timer = 0         # Timer entre beeps
+        self.score_beep_index = 0         # Indice del beep actual (para pitch ascendente)
+        self.bomb_explode_timer = 0       # Timer entre explosiones de bombas
+        self.score_beeps = []             # Beep sounds pre-generados
+
     def init(self):
         """Initialize pygame and resources"""
         pygame.init()
@@ -188,6 +201,12 @@ class Game:
             self.font = pygame.font.Font(None, 24)
             self.small_font = pygame.font.Font(None, 16)
 
+        # HUD font (ColecoVision style, smaller)
+        try:
+            self.hud_font = pygame.font.Font("fonts/PressStart2P-vaV7.ttf", 12)
+        except:
+            self.hud_font = pygame.font.Font(None, 16)
+
         # Load tiles
         try:
             self.tiles['wall'] = pygame.image.load("tiles/wall.png").convert_alpha()
@@ -212,6 +231,8 @@ class Game:
         try:
             self.sprites['player'] = pygame.image.load("sprites/player.png").convert_alpha()
             self.sprites['player_shooting'] = pygame.image.load("sprites/player_shooting.png").convert_alpha()
+            self.sprites['player_walk1'] = pygame.image.load("sprites/player_walk1.png").convert_alpha()
+            self.sprites['player_walk2'] = pygame.image.load("sprites/player_walk2.png").convert_alpha()
             self.sprites['enemy'] = pygame.image.load("sprites/enemy.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['bomb'] = pygame.image.load("sprites/bomb.png").convert_alpha()
@@ -220,6 +241,12 @@ class Game:
         except Exception as e:
             print(f"Error loading sprites: {e}")
 
+        # Crear mini-iconos para el HUD (ColecoVision style)
+        if 'player' in self.sprites:
+            self.hud_player_icon = pygame.transform.scale(self.sprites['player'], (16, 16))
+        if 'bomb' in self.sprites:
+            self.hud_bomb_icon = pygame.transform.scale(self.sprites['bomb'], (16, 16))
+
         # Load sounds
         try:
             self.sounds['shoot'] = pygame.mixer.Sound("sounds/shoot.wav")
@@ -227,6 +254,7 @@ class Game:
             self.sounds['death'] = pygame.mixer.Sound("sounds/death.wav")
             self.sounds['splatter'] = pygame.mixer.Sound("sounds/splatter.wav")
             self.sounds['helicopter'] = pygame.mixer.Sound("sounds/helicopter.wav")
+            self.sounds['walk'] = pygame.mixer.Sound("sounds/walk.wav")
             self.sounds['win_screen'] = pygame.mixer.Sound("sounds/win_screen.wav")
 
             # Load splash theme original
@@ -257,7 +285,27 @@ class Game:
             print("Background image loaded successfully")
         except Exception as e:
             print(f"Error loading background image: {e}")
-            
+
+        # Generar beep sounds ascendentes para animacion de score
+        self.score_beeps = []
+        for i in range(10):
+            freq = 400 + i * 80  # 400Hz → 1120Hz
+            beep = self._generate_beep(freq, duration_ms=50, volume=0.3)
+            self.score_beeps.append(beep)
+
+    def _generate_beep(self, frequency, duration_ms=50, volume=0.3):
+        """Genera un sonido corto sine wave sin dependencia de numpy"""
+        mixer_info = pygame.mixer.get_init()
+        sample_rate, bit_size, channels = mixer_info
+        n_samples = int(sample_rate * duration_ms / 1000)
+        samples = []
+        max_val = int(32767 * volume)
+        for i in range(n_samples):
+            val = int(max_val * math.sin(2 * math.pi * frequency * i / sample_rate))
+            samples.append(val)
+            if channels == 2:
+                samples.append(val)  # duplicar para stereo
+        return pygame.mixer.Sound(buffer=array.array('h', samples))
 
     def start_level(self):
         """Start a new level"""
@@ -286,6 +334,10 @@ class Game:
             self.player.image = self.sprites['player']
         if 'player_shooting' in self.sprites:
             self.player.image_shooting = self.sprites['player_shooting']
+        if 'player_walk1' in self.sprites and 'player_walk2' in self.sprites:
+            self.player.walk_frames = [self.sprites['player_walk1'], self.sprites['player_walk2']]
+        if 'walk' in self.sounds:
+            self.player.walk_sound = self.sounds['walk']
 
         # Parse level and create entities
         for row_index, row in enumerate(self.level_map):
@@ -447,22 +499,32 @@ class Game:
             self.start_level()
 
     def rescue_miner(self):
-        """Rescue miner and complete level"""
+        """Rescue miner and complete level - inicia animacion ColecoVision"""
         self.miner.rescued = True
-        bonus = int(self.energy) + (self.dynamite_count * 50)
-        self.score += 1000 + bonus
+        self.score += 1000  # Solo puntos base por rescate
 
         # Stop helicopter sound
         if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
             self.sounds['helicopter'].stop()
             self.helicopter_playing = False
 
-        # Play win sound
-        if 'win_screen' in self.sounds:
-            self.sounds['win_screen'].play()
-
+        # Inicializar animacion de level complete
         self.state = STATE_LEVEL_COMPLETE
-        self.level_complete_timer = 2.0
+        self.score_beep_timer = 0
+        self.score_beep_index = 0
+        self.bomb_explosion_effects = []
+        self.bomb_explode_timer = 0
+
+        # Determinar fase inicial
+        if self.energy > 0:
+            self.level_complete_phase = 0  # Energy drain
+        elif self.dynamite_count > 0:
+            self.level_complete_phase = 1  # Bomb explosions
+        else:
+            self.level_complete_phase = 2  # Display directo
+            self.level_complete_timer = 2.0
+            if 'win_screen' in self.sounds:
+                self.sounds['win_screen'].play()
 
     def next_level(self):
         """Advance to next level"""
@@ -530,10 +592,85 @@ class Game:
             self.last_life_score = self.score
 
     def update_level_complete(self, dt):
-        """Update level complete state"""
-        self.level_complete_timer -= dt
-        if self.level_complete_timer <= 0:
-            self.next_level()
+        """Update level complete state - animacion ColecoVision de 3 fases"""
+
+        if self.level_complete_phase == 0:
+            # Fase 0: Drenar energia, sumar puntos, beeps ascendentes
+            drain_rate = MAX_ENERGY / 1.5  # Drenar toda la energia en ~1.5 seg
+            drain_amount = drain_rate * dt
+            actual_drain = min(drain_amount, self.energy)
+            self.energy -= actual_drain
+            self.score += int(actual_drain)
+
+            # Beeps ascendentes cada ~80ms
+            self.score_beep_timer += dt
+            if self.score_beep_timer >= 0.08 and self.score_beeps:
+                self.score_beep_timer -= 0.08
+                beep_idx = min(self.score_beep_index, len(self.score_beeps) - 1)
+                self.score_beeps[beep_idx].play()
+                self.score_beep_index = (self.score_beep_index + 1) % len(self.score_beeps)
+
+            # Pasar a fase 1 cuando se acaba la energia
+            if self.energy <= 0:
+                self.energy = 0
+                if self.dynamite_count > 0:
+                    self.level_complete_phase = 1
+                    self.bomb_explode_timer = 0.3  # Pequeña pausa antes de la primera bomba
+                else:
+                    self.level_complete_phase = 2
+                    self.level_complete_timer = 2.0
+                    if 'win_screen' in self.sounds:
+                        self.sounds['win_screen'].play()
+
+        elif self.level_complete_phase == 1:
+            # Fase 1: Explotar bombas una por una
+            # Actualizar efectos de explosion existentes
+            for effect in self.bomb_explosion_effects[:]:
+                effect['timer'] -= dt
+                if effect['timer'] <= 0:
+                    self.bomb_explosion_effects.remove(effect)
+
+            self.bomb_explode_timer -= dt
+            if self.bomb_explode_timer <= 0 and self.dynamite_count > 0:
+                # Calcular posicion del icono de bomba en HUD
+                panel_w = 70
+                ce = SCREEN_WIDTH - panel_w - 10
+                icon_gap = 2
+                hud_y = VIEWPORT_HEIGHT
+                icons_y = hud_y + 28
+                bomb_count = self.dynamite_count
+                # Posicion de la bomba mas a la izquierda (la que va a explotar)
+                bx = ce - bomb_count * (16 + icon_gap) + icon_gap
+                by = icons_y
+
+                # Crear efecto de explosion en esa posicion
+                self.bomb_explosion_effects.append({
+                    'x': bx + 8,  # Centro del icono
+                    'y': by + 8,
+                    'timer': 0.4,
+                    'max_timer': 0.4
+                })
+
+                self.dynamite_count -= 1
+                self.score += 50
+
+                if 'explosion' in self.sounds:
+                    self.sounds['explosion'].play()
+
+                self.bomb_explode_timer = 0.5  # Intervalo entre bombas
+
+            # Pasar a fase 2 cuando no quedan bombas y terminan los efectos
+            if self.dynamite_count <= 0 and len(self.bomb_explosion_effects) == 0:
+                self.level_complete_phase = 2
+                self.level_complete_timer = 2.0
+                if 'win_screen' in self.sounds:
+                    self.sounds['win_screen'].play()
+
+        elif self.level_complete_phase == 2:
+            # Fase 2: Mostrar "LEVEL COMPLETE!" por 2 segundos
+            self.level_complete_timer -= dt
+            if self.level_complete_timer <= 0:
+                self.next_level()
 
     def render_level(self):
         """Render visible part of level"""
@@ -560,48 +697,99 @@ class Game:
                     self.screen.blit(self.tiles['blank'], (x, int(y)))
 
     def render_hud(self):
-        """Render HUD"""
+        """Render HUD - ColecoVision style"""
         hud_y = VIEWPORT_HEIGHT
-        hud_bg = pygame.Surface((SCREEN_WIDTH, 64))
-        hud_bg.fill(COLOR_BLACK)
-        self.screen.blit(hud_bg, (0, hud_y))
+        hud_h = HUD_HEIGHT
 
-        # Score
-        score_text = self.small_font.render(f"SCORE:{self.score}", True, COLOR_WHITE)
-        self.screen.blit(score_text, (10, hud_y + 5))
+        # Colores paleta ColecoVision TMS9918A
+        cv_yellow = (212, 193, 84)
+        cv_red = (212, 82, 77)
+        cv_gray = (192, 192, 192)
+        cv_highlight = (224, 224, 224)
+        cv_shadow = (140, 140, 140)
 
-        # Level
-        level_text = self.small_font.render(f"LVL:{self.level_num+1}", True, COLOR_WHITE)
-        self.screen.blit(level_text, (10, hud_y + 25))
+        # Fondo negro para toda el area del HUD
+        pygame.draw.rect(self.screen, COLOR_BLACK, (0, hud_y, SCREEN_WIDTH, hud_h))
 
-        # Lives
-        lives_text = self.small_font.render(f"LIVES:{self.lives}", True, COLOR_WHITE)
-        self.screen.blit(lives_text, (150, hud_y + 5))
+        # --- Paneles grises laterales con bisel 3D ---
+        panel_w = 70
 
-        # Dynamite
-        dyn_text = self.small_font.render(f"BOMBS:{self.dynamite_count}", True, COLOR_WHITE)
-        self.screen.blit(dyn_text, (150, hud_y + 25))
+        # Panel izquierdo
+        pygame.draw.rect(self.screen, cv_gray, (0, hud_y, panel_w, hud_h))
+        pygame.draw.rect(self.screen, cv_highlight, (0, hud_y, panel_w, 2))
+        pygame.draw.rect(self.screen, cv_highlight, (0, hud_y, 2, hud_h))
+        pygame.draw.rect(self.screen, cv_shadow, (0, hud_y + hud_h - 2, panel_w, 2))
+        pygame.draw.rect(self.screen, cv_shadow, (panel_w - 2, hud_y, 2, hud_h))
 
-        # Energy bar
-        energy_text = self.small_font.render("ENERGY", True, COLOR_WHITE)
-        self.screen.blit(energy_text, (300, hud_y + 5))
+        # Panel derecho
+        rx = SCREEN_WIDTH - panel_w
+        pygame.draw.rect(self.screen, cv_gray, (rx, hud_y, panel_w, hud_h))
+        pygame.draw.rect(self.screen, cv_highlight, (rx, hud_y, panel_w, 2))
+        pygame.draw.rect(self.screen, cv_highlight, (rx, hud_y, 2, hud_h))
+        pygame.draw.rect(self.screen, cv_shadow, (rx, hud_y + hud_h - 2, panel_w, 2))
+        pygame.draw.rect(self.screen, cv_shadow, (SCREEN_WIDTH - 2, hud_y, 2, hud_h))
 
-        bar_width = 200
-        bar_height = 20
-        bar_x = 300
-        bar_y = hud_y + 25
+        # --- Area central ---
+        cx = panel_w + 10
+        ce = SCREEN_WIDTH - panel_w - 10
 
-        # Background
-        pygame.draw.rect(self.screen, (0, 0, 80), (bar_x, bar_y, bar_width, bar_height))
+        # Fila 1: POWER label + barra de energia
+        power_label = self.hud_font.render("POWER", True, cv_yellow)
+        self.screen.blit(power_label, (cx, hud_y + 8))
 
-        # Energy fill
-        energy_width = int((self.energy / MAX_ENERGY) * bar_width)
-        if energy_width > 0:
-            color = COLOR_GREEN if self.energy > MAX_ENERGY * 0.3 else COLOR_YELLOW if self.energy > MAX_ENERGY * 0.15 else COLOR_RED
-            pygame.draw.rect(self.screen, color, (bar_x, bar_y, energy_width, bar_height))
+        bar_x = cx + power_label.get_width() + 8
+        bar_y = hud_y + 8
+        bar_w = ce - bar_x
+        bar_h = 12
 
-        # Border
-        pygame.draw.rect(self.screen, COLOR_WHITE, (bar_x, bar_y, bar_width, bar_height), 2)
+        # Barra: fondo rojo (energia gastada), relleno amarillo (energia restante)
+        pygame.draw.rect(self.screen, cv_red, (bar_x, bar_y, bar_w, bar_h))
+        energy_pct = max(0, min(1, self.energy / MAX_ENERGY))
+        fill_w = int(energy_pct * bar_w)
+        if fill_w > 0:
+            pygame.draw.rect(self.screen, cv_yellow, (bar_x, bar_y, fill_w, bar_h))
+
+        # Fila 2: Vidas (iconos player) izquierda, Bombas (iconos bomb) derecha
+        icons_y = hud_y + 28
+        icon_gap = 2
+
+        # Iconos de vidas
+        for i in range(min(self.lives, 10)):
+            ix = cx + i * (16 + icon_gap)
+            if self.hud_player_icon:
+                self.screen.blit(self.hud_player_icon, (ix, icons_y))
+            else:
+                pygame.draw.rect(self.screen, COLOR_BLUE, (ix + 2, icons_y, 12, 16))
+
+        # Iconos de bombas (alineados a la derecha)
+        bomb_count = max(0, min(self.dynamite_count, 10))
+        for i in range(bomb_count):
+            bx = ce - (bomb_count - i) * (16 + icon_gap)
+            if self.hud_bomb_icon:
+                self.screen.blit(self.hud_bomb_icon, (bx, icons_y))
+            else:
+                pygame.draw.rect(self.screen, cv_red, (bx + 3, icons_y, 10, 16))
+
+        # Efectos de explosion de bombas (animacion level complete)
+        for effect in self.bomb_explosion_effects:
+            progress = 1.0 - (effect['timer'] / effect['max_timer'])
+            radius = int(6 + progress * 10)
+            alpha = int(255 * (1.0 - progress))
+            # Circulo naranja que se expande
+            explosion_surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(explosion_surf, (255, 165, 0, alpha), (radius, radius), radius)
+            # Circulo amarillo interior
+            inner_r = max(1, int(radius * 0.5))
+            pygame.draw.circle(explosion_surf, (255, 255, 0, alpha), (radius, radius), inner_r)
+            self.screen.blit(explosion_surf, (effect['x'] - radius, effect['y'] - radius))
+
+        # Fila 3: LEVEL + numero (izquierda), Score (derecha)
+        bottom_y = hud_y + 54
+        level_text = self.hud_font.render(f"LEVEL: {self.level_num + 1}", True, cv_yellow)
+        self.screen.blit(level_text, (cx, bottom_y))
+
+        score_text = self.hud_font.render(f"{self.score}", True, cv_yellow)
+        self.screen.blit(score_text, (ce - score_text.get_width(), bottom_y))
 
     def draw_text_with_outline(self, font, text, color, outline_color, center, outline=1):
         # Texto base
@@ -678,7 +866,7 @@ class Game:
         self.screen.blit(instr, instr_rect)
 
     def render_level_complete(self):
-        """Render level complete overlay"""
+        """Render level complete - fases 0 y 1 muestran juego + HUD, fase 2 agrega overlay"""
         self.render_level()
 
         if self.miner:
@@ -698,15 +886,16 @@ class Game:
 
         self.render_hud()
 
-        # Overlay
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-        overlay.set_alpha(128)
-        overlay.fill(COLOR_BLACK)
-        self.screen.blit(overlay, (0, 0))
+        # Solo en fase 2: overlay oscuro + texto "LEVEL COMPLETE!"
+        if self.level_complete_phase == 2:
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(128)
+            overlay.fill(COLOR_BLACK)
+            self.screen.blit(overlay, (0, 0))
 
-        complete = self.font.render("LEVEL COMPLETE!", True, COLOR_GREEN)
-        complete_rect = complete.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2))
-        self.screen.blit(complete, complete_rect)
+            complete = self.font.render("LEVEL COMPLETE!", True, COLOR_GREEN)
+            complete_rect = complete.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2))
+            self.screen.blit(complete, complete_rect)
 
     def loop(self):
         """Main game loop"""

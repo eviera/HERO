@@ -32,7 +32,8 @@ LEVEL_HEIGHT = 30  # tiles - 2-3 pantallas de largo
 
 # Viewport (lo que se ve en pantalla)
 VIEWPORT_WIDTH = SCREEN_WIDTH
-VIEWPORT_HEIGHT = SCREEN_HEIGHT - 64  # Menos el HUD
+HUD_HEIGHT = 80  # ColecoVision-style HUD height
+VIEWPORT_HEIGHT = SCREEN_HEIGHT - HUD_HEIGHT  # Menos el HUD
 
 # Game States
 STATE_SPLASH = "splash"

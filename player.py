@@ -17,6 +17,11 @@ class Player:
         self.image = None
         self.image_shooting = None
         self.shooting_timer = 0  # Tiempo restante mostrando sprite de disparo
+        self.walk_frames = []    # [walk1, walk2] sprites de caminata
+        self.walk_sound = None   # Sonido de paso
+        self.walk_timer = 0      # Timer para alternar frames de caminata
+        self.walk_frame_index = 0  # Frame actual (0 o 1)
+        self.is_walking = False  # Caminando sobre superficie
 
     def init(self, level_map):
         """Initialize player position from map"""
@@ -120,6 +125,22 @@ class Player:
         if self.is_grounded and not self.using_propulsor:
             game.energy = min(game.energy + ENERGY_RECOVERY * dt, MAX_ENERGY)
 
+        # Animacion de caminata: solo si esta en el suelo y se mueve horizontalmente
+        WALK_STEP_INTERVAL = 0.18  # Segundos entre pasos
+        if self.is_grounded and abs(self.vel_x) > 10 and not self.using_propulsor:
+            self.is_walking = True
+            self.walk_timer += dt
+            if self.walk_timer >= WALK_STEP_INTERVAL:
+                self.walk_timer -= WALK_STEP_INTERVAL
+                self.walk_frame_index = 1 - self.walk_frame_index
+                # Reproducir sonido de paso en cada cambio de frame
+                if self.walk_sound:
+                    self.walk_sound.play()
+        else:
+            self.is_walking = False
+            self.walk_timer = 0
+            self.walk_frame_index = 0
+
     def check_collision(self, x, y, level_map):
         """Check collision with tiles"""
         corners = [
@@ -151,9 +172,11 @@ class Player:
     def draw(self, screen, camera_y):
         screen_y = self.y - camera_y
         if self.image:
-            # Usar sprite de disparo si esta activo
+            # Prioridad de sprites: disparo > caminata > idle
             if self.shooting_timer > 0 and self.image_shooting:
                 base_img = self.image_shooting
+            elif self.is_walking and self.walk_frames:
+                base_img = self.walk_frames[self.walk_frame_index]
             else:
                 base_img = self.image
             # Voltear sprite según orientación (invertido)
