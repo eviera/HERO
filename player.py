@@ -15,6 +15,8 @@ class Player:
         self.using_propulsor = False
         self.is_grounded = False
         self.image = None
+        self.image_shooting = None
+        self.shooting_timer = 0  # Tiempo restante mostrando sprite de disparo
 
     def init(self, level_map):
         """Initialize player position from map"""
@@ -32,6 +34,10 @@ class Player:
 
     def update(self, dt, keys, joy_axis_x, joy_axis_y, level_map, game):
         """Update player with CORRECT HERO physics"""
+
+        # Actualizar timer de disparo
+        if self.shooting_timer > 0:
+            self.shooting_timer -= dt
 
         # Horizontal movement - gradual con joystick, fijo con teclado
         move_x = 0
@@ -145,10 +151,15 @@ class Player:
     def draw(self, screen, camera_y):
         screen_y = self.y - camera_y
         if self.image:
+            # Usar sprite de disparo si esta activo
+            if self.shooting_timer > 0 and self.image_shooting:
+                base_img = self.image_shooting
+            else:
+                base_img = self.image
             # Voltear sprite según orientación (invertido)
-            img = self.image
+            img = base_img
             if self.facing_right:
-                img = pygame.transform.flip(self.image, True, False)
+                img = pygame.transform.flip(base_img, True, False)
             screen.blit(img, (int(self.x), int(screen_y)))
         else:
             # Draw simple helicopter

@@ -211,6 +211,7 @@ class Game:
         # Load sprites
         try:
             self.sprites['player'] = pygame.image.load("sprites/player.png").convert_alpha()
+            self.sprites['player_shooting'] = pygame.image.load("sprites/player_shooting.png").convert_alpha()
             self.sprites['enemy'] = pygame.image.load("sprites/enemy.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['bomb'] = pygame.image.load("sprites/bomb.png").convert_alpha()
@@ -283,6 +284,8 @@ class Game:
         self.player.init(self.level_map)
         if 'player' in self.sprites:
             self.player.image = self.sprites['player']
+        if 'player_shooting' in self.sprites:
+            self.player.image_shooting = self.sprites['player_shooting']
 
         # Parse level and create entities
         for row_index, row in enumerate(self.level_map):
@@ -312,9 +315,19 @@ class Game:
         """Player shoots laser"""
         if self.shoot_cooldown <= 0:
             direction = 1 if self.player.facing_right else -1
-            laser = Laser(self.player.x + 16, self.player.y + 16, direction)
+            # El laser sale de la punta del arma a nivel de cadera (y+16)
+            # Sprite mira izquierda por defecto, arma en x=3
+            # Facing left: laser sale de x+3, facing right: laser sale de x+29 (flip)
+            if self.player.facing_right:
+                laser_x = self.player.x + 29
+            else:
+                laser_x = self.player.x + 3 - LASER_WIDTH
+            laser = Laser(laser_x, self.player.y + 16, direction)
             self.lasers.append(laser)
             self.shoot_cooldown = 0.2
+
+            # Activar sprite de disparo
+            self.player.shooting_timer = 0.15
 
             if 'shoot' in self.sounds:
                 self.sounds['shoot'].play()
