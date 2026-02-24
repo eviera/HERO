@@ -23,7 +23,7 @@ ENERGY_RECOVERY = 300         # Energía recuperada por segundo en el suelo
 MAX_ENERGY = 2550  # Suficiente para jugar un nivel
 DYNAMITE_FUSE_TIME = 1.5  # Tiempo antes de explotar (desde que se suelta)
 DYNAMITE_EXPLOSION_RADIUS = 80
-DYNAMITE_QUANTITY = 3
+DYNAMITE_QUANTITY = 5
 DEAD_ZONE = 0.15
 
 # Cave background dots (pintitas del fondo de caverna)

@@ -181,6 +181,9 @@ class Game:
         self.explosion_flash = False
         self.explosion_flash_timer = 0
 
+        # Floating score texts
+        self.floating_scores = []
+
         # Level complete animation (ColecoVision style)
         self.level_complete_phase = 0     # 0=energy drain, 1=bombs, 2=display
         self.bomb_explosion_effects = []  # Efectos activos de explosion en HUD
@@ -408,6 +411,7 @@ class Game:
         self.lasers = []
         self.dynamites = []
         self.miner = None
+        self.floating_scores = []
 
         # Create player
         self.player = Player()
@@ -521,6 +525,7 @@ class Game:
                     enemy.exploding = True
                     laser.active = False
                     self.score += 50
+                    self.add_floating_score(enemy.x + 16, enemy.y, 50)
 
                     # Play splatter sound
                     if 'splatter' in self.sounds:
@@ -543,6 +548,7 @@ class Game:
                         if enemy.active and not enemy.exploding and explosion_rect.colliderect(enemy.get_rect()):
                             enemy.exploding = True
                             self.score += 75
+                            self.add_floating_score(enemy.x + 16, enemy.y, 75)
 
                             # Play splatter sound
                             if 'splatter' in self.sounds:
@@ -562,7 +568,9 @@ class Game:
                                     row[col_index] = ' '
                                     self.level_map[row_index] = "".join(row)
                                     # Más puntos por destruir paredes que bloques
-                                    self.score += 20 if tile == '#' else 10
+                                    pts = 20 if tile == '#' else 10
+                                    self.score += pts
+                                    self.add_floating_score(tile_x + 16, tile_y, pts)
 
                     # Play sound once
                     if 'explosion' in self.sounds and dynamite.explosion_time > 0.4:
@@ -613,6 +621,38 @@ class Game:
             self.level_complete_timer = 2.0
             if 'win_screen' in self.sounds:
                 self.sounds['win_screen'].play()
+
+    def add_floating_score(self, x, y, points):
+        """Agrega un texto flotante de puntuacion en coordenadas de mundo"""
+        self.floating_scores.append({
+            'x': x,
+            'y': y,
+            'text': str(points),
+            'timer': 1.0,
+            'max_timer': 1.0,
+        })
+
+    def render_floating_scores(self):
+        """Renderiza los textos flotantes de puntuacion"""
+        cv_yellow = (212, 193, 84)
+        for fs in self.floating_scores:
+            alpha = int(255 * (fs['timer'] / fs['max_timer']))
+            text_surf = self.hud_font.render(fs['text'], True, cv_yellow)
+
+            # Posicion en coordenadas de pantalla
+            screen_x = int(fs['x']) - text_surf.get_width() // 2
+            screen_y = int(fs['y']) - int(self.camera_y)
+
+            # Clampar dentro de los margenes de las paredes externas
+            screen_x = max(TILE_SIZE, min(screen_x, (LEVEL_WIDTH - 1) * TILE_SIZE - text_surf.get_width()))
+            screen_y = max(0, min(screen_y, VIEWPORT_HEIGHT - text_surf.get_height()))
+
+            # Aplicar alpha con surface transparente
+            alpha_surf = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
+            text_surf_alpha = self.hud_font.render(fs['text'], True, (*cv_yellow, alpha))
+            alpha_surf.blit(text_surf_alpha, (0, 0))
+
+            self.screen.blit(alpha_surf, (screen_x, screen_y))
 
     def next_level(self):
         """Advance to next level"""
@@ -666,6 +706,13 @@ class Game:
             dynamite.update(dt, self.level_map)
             if not dynamite.active:
                 self.dynamites.remove(dynamite)
+
+        # Update floating scores
+        for fs in self.floating_scores[:]:
+            fs['timer'] -= dt
+            fs['y'] -= 30 * dt  # flota hacia arriba
+            if fs['timer'] <= 0:
+                self.floating_scores.remove(fs)
 
         # Check collisions
         self.check_collisions()
@@ -994,6 +1041,7 @@ class Game:
         if self.player:
             self.player.draw(self.screen, self.camera_y)
 
+        self.render_floating_scores()
         self.render_hud()
 
         # Solo en fase 2: overlay oscuro + texto "LEVEL COMPLETE!"
@@ -1143,6 +1191,7 @@ class Game:
                 if self.player:
                     self.player.draw(self.screen, self.camera_y)
 
+                self.render_floating_scores()
                 self.render_hud()
 
             elif self.state == STATE_LEVEL_COMPLETE:
