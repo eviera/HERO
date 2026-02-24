@@ -263,7 +263,7 @@ class Game:
             self.sprites['player_shooting'] = pygame.image.load("sprites/player_shooting.png").convert_alpha()
             self.sprites['player_walk1'] = pygame.image.load("sprites/player_walk1.png").convert_alpha()
             self.sprites['player_walk2'] = pygame.image.load("sprites/player_walk2.png").convert_alpha()
-            self.sprites['enemy'] = pygame.image.load("sprites/enemy.png").convert_alpha()
+            self.sprites['enemy'] = pygame.image.load("sprites/bat.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['bomb1'] = pygame.image.load("sprites/bomb1.png").convert_alpha()
             self.sprites['bomb2'] = pygame.image.load("sprites/bomb2.png").convert_alpha()
@@ -431,8 +431,9 @@ class Game:
                 x = col_index * TILE_SIZE
                 y = row_index * TILE_SIZE
 
-                if tile == "E":
+                if tile == "V":
                     enemy = Enemy(x, y, "bat")
+                    enemy.speed = BAT_SPEED * (1 + BAT_SPEED_SCALE * self.level_num)
                     if 'enemy' in self.sprites:
                         enemy.image = self.sprites['enemy']
                     self.enemies.append(enemy)
@@ -1032,7 +1033,7 @@ class Game:
             self.miner.draw(self.screen, self.camera_y)
 
         for enemy in self.enemies:
-            enemy.draw(self.screen, self.camera_y)
+            enemy.draw(self.screen, self.camera_y, self.level_map)
 
         for laser in self.lasers:
             laser.draw(self.screen, self.camera_y)
@@ -1182,7 +1183,7 @@ class Game:
                     self.miner.draw(self.screen, self.camera_y)
 
                 for enemy in self.enemies:
-                    enemy.draw(self.screen, self.camera_y)
+                    enemy.draw(self.screen, self.camera_y, self.level_map)
 
                 for laser in self.lasers:
                     laser.draw(self.screen, self.camera_y)

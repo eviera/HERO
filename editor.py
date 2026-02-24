@@ -86,7 +86,7 @@ class Editor:
         self.sprites = {}
         try:
             self.sprites['player'] = pygame.image.load("sprites/player.png").convert_alpha()
-            self.sprites['enemy'] = pygame.image.load("sprites/enemy.png").convert_alpha()
+            self.sprites['enemy'] = pygame.image.load("sprites/bat.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['miner'] = pygame.image.load("sprites/miner.png").convert_alpha()
         except Exception as e:
@@ -175,12 +175,12 @@ class Editor:
                     self.screen.blit(self.tiles['blank'], (x, int(y)))
 
                 # Dibujar sprites de entidades encima
-                sprite_map = {'S': 'player', 'E': 'enemy', 'A': 'spider', 'M': 'miner'}
+                sprite_map = {'S': 'player', 'V': 'enemy', 'A': 'spider', 'M': 'miner'}
                 if tile in sprite_map and sprite_map[tile] in self.sprites:
                     self.screen.blit(self.sprites[sprite_map[tile]], (x, int(y)))
                 elif tile in sprite_map:
                     # Fallback: dibujar letra con color
-                    colors = {'S': COLOR_BLUE, 'E': COLOR_RED, 'A': COLOR_ORANGE, 'M': COLOR_GREEN}
+                    colors = {'S': COLOR_BLUE, 'V': COLOR_RED, 'A': COLOR_ORANGE, 'M': COLOR_GREEN}
                     letter = self.font.render(tile, True, colors[tile])
                     lx = x + (TILE_SIZE - letter.get_width()) // 2
                     ly = int(y) + (TILE_SIZE - letter.get_height()) // 2
@@ -250,7 +250,7 @@ class Editor:
             else:
                 preview.fill(tcolor if tc != ' ' else (30, 30, 30))
                 # Letra para entidades
-                if tc in ('S', 'E', 'A', 'M'):
+                if tc in ('S', 'V', 'A', 'M'):
                     l = self.small_font.render(tc, True, COLOR_WHITE)
                     preview.blit(l, (6, 6))
 

@@ -16,7 +16,10 @@
       "Bash(find:*)",
       "Bash(wc:*)",
       "Bash(ls:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(head:*)"
     ]
   }
 }

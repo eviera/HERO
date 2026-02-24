@@ -2,34 +2,37 @@
 
 import pygame
 import random
-import math
 from constants import *
 
 class Enemy:
     def __init__(self, x, y, enemy_type="bat"):
         self.x = x
         self.y = y
+        self.start_x = x
+        self.start_y = y
         self.enemy_type = enemy_type
-        self.speed = 40 if enemy_type == "bat" else 30
+        self.speed = BAT_SPEED if enemy_type == "bat" else SPIDER_SPEED
         self.direction = random.choice([-1, 1])
         self.active = True
         self.width = 32
         self.height = 32
         self.image = None
-        self.move_timer = 0
-        self.vertical_offset = 0
-        self.vertical_speed = 20
         self.exploding = False
         self.explosion_timer = 0
         self.explosion_duration = 0.2  # Más corto para que desaparezca rápido
 
+        # Araña: desciende máximo 2 tiles desde el spawn y vuelve
+        if enemy_type == "spider":
+            self.spider_max_y = y + 2 * TILE_SIZE  # límite inferior
+            self.direction = 1  # empieza bajando
+
     def check_collision(self, x, y, level_map):
-        """Check collision with tiles using all 4 corners"""
+        """Check collision with tiles using all 4 corners (margen de 1px)"""
         corners = [
-            (x + 2, y + 2),
-            (x + self.width - 3, y + 2),
-            (x + 2, y + self.height - 3),
-            (x + self.width - 3, y + self.height - 3)
+            (x + 1, y + 1),
+            (x + self.width - 2, y + 1),
+            (x + 1, y + self.height - 2),
+            (x + self.width - 2, y + self.height - 2)
         ]
 
         for corner_x, corner_y in corners:
@@ -49,6 +52,19 @@ class Enemy:
 
         return False
 
+    def _find_ceiling_y(self, level_map):
+        """Busca el techo más cercano arriba de la posición de spawn de la araña"""
+        tile_x = int((self.start_x + self.width // 2) / TILE_SIZE)
+        start_tile_y = int(self.start_y / TILE_SIZE)
+
+        for tile_y in range(start_tile_y - 1, -1, -1):
+            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
+                tile = level_map[tile_y][tile_x]
+                if tile in ('#', 'B', '.', 'W'):
+                    # El fondo del tile sólido
+                    return (tile_y + 1) * TILE_SIZE
+        return None
+
     def update(self, dt, level_map):
         if not self.active:
             return
@@ -61,59 +77,78 @@ class Enemy:
             return
 
         if self.enemy_type == "spider":
-            # Spiders move on the ground horizontally
-            # Calculate new position
-            new_x = self.x + self.direction * self.speed * dt
+            # Arañas bajan desde el spawn hasta 2 tiles y vuelven al techo
+            new_y = self.y + self.direction * self.speed * dt
 
-            # Check collision at new position
-            if self.check_collision(new_x, self.y, level_map):
-                # Hit wall - change direction but don't move
+            # Colisión con tiles: rebotar contra pared/piso
+            if self.check_collision(self.x, new_y, level_map):
+                if self.direction > 0:  # bajando
+                    tile_y = int((new_y + self.height) / TILE_SIZE)
+                    self.y = tile_y * TILE_SIZE - self.height
+                else:  # subiendo
+                    tile_y = int(new_y / TILE_SIZE)
+                    self.y = (tile_y + 1) * TILE_SIZE
                 self.direction *= -1
             else:
-                # No collision - safe to move
-                self.x = new_x
+                # Límite inferior: máximo 2 tiles abajo del spawn
+                if new_y > self.spider_max_y:
+                    new_y = self.spider_max_y
+                    self.direction = -1  # volver arriba
+                # Límite superior: no pasar del spawn
+                elif new_y < self.start_y:
+                    new_y = self.start_y
+                    self.direction = 1  # volver abajo
+                self.y = new_y
         else:
-            # Bats fly horizontally with oscillation
-            # Calculate new position
+            # Murciélagos se mueven horizontalmente, rebotan contra bloques
             new_x = self.x + self.direction * self.speed * dt
 
-            # Check collision at new position
             if self.check_collision(new_x, self.y, level_map):
-                # Hit wall - change direction but don't move
+                # Snap al borde del tile
+                if self.direction > 0:  # derecha
+                    tile_x = int((new_x + self.width) / TILE_SIZE)
+                    self.x = tile_x * TILE_SIZE - self.width
+                else:  # izquierda
+                    tile_x = int(new_x / TILE_SIZE)
+                    self.x = (tile_x + 1) * TILE_SIZE
                 self.direction *= -1
             else:
-                # No collision - safe to move
                 self.x = new_x
-
-            # Vertical oscillation for bats
-            self.move_timer += dt
-            self.vertical_offset = math.sin(self.move_timer * 3) * 15
 
     def get_rect(self):
-        return pygame.Rect(self.x, self.y + self.vertical_offset, self.width, self.height)
+        return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def draw(self, screen, camera_y):
-        screen_y = self.y + self.vertical_offset - camera_y
+    def draw(self, screen, camera_y, level_map=None):
+        screen_y = self.y - camera_y
         if -50 < screen_y < VIEWPORT_HEIGHT + 50:
             if self.exploding:
                 # Draw explosion animation - más pequeña y marrón
                 progress = self.explosion_timer / self.explosion_duration
-                radius = int(8 + progress * 10)  # Radio más pequeño (máx ~18)
+                radius = int(8 + progress * 10)
 
-                # Draw expanding circles for explosion with brown colors
-                for i in range(2):  # Solo 2 círculos en lugar de 3
+                for i in range(2):
                     r = radius - i * 5
                     if r > 0:
-                        # Colores marrones: marrón oscuro -> marrón claro
                         if i == 0:
                             color = (139, 69, 19)  # Marrón medio
                         else:
                             color = (101, 67, 33)  # Marrón oscuro
                         pygame.draw.circle(screen, color,
                                          (int(self.x + 16), int(screen_y + 16)), r)
-            elif self.image:
-                screen.blit(self.image, (int(self.x), int(screen_y)))
             else:
-                # Draw simple enemy
-                pygame.draw.circle(screen, COLOR_RED,
-                                 (int(self.x + 16), int(screen_y + 16)), 12)
+                # Dibujar hilo de araña antes del sprite
+                if self.enemy_type == "spider" and level_map is not None:
+                    ceiling_y = self._find_ceiling_y(level_map)
+                    if ceiling_y is not None:
+                        thread_top = ceiling_y - camera_y
+                        thread_bottom = screen_y + self.height // 2
+                        center_x = int(self.x + self.width // 2)
+                        pygame.draw.line(screen, COLOR_WHITE,
+                                       (center_x, int(thread_top)),
+                                       (center_x, int(thread_bottom)), 1)
+
+                if self.image:
+                    screen.blit(self.image, (int(self.x), int(screen_y)))
+                else:
+                    pygame.draw.circle(screen, COLOR_RED,
+                                     (int(self.x + 16), int(screen_y + 16)), 12)

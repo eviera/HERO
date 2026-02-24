@@ -1,0 +1,9 @@
+/- scores al lado de paredes y arañas cuando mueren
+- caminar
+/- quitar enemy.png
+/- arañas arriba abajo
+/- hilo arañas
+/- murcielagos izq derecha
+- animar muercielagos
+- tiles de fondo
+- transparentar el tile del minero

@@ -26,6 +26,11 @@ DYNAMITE_EXPLOSION_RADIUS = 80
 DYNAMITE_QUANTITY = 5
 DEAD_ZONE = 0.15
 
+# Enemigos
+BAT_SPEED = 52             # Velocidad horizontal del murciélago
+BAT_SPEED_SCALE = 0.05     # +5% por nivel
+SPIDER_SPEED = 30          # Velocidad vertical de la araña
+
 # Cave background dots (pintitas del fondo de caverna)
 CAVE_DOT_SIZE = 2  # Tamaño en pixels de las pintitas
 
@@ -65,7 +70,7 @@ TILE_TYPES = [
     ('W', 'Rompible',   (180, 170, 160)),
     ('S', 'Start',      COLOR_BLUE),
     ('M', 'Minero',     COLOR_GREEN),
-    ('E', 'Murcielago', COLOR_RED),
+    ('V', 'Murcielago', COLOR_RED),
     ('A', 'Arana',      COLOR_ORANGE),
 ]
 
