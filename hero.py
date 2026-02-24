@@ -162,6 +162,15 @@ class Game:
         # Quit confirmation
         self.show_quit_confirm = False
 
+        # Fullscreen
+        self.fullscreen = False
+        self.display_surface = None
+        self.render_scale = 1.0
+        self.render_w = SCREEN_WIDTH
+        self.render_h = SCREEN_HEIGHT
+        self.render_x = 0
+        self.render_y = 0
+
         # Name entry
         self.player_name = ""
 
@@ -197,7 +206,10 @@ class Game:
                 print(f"Controller found: {joystick.get_name()}")
                 break
 
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.display_surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        self.fullscreen = True
+        self.screen = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self._update_scaling()
         self.clock = pygame.time.Clock()
         pygame.display.set_caption("H.E.R.O. - Atari 2600 Remake")
 
@@ -323,6 +335,26 @@ class Game:
             if channels == 2:
                 samples.append(val)  # duplicar para stereo
         return pygame.mixer.Sound(buffer=array.array('h', samples))
+
+    def toggle_fullscreen(self):
+        """Alternar entre ventana y pantalla completa"""
+        self.fullscreen = not self.fullscreen
+        if self.fullscreen:
+            self.display_surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        else:
+            self.display_surface = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        self._update_scaling()
+
+    def _update_scaling(self):
+        """Calcular escala y offset para mantener aspect ratio"""
+        display_w, display_h = self.display_surface.get_size()
+        scale_x = display_w / SCREEN_WIDTH
+        scale_y = display_h / SCREEN_HEIGHT
+        self.render_scale = min(scale_x, scale_y)
+        self.render_w = int(SCREEN_WIDTH * self.render_scale)
+        self.render_h = int(SCREEN_HEIGHT * self.render_scale)
+        self.render_x = (display_w - self.render_w) // 2
+        self.render_y = (display_h - self.render_h) // 2
 
     def _generate_cave_background(self):
         """Genera superficie de fondo con pintitas simulando textura de caverna"""
@@ -1003,6 +1035,11 @@ class Game:
                     running = False
 
                 elif event.type == pygame.KEYDOWN:
+                    # Fullscreen toggle (Alt+Enter)
+                    if event.key == pygame.K_RETURN and (event.mod & pygame.KMOD_ALT):
+                        self.toggle_fullscreen()
+                        continue
+
                     # Quit confirmation dialog
                     if self.show_quit_confirm:
                         if event.key in (pygame.K_y, pygame.K_ESCAPE):
@@ -1125,6 +1162,10 @@ class Game:
                 quit_rect = quit_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))
                 self.screen.blit(quit_text, quit_rect)
 
+            # Escalar game surface al display manteniendo aspect ratio
+            self.display_surface.fill(COLOR_BLACK)
+            scaled = pygame.transform.scale(self.screen, (self.render_w, self.render_h))
+            self.display_surface.blit(scaled, (self.render_x, self.render_y))
             pygame.display.flip()
 
         pygame.quit()
