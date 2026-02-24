@@ -6,18 +6,7 @@ import json
 import os
 from constants import *
 
-# Tipos de tiles disponibles para colocar
-# (caracter, nombre, color_fallback)
-TILE_TYPES = [
-    (' ', 'Aire',       COLOR_BLACK),
-    ('#', 'Pared',      COLOR_GRAY),
-    ('.', 'Suelo',      (100, 70, 50)),
-    ('B', 'Bloque',     COLOR_MAGENTA),
-    ('S', 'Start',      COLOR_BLUE),
-    ('M', 'Minero',     COLOR_GREEN),
-    ('E', 'Murcielago', COLOR_RED),
-    ('A', 'Arana',      COLOR_ORANGE),
-]
+# TILE_TYPES importado desde constants.py
 
 def load_screens():
     """Cargar pantallas desde archivo JSON"""
@@ -85,6 +74,13 @@ class Editor:
         self.tiles['block'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
         self.tiles['block'].fill(COLOR_MAGENTA)
         pygame.draw.rect(self.tiles['block'], (200, 0, 200), (2, 2, 28, 28))
+
+        # Pared rompible
+        try:
+            self.tiles['breakable'] = pygame.image.load("tiles/breakable_wall.png").convert_alpha()
+        except:
+            self.tiles['breakable'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['breakable'].fill((180, 170, 160))
 
         # Cargar sprites de entidades
         self.sprites = {}
@@ -173,6 +169,8 @@ class Editor:
                     self.screen.blit(self.tiles['floor'], (x, int(y)))
                 elif tile == 'B':
                     self.screen.blit(self.tiles['block'], (x, int(y)))
+                elif tile == 'W':
+                    self.screen.blit(self.tiles['breakable'], (x, int(y)))
                 else:
                     self.screen.blit(self.tiles['blank'], (x, int(y)))
 
@@ -247,6 +245,8 @@ class Editor:
                 preview = pygame.transform.scale(self.tiles['floor'], (20, 20))
             elif tc == 'B':
                 preview = pygame.transform.scale(self.tiles['block'], (20, 20))
+            elif tc == 'W':
+                preview = pygame.transform.scale(self.tiles['breakable'], (20, 20))
             else:
                 preview.fill(tcolor if tc != ' ' else (30, 30, 30))
                 # Letra para entidades
@@ -345,6 +345,9 @@ class Editor:
                         self.selected_tile = 6
                     elif event.key == pygame.K_8:
                         self.selected_tile = 7
+                    elif event.key == pygame.K_9:
+                        if len(TILE_TYPES) > 8:
+                            self.selected_tile = 8
 
                     # Tab para ciclar tipo de tile
                     elif event.key == pygame.K_TAB:

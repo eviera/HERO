@@ -21,10 +21,13 @@ LASER_HEIGHT = 2  # Alto del láser en pixels
 ENERGY_DRAIN_PROPULSOR = 400  # Energía por segundo al volar 
 ENERGY_RECOVERY = 300         # Energía recuperada por segundo en el suelo
 MAX_ENERGY = 2550  # Suficiente para jugar un nivel
-DYNAMITE_FUSE_TIME = 3.0  # Tiempo antes de explotar
+DYNAMITE_FUSE_TIME = 1.5  # Tiempo antes de explotar (desde que se suelta)
 DYNAMITE_EXPLOSION_RADIUS = 80
 DYNAMITE_QUANTITY = 3
 DEAD_ZONE = 0.15
+
+# Cave background dots (pintitas del fondo de caverna)
+CAVE_DOT_SIZE = 2  # Tamaño en pixels de las pintitas
 
 # Level dimensions - NIVELES VERTICALES
 LEVEL_WIDTH = 16  # tiles
@@ -52,6 +55,19 @@ COLOR_YELLOW = (255, 255, 0)
 COLOR_ORANGE = (255, 165, 0)
 COLOR_GRAY = (128, 128, 128)
 COLOR_MAGENTA = (255, 0, 255)
+
+# Tile types (caracter, nombre, color_fallback)
+TILE_TYPES = [
+    (' ', 'Aire',       COLOR_BLACK),
+    ('#', 'Pared',      COLOR_GRAY),
+    ('.', 'Suelo',      (100, 70, 50)),
+    ('B', 'Bloque',     COLOR_MAGENTA),
+    ('W', 'Rompible',   (180, 170, 160)),
+    ('S', 'Start',      COLOR_BLUE),
+    ('M', 'Minero',     COLOR_GREEN),
+    ('E', 'Murcielago', COLOR_RED),
+    ('A', 'Arana',      COLOR_ORANGE),
+]
 
 # Scores file
 SCORES_FILE = "scores.json"

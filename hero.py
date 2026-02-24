@@ -6,6 +6,7 @@ import json
 import os
 import math
 import array
+import random
 
 # Import constants
 from constants import *
@@ -139,6 +140,9 @@ class Game:
         self.dynamites = []
         self.miner = None
 
+        # Cave background
+        self.cave_bg = None
+
         # Camera
         self.camera_y = 0
 
@@ -163,6 +167,10 @@ class Game:
 
         # Score tracking
         self.last_life_score = 0
+
+        # Explosion flash effect
+        self.explosion_flash = False
+        self.explosion_flash_timer = 0
 
         # Level complete animation (ColecoVision style)
         self.level_complete_phase = 0     # 0=energy drain, 1=bombs, 2=display
@@ -222,10 +230,17 @@ class Game:
             self.tiles['blank'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['blank'].fill(COLOR_BLACK)
 
-        # Destructible block tile
+        # Destructible block tile (B)
         self.tiles['block'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
         self.tiles['block'].fill(COLOR_MAGENTA)
         pygame.draw.rect(self.tiles['block'], (200, 0, 200), (2, 2, 28, 28))
+
+        # Breakable wall tile (W)
+        try:
+            self.tiles['breakable'] = pygame.image.load("tiles/breakable_wall.png").convert_alpha()
+        except:
+            self.tiles['breakable'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['breakable'].fill((180, 170, 160))
 
         # Load sprites
         try:
@@ -235,7 +250,9 @@ class Game:
             self.sprites['player_walk2'] = pygame.image.load("sprites/player_walk2.png").convert_alpha()
             self.sprites['enemy'] = pygame.image.load("sprites/enemy.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
-            self.sprites['bomb'] = pygame.image.load("sprites/bomb.png").convert_alpha()
+            self.sprites['bomb1'] = pygame.image.load("sprites/bomb1.png").convert_alpha()
+            self.sprites['bomb2'] = pygame.image.load("sprites/bomb2.png").convert_alpha()
+            self.sprites['bomb3'] = pygame.image.load("sprites/bomb3.png").convert_alpha()
             self.sprites['miner'] = pygame.image.load("sprites/miner.png").convert_alpha()
             print("Sprites loaded successfully")
         except Exception as e:
@@ -244,8 +261,8 @@ class Game:
         # Crear mini-iconos para el HUD (ColecoVision style)
         if 'player' in self.sprites:
             self.hud_player_icon = pygame.transform.scale(self.sprites['player'], (16, 16))
-        if 'bomb' in self.sprites:
-            self.hud_bomb_icon = pygame.transform.scale(self.sprites['bomb'], (16, 16))
+        if 'bomb1' in self.sprites:
+            self.hud_bomb_icon = pygame.transform.scale(self.sprites['bomb1'], (16, 16))
 
         # Load sounds
         try:
@@ -307,6 +324,36 @@ class Game:
                 samples.append(val)  # duplicar para stereo
         return pygame.mixer.Sound(buffer=array.array('h', samples))
 
+    def _generate_cave_background(self):
+        """Genera superficie de fondo con pintitas simulando textura de caverna"""
+        width = LEVEL_WIDTH * TILE_SIZE
+        height = LEVEL_HEIGHT * TILE_SIZE
+        self.cave_bg = pygame.Surface((width, height))
+        self.cave_bg.fill(COLOR_BLACK)
+
+        # Colores en escalas de marron (textura de roca/caverna)
+        dot_colors = [
+            (45, 30, 15),
+            (55, 35, 18),
+            (40, 25, 12),
+            (50, 32, 20),
+            (35, 22, 10),
+            (60, 40, 22),
+        ]
+
+        # Densidad baja: ~0.1% del area total
+        num_dots = int(width * height * 0.001)
+
+        for _ in range(num_dots):
+            dx = random.randint(0, width - CAVE_DOT_SIZE)
+            dy = random.randint(0, height - CAVE_DOT_SIZE)
+            color = random.choice(dot_colors)
+            if CAVE_DOT_SIZE <= 1:
+                self.cave_bg.set_at((dx, dy), color)
+            else:
+                pygame.draw.rect(self.cave_bg, color,
+                                 (dx, dy, CAVE_DOT_SIZE, CAVE_DOT_SIZE))
+
     def start_level(self):
         """Start a new level"""
         self.state = STATE_PLAYING
@@ -320,6 +367,9 @@ class Game:
 
         # Generate level
         self.level_map = generate_level(self.level_num)
+
+        # Generar fondo de caverna con pintitas
+        self._generate_cave_background()
 
         # Clear entities
         self.enemies = []
@@ -390,6 +440,12 @@ class Game:
             # Coloca la bomba enfrente del héroe según su dirección
             offset_x = 24 if self.player.facing_right else -8
             dynamite = Dynamite(self.player.x + offset_x, self.player.y + 16)
+            if 'bomb1' in self.sprites:
+                dynamite.explosion_sprites = [
+                    self.sprites['bomb1'],
+                    self.sprites['bomb2'],
+                    self.sprites['bomb3'],
+                ]
             self.dynamites.append(dynamite)
             self.dynamite_count -= 1
 
@@ -464,7 +520,7 @@ class Game:
                     for row_index in range(len(self.level_map)):
                         for col_index in range(len(self.level_map[row_index])):
                             tile = self.level_map[row_index][col_index]
-                            if tile == 'B' or tile == '#':  # Destruye bloques Y paredes
+                            if tile in ('B', '#', 'W'):  # Destruye bloques, paredes y rompibles
                                 tile_x = col_index * TILE_SIZE
                                 tile_y = row_index * TILE_SIZE
                                 tile_rect = pygame.Rect(tile_x, tile_y, TILE_SIZE, TILE_SIZE)
@@ -582,6 +638,17 @@ class Game:
         # Check collisions
         self.check_collisions()
 
+        # Explosion flash effect (fondo parpadea blanco/negro)
+        any_exploding = any(d.exploded for d in self.dynamites)
+        if any_exploding:
+            self.explosion_flash_timer += dt
+            if self.explosion_flash_timer >= 0.05:  # Alternar cada 50ms
+                self.explosion_flash_timer -= 0.05
+                self.explosion_flash = not self.explosion_flash
+        else:
+            self.explosion_flash = False
+            self.explosion_flash_timer = 0
+
         # Update timers
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= dt
@@ -674,9 +741,19 @@ class Game:
 
     def render_level(self):
         """Render visible part of level"""
+        # Usar offset entero consistente para fondo y tiles
+        cam_y = int(self.camera_y)
+
+        # Dibujar fondo de caverna (o flash blanco si hay explosion)
+        if self.explosion_flash:
+            self.screen.fill(COLOR_WHITE, (0, 0, LEVEL_WIDTH * TILE_SIZE, VIEWPORT_HEIGHT))
+        elif self.cave_bg:
+            src_rect = pygame.Rect(0, cam_y, LEVEL_WIDTH * TILE_SIZE, VIEWPORT_HEIGHT)
+            self.screen.blit(self.cave_bg, (0, 0), src_rect)
+
         # Calculate visible tiles
-        start_row = max(0, int(self.camera_y / TILE_SIZE) - 1)
-        end_row = min(LEVEL_HEIGHT, int((self.camera_y + VIEWPORT_HEIGHT) / TILE_SIZE) + 2)
+        start_row = max(0, cam_y // TILE_SIZE - 1)
+        end_row = min(LEVEL_HEIGHT, (cam_y + VIEWPORT_HEIGHT) // TILE_SIZE + 2)
 
         for row_index in range(start_row, end_row):
             if row_index >= len(self.level_map):
@@ -685,16 +762,17 @@ class Game:
             row = self.level_map[row_index]
             for col_index, tile in enumerate(row):
                 x = col_index * TILE_SIZE
-                y = row_index * TILE_SIZE - self.camera_y
+                y = row_index * TILE_SIZE - cam_y
 
                 if tile == '#':
-                    self.screen.blit(self.tiles['wall'], (x, int(y)))
+                    self.screen.blit(self.tiles['wall'], (x, y))
                 elif tile == '.':
-                    self.screen.blit(self.tiles['floor'], (x, int(y)))
+                    self.screen.blit(self.tiles['floor'], (x, y))
                 elif tile == 'B':
-                    self.screen.blit(self.tiles['block'], (x, int(y)))
-                else:
-                    self.screen.blit(self.tiles['blank'], (x, int(y)))
+                    self.screen.blit(self.tiles['block'], (x, y))
+                elif tile == 'W':
+                    self.screen.blit(self.tiles['breakable'], (x, y))
+                # Espacios vacios: no dibujar nada, el cave_bg ya se ve
 
     def render_hud(self):
         """Render HUD - ColecoVision style"""

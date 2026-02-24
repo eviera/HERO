@@ -36,7 +36,7 @@ class Laser:
             if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
                 tile = level_map[tile_y][tile_x]
                 # Colisiona con paredes, pisos y bloques destructibles
-                if tile == '#' or tile == '.' or tile == 'B':
+                if tile in ('#', '.', 'B', 'W'):
                     self.active = False
                     return
 
