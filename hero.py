@@ -785,8 +785,9 @@ class Game:
                 hud_y = VIEWPORT_HEIGHT
                 icons_y = hud_y + 28
                 bomb_count = self.dynamite_count
+                bomb_spacing = 10  # Mismo espaciado que en render_hud
                 # Posicion de la bomba mas a la izquierda (la que va a explotar)
-                bx = ce - bomb_count * (16 + icon_gap) + icon_gap
+                bx = ce - bomb_count * bomb_spacing
                 by = icons_y
 
                 # Crear efecto de explosion en esa posicion
@@ -918,10 +919,11 @@ class Game:
             else:
                 pygame.draw.rect(self.screen, COLOR_BLUE, (ix + 2, icons_y, 12, 16))
 
-        # Iconos de bombas (alineados a la derecha)
+        # Iconos de bombas (alineados a la derecha, juntas)
         bomb_count = max(0, min(self.dynamite_count, 10))
+        bomb_spacing = 10  # Espaciado reducido para que se vean juntas
         for i in range(bomb_count):
-            bx = ce - (bomb_count - i) * (16 + icon_gap)
+            bx = ce - (bomb_count - i) * bomb_spacing
             if self.hud_bomb_icon:
                 self.screen.blit(self.hud_bomb_icon, (bx, icons_y))
             else:
@@ -991,7 +993,7 @@ class Game:
         self.draw_text_with_outline(self.small_font, "Arrows: Move/Fly", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 295))
         self.draw_text_with_outline(self.small_font, "SPACE: Shoot", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 315))
         self.draw_text_with_outline(self.small_font, "Z: Drop Bomb", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 335))
-        self.draw_text_with_outline(self.small_font, "Xbox: Stick/X/B", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 355))
+        self.draw_text_with_outline(self.small_font, "Controller: Stick/X/B", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 355))
         self.draw_text_with_outline(self.small_font, "HIGH SCORES", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 390))
 
         scores = load_scores()[:3]
