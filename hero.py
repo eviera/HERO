@@ -215,6 +215,12 @@ class Game:
         self._update_scaling()
         self.clock = pygame.time.Clock()
         pygame.display.set_caption("H.E.R.O. - Atari 2600 Remake")
+        try:
+            icon = pygame.image.load("sprites/player_fly.png").convert_alpha()
+            icon = pygame.transform.flip(icon, True, False)  # Mirar a la derecha
+            pygame.display.set_icon(icon)
+        except:
+            pass
 
         # Load fonts
         try:
