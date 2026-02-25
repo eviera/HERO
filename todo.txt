@@ -7,4 +7,10 @@
 /- murcielagos izq derecha
 - animar muercielagos
 - tiles de fondo
-- transparentar el tile del minero
+/- transparentar el tile del minero
+- lamparas que al tocar apagan la luz
+- serpientes que salen desde la cueva
+- bichos que se mueven como en el lugar (izq der), rapido  >o< 
+
+
+
