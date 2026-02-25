@@ -263,6 +263,7 @@ class Game:
             self.sprites['player_shooting'] = pygame.image.load("sprites/player_shooting.png").convert_alpha()
             self.sprites['player_walk1'] = pygame.image.load("sprites/player_walk1.png").convert_alpha()
             self.sprites['player_walk2'] = pygame.image.load("sprites/player_walk2.png").convert_alpha()
+            self.sprites['player_fly'] = pygame.image.load("sprites/player_fly.png").convert_alpha()
             self.sprites['enemy'] = pygame.image.load("sprites/bat.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['bomb1'] = pygame.image.load("sprites/bomb1.png").convert_alpha()
@@ -286,7 +287,8 @@ class Game:
             self.sounds['death'] = pygame.mixer.Sound("sounds/death.wav")
             self.sounds['splatter'] = pygame.mixer.Sound("sounds/splatter.wav")
             self.sounds['helicopter'] = pygame.mixer.Sound("sounds/helicopter.wav")
-            self.sounds['walk'] = pygame.mixer.Sound("sounds/walk.wav")
+            self.sounds['walk1'] = pygame.mixer.Sound("sounds/walk1.wav")
+            self.sounds['walk2'] = pygame.mixer.Sound("sounds/walk2.wav")
             self.sounds['win_screen'] = pygame.mixer.Sound("sounds/win_screen.wav")
 
             # Load splash theme original
@@ -422,8 +424,10 @@ class Game:
             self.player.image_shooting = self.sprites['player_shooting']
         if 'player_walk1' in self.sprites and 'player_walk2' in self.sprites:
             self.player.walk_frames = [self.sprites['player_walk1'], self.sprites['player_walk2']]
-        if 'walk' in self.sounds:
-            self.player.walk_sound = self.sounds['walk']
+        if 'player_fly' in self.sprites:
+            self.player.image_fly = self.sprites['player_fly']
+        if 'walk1' in self.sounds and 'walk2' in self.sounds:
+            self.player.walk_sounds = [self.sounds['walk1'], self.sounds['walk2']]
 
         # Parse level and create entities
         for row_index, row in enumerate(self.level_map):

@@ -13,6 +13,7 @@ TILE_SIZE = 32
 GRAVITY = 400  # Gravedad constante (reducida para caída más suave)
 PROPULSOR_POWER = 800  # Poder del propulsor (aumentado para facilitar el ascenso)
 PLAYER_SPEED_X = 150  # Velocidad horizontal
+WALK_STEP_DISTANCE = 16  # Pixeles entre pasos
 MAX_FALL_SPEED = 400  # Velocidad máxima de caída
 DIVE_POWER = 600      # Poder de descenso activo (helice invertida)
 LASER_SPEED = 400

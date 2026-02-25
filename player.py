@@ -15,11 +15,12 @@ class Player:
         self.using_propulsor = False
         self.is_grounded = False
         self.image = None
+        self.image_fly = None
         self.image_shooting = None
         self.shooting_timer = 0  # Tiempo restante mostrando sprite de disparo
         self.walk_frames = []    # [walk1, walk2] sprites de caminata
-        self.walk_sound = None   # Sonido de paso
-        self.walk_timer = 0      # Timer para alternar frames de caminata
+        self.walk_sounds = []    # [walk1, walk2] sonidos alternados
+        self.walk_distance = 0   # Distancia acumulada para alternar pasos
         self.walk_frame_index = 0  # Frame actual (0 o 1)
         self.is_walking = False  # Caminando sobre superficie
 
@@ -126,19 +127,18 @@ class Player:
             game.energy = min(game.energy + ENERGY_RECOVERY * dt, MAX_ENERGY)
 
         # Animacion de caminata: solo si esta en el suelo y se mueve horizontalmente
-        WALK_STEP_INTERVAL = 0.18  # Segundos entre pasos
         if self.is_grounded and abs(self.vel_x) > 10 and not self.using_propulsor:
             self.is_walking = True
-            self.walk_timer += dt
-            if self.walk_timer >= WALK_STEP_INTERVAL:
-                self.walk_timer -= WALK_STEP_INTERVAL
+            self.walk_distance += abs(self.vel_x) * dt
+            if self.walk_distance >= WALK_STEP_DISTANCE:
+                self.walk_distance -= WALK_STEP_DISTANCE
                 self.walk_frame_index = 1 - self.walk_frame_index
-                # Reproducir sonido de paso en cada cambio de frame
-                if self.walk_sound:
-                    self.walk_sound.play()
+                # Reproducir sonido de paso alternado
+                if self.walk_sounds:
+                    self.walk_sounds[self.walk_frame_index].play()
         else:
             self.is_walking = False
-            self.walk_timer = 0
+            self.walk_distance = 0
             self.walk_frame_index = 0
 
     def check_collision(self, x, y, level_map):
@@ -172,9 +172,11 @@ class Player:
     def draw(self, screen, camera_y):
         screen_y = self.y - camera_y
         if self.image:
-            # Prioridad de sprites: disparo > caminata > idle
+            # Prioridad de sprites: disparo > vuelo > caminata > idle
             if self.shooting_timer > 0 and self.image_shooting:
                 base_img = self.image_shooting
+            elif not self.is_grounded and self.image_fly:
+                base_img = self.image_fly
             elif self.is_walking and self.walk_frames:
                 base_img = self.walk_frames[self.walk_frame_index]
             else:

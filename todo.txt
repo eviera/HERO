@@ -1,5 +1,6 @@
 /- scores al lado de paredes y arañas cuando mueren
 - caminar
+- sonidos caminar
 /- quitar enemy.png
 /- arañas arriba abajo
 /- hilo arañas
