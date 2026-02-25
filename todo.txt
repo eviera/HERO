@@ -1,5 +1,5 @@
 /- scores al lado de paredes y arañas cuando mueren
-- caminar
+/- caminar
 /- sonidos caminar
 /- quitar enemy.png
 /- arañas arriba abajo
@@ -11,6 +11,7 @@
 - lamparas que al tocar apagan la luz
 - serpientes que salen desde la cueva
 - bichos que se mueven como en el lugar (izq der), rapido  >o< 
+- bloques y nivel de magma
 
 
 
