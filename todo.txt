@@ -5,7 +5,7 @@
 /- arañas arriba abajo
 /- hilo arañas
 /- murcielagos izq derecha
-- animar muercielagos
+/- animar muercielagos
 - tiles de fondo
 /- transparentar el tile del minero
 - lamparas que al tocar apagan la luz
