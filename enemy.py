@@ -17,6 +17,9 @@ class Enemy:
         self.width = 32
         self.height = 32
         self.image = None
+        self.images = None  # Lista de sprites para animación [bat1, bat2]
+        self.distance_traveled = 0  # Distancia recorrida para alternar sprites
+        self.anim_frame = 0  # Frame actual de animación
         self.exploding = False
         self.explosion_timer = 0
         self.explosion_duration = 0.2  # Más corto para que desaparezca rápido
@@ -114,6 +117,14 @@ class Enemy:
                 self.direction *= -1
             else:
                 self.x = new_x
+
+            # Alternar sprite cada 16 píxeles recorridos
+            if self.images:
+                self.distance_traveled += abs(self.speed * dt)
+                if self.distance_traveled >= BAT_ANIM_DISTANCE:
+                    self.distance_traveled -= BAT_ANIM_DISTANCE
+                    self.anim_frame = 1 - self.anim_frame
+                    self.image = self.images[self.anim_frame]
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)

@@ -30,6 +30,7 @@ DEAD_ZONE = 0.15
 # Enemigos
 BAT_SPEED = 52             # Velocidad horizontal del murciélago
 BAT_SPEED_SCALE = 0.05     # +5% por nivel
+BAT_ANIM_DISTANCE = 16     # Píxeles entre cambios de sprite
 SPIDER_SPEED = 30          # Velocidad vertical de la araña
 
 # Cave background dots (pintitas del fondo de caverna)

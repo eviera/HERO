@@ -270,7 +270,8 @@ class Game:
             self.sprites['player_walk1'] = pygame.image.load("sprites/player_walk1.png").convert_alpha()
             self.sprites['player_walk2'] = pygame.image.load("sprites/player_walk2.png").convert_alpha()
             self.sprites['player_fly'] = pygame.image.load("sprites/player_fly.png").convert_alpha()
-            self.sprites['enemy'] = pygame.image.load("sprites/bat.png").convert_alpha()
+            self.sprites['bat1'] = pygame.image.load("sprites/bat1.png").convert_alpha()
+            self.sprites['bat2'] = pygame.image.load("sprites/bat2.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['bomb1'] = pygame.image.load("sprites/bomb1.png").convert_alpha()
             self.sprites['bomb2'] = pygame.image.load("sprites/bomb2.png").convert_alpha()
@@ -444,8 +445,9 @@ class Game:
                 if tile == "V":
                     enemy = Enemy(x, y, "bat")
                     enemy.speed = BAT_SPEED * (1 + BAT_SPEED_SCALE * self.level_num)
-                    if 'enemy' in self.sprites:
-                        enemy.image = self.sprites['enemy']
+                    if 'bat1' in self.sprites:
+                        enemy.images = [self.sprites['bat1'], self.sprites['bat2']]
+                        enemy.image = enemy.images[0]
                     self.enemies.append(enemy)
                 elif tile == "A":
                     enemy = Enemy(x, y, "spider")
