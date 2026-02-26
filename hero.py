@@ -444,13 +444,18 @@ class Game:
 
                 if tile == "V":
                     enemy = Enemy(x, y, "bat")
-                    enemy.speed = BAT_SPEED * (1 + BAT_SPEED_SCALE * self.level_num)
+                    # Velocidad base con escalado por nivel y variación aleatoria ±5%
+                    speed_variation = random.uniform(1 - ENEMY_SPEED_VARIATION, 1 + ENEMY_SPEED_VARIATION)
+                    enemy.speed = BAT_SPEED * (1 + BAT_SPEED_SCALE * self.level_num) * speed_variation
                     if 'bat1' in self.sprites:
                         enemy.images = [self.sprites['bat1'], self.sprites['bat2']]
                         enemy.image = enemy.images[0]
                     self.enemies.append(enemy)
                 elif tile == "A":
                     enemy = Enemy(x, y, "spider")
+                    # Variación aleatoria ±5% en velocidad de araña
+                    speed_variation = random.uniform(1 - ENEMY_SPEED_VARIATION, 1 + ENEMY_SPEED_VARIATION)
+                    enemy.speed = SPIDER_SPEED * speed_variation
                     if 'spider' in self.sprites:
                         enemy.image = self.sprites['spider']
                     self.enemies.append(enemy)

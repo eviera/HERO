@@ -28,10 +28,11 @@ DYNAMITE_QUANTITY = 5
 DEAD_ZONE = 0.15
 
 # Enemigos
-BAT_SPEED = 52             # Velocidad horizontal del murciélago
+BAT_SPEED = 60             # Velocidad horizontal del murciélago
 BAT_SPEED_SCALE = 0.05     # +5% por nivel
-BAT_ANIM_DISTANCE = 16     # Píxeles entre cambios de sprite
+BAT_ANIM_DISTANCE = 8     # Píxeles entre cambios de sprite
 SPIDER_SPEED = 30          # Velocidad vertical de la araña
+ENEMY_SPEED_VARIATION = 0.05  # ±5% variación aleatoria de velocidad por enemigo
 
 # Cave background dots (pintitas del fondo de caverna)
 CAVE_DOT_SIZE = 2  # Tamaño en pixels de las pintitas
