@@ -188,7 +188,7 @@ class Game:
         self.level_complete_phase = 0     # 0=energy drain, 1=bombs, 2=display
         self.bomb_explosion_effects = []  # Efectos activos de explosion en HUD
         self.score_beep_timer = 0         # Timer entre beeps
-        self.score_beep_index = 0         # Indice del beep actual (para pitch ascendente)
+        self.score_beep_initial_energy = 0  # Energia inicial para calcular proporcion de beeps
         self.bomb_explode_timer = 0       # Timer entre explosiones de bombas
         self.score_beeps = []             # Beep sounds pre-generados
 
@@ -627,7 +627,7 @@ class Game:
         # Inicializar animacion de level complete
         self.state = STATE_LEVEL_COMPLETE
         self.score_beep_timer = 0
-        self.score_beep_index = 0
+        self.score_beep_initial_energy = self.energy  # Energia inicial para calcular proporcion de beeps
         self.bomb_explosion_effects = []
         self.bomb_explode_timer = 0
 
@@ -768,13 +768,18 @@ class Game:
             self.energy -= actual_drain
             self.score += int(actual_drain)
 
-            # Beeps ascendentes cada ~80ms
+            # Beeps ascendentes cada ~80ms, tono proporcional a energia drenada
             self.score_beep_timer += dt
             if self.score_beep_timer >= 0.08 and self.score_beeps:
                 self.score_beep_timer -= 0.08
-                beep_idx = min(self.score_beep_index, len(self.score_beeps) - 1)
+                # Calcular indice del beep segun proporcion de energia drenada
+                if self.score_beep_initial_energy > 0:
+                    drained_ratio = 1.0 - (self.energy / self.score_beep_initial_energy)
+                    beep_idx = int(drained_ratio * (len(self.score_beeps) - 1))
+                    beep_idx = max(0, min(beep_idx, len(self.score_beeps) - 1))
+                else:
+                    beep_idx = len(self.score_beeps) - 1
                 self.score_beeps[beep_idx].play()
-                self.score_beep_index = (self.score_beep_index + 1) % len(self.score_beeps)
 
             # Pasar a fase 1 cuando se acaba la energia
             if self.energy <= 0:
