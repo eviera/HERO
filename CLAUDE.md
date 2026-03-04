@@ -510,6 +510,7 @@ Editar **screens.json**. Cada nivel es un objeto con un campo `"map"` que contie
 - **Los suelos (.) son sólidos** - Igual que las paredes (#)
 - **Tiles sólidos para colisión**: #, B, ., W
 - **Niveles en screens.json** - No hardcodear niveles en hero.py
+- **Sprites con fondo transparente** - Todo sprite generado debe usar `pygame.SRCALPHA` y fondo transparente
 
 ---
 
