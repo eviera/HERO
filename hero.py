@@ -192,6 +192,12 @@ class Game:
         self.bomb_explode_timer = 0       # Timer entre explosiones de bombas
         self.score_beeps = []             # Beep sounds pre-generados
 
+        # Lampara / modo oscuridad
+        self.dark_mode = False
+        self.lamps = []                   # Lista de posiciones {x, y} de lamparas
+        self.darkness_overlay = None
+        self.spotlight_mask = None
+
     def init(self):
         """Initialize pygame and resources"""
         pygame.init()
@@ -265,6 +271,21 @@ class Game:
             self.tiles['rock'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['rock'].fill((180, 170, 160))
 
+        # Lamp tile (L) - lampara dorada
+        try:
+            self.tiles['lamp'] = pygame.image.load("tiles/lamp.png").convert_alpha()
+        except:
+            # Fallback: circulo amarillo dorado
+            self.tiles['lamp'] = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+            pygame.draw.circle(self.tiles['lamp'], (255, 200, 50),
+                             (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3)
+            pygame.draw.circle(self.tiles['lamp'], (255, 240, 100),
+                             (TILE_SIZE // 2, TILE_SIZE // 2 - 2), TILE_SIZE // 5)
+
+        # Version tenue de la lampara para modo oscuro
+        self.tiles['lamp_dim'] = self.tiles['lamp'].copy()
+        self.tiles['lamp_dim'].set_alpha(LAMP_DIM_ALPHA)
+
         # Load sprites
         try:
             self.sprites['player'] = pygame.image.load("sprites/player.png").convert_alpha()
@@ -336,6 +357,9 @@ class Game:
             beep = self._generate_beep(freq, duration_ms=50, volume=0.3)
             self.score_beeps.append(beep)
 
+        # Generar mascara de spotlight para modo oscuridad
+        self._generate_spotlight_mask()
+
     def _generate_beep(self, frequency, duration_ms=50, volume=0.3):
         """Genera un sonido corto sine wave sin dependencia de numpy"""
         mixer_info = pygame.mixer.get_init()
@@ -400,6 +424,19 @@ class Game:
                 pygame.draw.rect(self.cave_bg, color,
                                  (dx, dy, CAVE_DOT_SIZE, CAVE_DOT_SIZE))
 
+    def _generate_spotlight_mask(self):
+        """Genera mascara de spotlight con gradiente radial (se genera una vez)"""
+        size = SPOTLIGHT_RADIUS * 2
+        self.spotlight_mask = pygame.Surface((size, size), pygame.SRCALPHA)
+        # Llenar con transparencia completa para "perforar" la oscuridad
+        self.spotlight_mask.fill((0, 0, 0, 0))
+        center = SPOTLIGHT_RADIUS
+        for r in range(SPOTLIGHT_RADIUS, 0, -1):
+            # Curva cuadratica: alpha va de 0 (centro) a DARKNESS_ALPHA (borde)
+            t = r / SPOTLIGHT_RADIUS  # 0 en centro, 1 en borde
+            alpha = int(DARKNESS_ALPHA * t * t)
+            pygame.draw.circle(self.spotlight_mask, (0, 0, 0, alpha), (center, center), r)
+
     def start_level(self):
         """Start a new level"""
         self.state = STATE_PLAYING
@@ -423,6 +460,11 @@ class Game:
         self.dynamites = []
         self.miner = None
         self.floating_scores = []
+
+        # Reset lampara/oscuridad
+        self.dark_mode = False
+        self.lamps = []
+        self.darkness_overlay = pygame.Surface((SCREEN_WIDTH, VIEWPORT_HEIGHT), pygame.SRCALPHA)
 
         # Create player
         self.player = Player()
@@ -465,6 +507,13 @@ class Game:
                     self.miner = Miner(x, y)
                     if 'miner' in self.sprites:
                         self.miner.image = self.sprites['miner']
+                elif tile == "L":
+                    # Guardar posicion de lampara y limpiar del mapa (no es solido)
+                    self.lamps.append({'x': x, 'y': y})
+                    self.level_map[row_index] = (
+                        self.level_map[row_index][:col_index] + ' ' +
+                        self.level_map[row_index][col_index + 1:]
+                    )
 
         # Reset camera to player
         self.camera_y = self.player.y - VIEWPORT_HEIGHT / 2
@@ -737,6 +786,15 @@ class Game:
         # Check collisions
         self.check_collisions()
 
+        # Colision jugador-lampara (toggle oscuridad, deteccion por flanco)
+        player_rect = self.player.get_rect()
+        for lamp in self.lamps:
+            lamp_rect = pygame.Rect(lamp['x'], lamp['y'], TILE_SIZE, TILE_SIZE)
+            currently_inside = player_rect.colliderect(lamp_rect)
+            if currently_inside and not lamp.get('player_inside', False):
+                self.dark_mode = not self.dark_mode
+            lamp['player_inside'] = currently_inside
+
         # Explosion flash effect (fondo parpadea blanco/negro)
         any_exploding = any(d.exploded for d in self.dynamites)
         if any_exploding:
@@ -843,6 +901,48 @@ class Game:
             self.level_complete_timer -= dt
             if self.level_complete_timer <= 0:
                 self.next_level()
+
+    def render_lamps(self, dimmed=False):
+        """Dibuja las lamparas en sus posiciones"""
+        cam_y = int(self.camera_y)
+        tile_key = 'lamp_dim' if dimmed else 'lamp'
+        for lamp in self.lamps:
+            screen_y = lamp['y'] - cam_y
+            # Solo dibujar si esta visible en el viewport
+            if -TILE_SIZE < screen_y < VIEWPORT_HEIGHT:
+                self.screen.blit(self.tiles[tile_key], (lamp['x'], screen_y))
+
+    def render_darkness(self):
+        """Renderiza overlay de oscuridad con spotlight en el jugador"""
+        if not self.dark_mode or self.explosion_flash or not self.player:
+            return
+
+        # Llenar overlay con oscuridad
+        self.darkness_overlay.fill((0, 0, 0, DARKNESS_ALPHA))
+
+        # Calcular posicion del jugador en pantalla
+        cam_y = int(self.camera_y)
+        player_screen_x = int(self.player.x + self.player.width / 2)
+        player_screen_y = int(self.player.y - cam_y + self.player.height / 2)
+
+        # Blit spotlight mask con BLEND_RGBA_MIN para "perforar" el agujero
+        mask_x = player_screen_x - SPOTLIGHT_RADIUS
+        mask_y = player_screen_y - SPOTLIGHT_RADIUS
+        self.darkness_overlay.blit(self.spotlight_mask, (mask_x, mask_y),
+                                   special_flags=pygame.BLEND_RGBA_MIN)
+
+        # Aplicar overlay sobre el viewport
+        self.screen.blit(self.darkness_overlay, (0, 0))
+
+    def _render_dark_mode_overlay(self):
+        """Aplica oscuridad y re-dibuja elementos visibles (lamparas, lasers, dinamitas)"""
+        if self.dark_mode and not self.explosion_flash:
+            self.render_darkness()
+            self.render_lamps(dimmed=True)
+            for laser in self.lasers:
+                laser.draw(self.screen, self.camera_y)
+            for dynamite in self.dynamites:
+                dynamite.draw(self.screen, self.camera_y)
 
     def render_level(self):
         """Render visible part of level"""
@@ -1052,6 +1152,7 @@ class Game:
     def render_level_complete(self):
         """Render level complete - fases 0 y 1 muestran juego + HUD, fase 2 agrega overlay"""
         self.render_level()
+        self.render_lamps()
 
         if self.miner:
             self.miner.draw(self.screen, self.camera_y)
@@ -1067,6 +1168,9 @@ class Game:
 
         if self.player:
             self.player.draw(self.screen, self.camera_y)
+
+        # Oscuridad con spotlight
+        self._render_dark_mode_overlay()
 
         self.render_floating_scores()
         self.render_hud()
@@ -1201,6 +1305,7 @@ class Game:
 
             elif self.state == STATE_PLAYING:
                 self.render_level()
+                self.render_lamps()
 
                 # Draw entities
                 if self.miner:
@@ -1217,6 +1322,9 @@ class Game:
 
                 if self.player:
                     self.player.draw(self.screen, self.camera_y)
+
+                # Oscuridad con spotlight
+                self._render_dark_mode_overlay()
 
                 self.render_floating_scores()
                 self.render_hud()

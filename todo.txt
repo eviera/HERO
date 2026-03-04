@@ -10,6 +10,9 @@
 /- paredes irrompibles de granito oscuro
 - tiles de fondo
 - lamparas que al tocar apagan la luz
+-- mejorar:
+--- lampara tiene q ser lamp.png y no dibujada por codigo
+--- ver como se implementa en commodore o coleco, porque no se ve bien  
 - serpientes que salen desde la cueva
 - bichos que se mueven como en el lugar (izq der), rapido  >o< 
 - bloques y nivel de magma
