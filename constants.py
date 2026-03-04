@@ -37,11 +37,6 @@ ENEMY_SPEED_VARIATION = 0.05  # ±5% variación aleatoria de velocidad por enemi
 # Cave background dots (pintitas del fondo de caverna)
 CAVE_DOT_SIZE = 2  # Tamaño en pixels de las pintitas
 
-# Lampara (oscuridad)
-SPOTLIGHT_RADIUS = 80       # Radio del spotlight alrededor del jugador
-DARKNESS_ALPHA = 235        # Opacidad de la oscuridad (0-255)
-LAMP_DIM_ALPHA = 100        # Brillo de la lampara tenue en modo oscuro (color multiplier)
-
 # Level dimensions - NIVELES VERTICALES
 LEVEL_WIDTH = 16  # tiles
 LEVEL_HEIGHT = 30  # tiles - 2-3 pantallas de largo

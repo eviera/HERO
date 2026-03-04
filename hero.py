@@ -195,8 +195,7 @@ class Game:
         # Lampara / modo oscuridad
         self.dark_mode = False
         self.lamps = []                   # Lista de posiciones {x, y} de lamparas
-        self.darkness_overlay = None
-        self.spotlight_mask = None
+        self._grayscale_cache = {}        # Cache de sprites en escala de gris
 
     def init(self):
         """Initialize pygame and resources"""
@@ -282,10 +281,6 @@ class Game:
             pygame.draw.circle(self.tiles['lamp'], (255, 240, 100),
                              (TILE_SIZE // 2, TILE_SIZE // 2 - 2), TILE_SIZE // 5)
 
-        # Version tenue de la lampara para modo oscuro
-        self.tiles['lamp_dim'] = self.tiles['lamp'].copy()
-        self.tiles['lamp_dim'].set_alpha(LAMP_DIM_ALPHA)
-
         # Load sprites
         try:
             self.sprites['player'] = pygame.image.load("sprites/player.png").convert_alpha()
@@ -357,9 +352,6 @@ class Game:
             beep = self._generate_beep(freq, duration_ms=50, volume=0.3)
             self.score_beeps.append(beep)
 
-        # Generar mascara de spotlight para modo oscuridad
-        self._generate_spotlight_mask()
-
     def _generate_beep(self, frequency, duration_ms=50, volume=0.3):
         """Genera un sonido corto sine wave sin dependencia de numpy"""
         mixer_info = pygame.mixer.get_init()
@@ -424,19 +416,6 @@ class Game:
                 pygame.draw.rect(self.cave_bg, color,
                                  (dx, dy, CAVE_DOT_SIZE, CAVE_DOT_SIZE))
 
-    def _generate_spotlight_mask(self):
-        """Genera mascara de spotlight con gradiente radial (se genera una vez)"""
-        size = SPOTLIGHT_RADIUS * 2
-        self.spotlight_mask = pygame.Surface((size, size), pygame.SRCALPHA)
-        # Llenar con transparencia completa para "perforar" la oscuridad
-        self.spotlight_mask.fill((0, 0, 0, 0))
-        center = SPOTLIGHT_RADIUS
-        for r in range(SPOTLIGHT_RADIUS, 0, -1):
-            # Curva cuadratica: alpha va de 0 (centro) a DARKNESS_ALPHA (borde)
-            t = r / SPOTLIGHT_RADIUS  # 0 en centro, 1 en borde
-            alpha = int(DARKNESS_ALPHA * t * t)
-            pygame.draw.circle(self.spotlight_mask, (0, 0, 0, alpha), (center, center), r)
-
     def start_level(self):
         """Start a new level"""
         self.state = STATE_PLAYING
@@ -464,7 +443,6 @@ class Game:
         # Reset lampara/oscuridad
         self.dark_mode = False
         self.lamps = []
-        self.darkness_overlay = pygame.Surface((SCREEN_WIDTH, VIEWPORT_HEIGHT), pygame.SRCALPHA)
 
         # Create player
         self.player = Player()
@@ -902,47 +880,99 @@ class Game:
             if self.level_complete_timer <= 0:
                 self.next_level()
 
-    def render_lamps(self, dimmed=False):
+    def _to_grayscale(self, surface):
+        """Convierte una surface a escala de gris (con cache)"""
+        key = id(surface)
+        if key not in self._grayscale_cache:
+            self._grayscale_cache[key] = pygame.transform.grayscale(surface)
+        return self._grayscale_cache[key]
+
+    def render_lamps(self):
         """Dibuja las lamparas en sus posiciones"""
         cam_y = int(self.camera_y)
-        tile_key = 'lamp_dim' if dimmed else 'lamp'
         for lamp in self.lamps:
             screen_y = lamp['y'] - cam_y
-            # Solo dibujar si esta visible en el viewport
             if -TILE_SIZE < screen_y < VIEWPORT_HEIGHT:
-                self.screen.blit(self.tiles[tile_key], (lamp['x'], screen_y))
-
-    def render_darkness(self):
-        """Renderiza overlay de oscuridad con spotlight en el jugador"""
-        if not self.dark_mode or self.explosion_flash or not self.player:
-            return
-
-        # Llenar overlay con oscuridad
-        self.darkness_overlay.fill((0, 0, 0, DARKNESS_ALPHA))
-
-        # Calcular posicion del jugador en pantalla
-        cam_y = int(self.camera_y)
-        player_screen_x = int(self.player.x + self.player.width / 2)
-        player_screen_y = int(self.player.y - cam_y + self.player.height / 2)
-
-        # Blit spotlight mask con BLEND_RGBA_MIN para "perforar" el agujero
-        mask_x = player_screen_x - SPOTLIGHT_RADIUS
-        mask_y = player_screen_y - SPOTLIGHT_RADIUS
-        self.darkness_overlay.blit(self.spotlight_mask, (mask_x, mask_y),
-                                   special_flags=pygame.BLEND_RGBA_MIN)
-
-        # Aplicar overlay sobre el viewport
-        self.screen.blit(self.darkness_overlay, (0, 0))
+                self.screen.blit(self.tiles['lamp'], (lamp['x'], screen_y))
 
     def _render_dark_mode_overlay(self):
-        """Aplica oscuridad y re-dibuja elementos visibles (lamparas, lasers, dinamitas)"""
-        if self.dark_mode and not self.explosion_flash:
-            self.render_darkness()
-            self.render_lamps(dimmed=True)
-            for laser in self.lasers:
-                laser.draw(self.screen, self.camera_y)
-            for dynamite in self.dynamites:
-                dynamite.draw(self.screen, self.camera_y)
+        """Modo oscuridad estilo C64: fondo negro, sprites en gris, lasers/dinamitas en color"""
+        if not self.dark_mode or self.explosion_flash:
+            return
+
+        cam_y = int(self.camera_y)
+
+        # Cubrir viewport con negro (oculta tiles/fondo)
+        pygame.draw.rect(self.screen, COLOR_BLACK, (0, 0, SCREEN_WIDTH, VIEWPORT_HEIGHT))
+
+        # Lamparas en gris
+        gray_lamp = self._to_grayscale(self.tiles['lamp'])
+        for lamp in self.lamps:
+            screen_y = lamp['y'] - cam_y
+            if -TILE_SIZE < screen_y < VIEWPORT_HEIGHT:
+                self.screen.blit(gray_lamp, (lamp['x'], screen_y))
+
+        # Minero en gris
+        if self.miner and not self.miner.rescued:
+            screen_y = self.miner.y - cam_y
+            if -50 < screen_y < VIEWPORT_HEIGHT + 50:
+                if self.miner.image:
+                    gray_img = self._to_grayscale(self.miner.image)
+                    self.screen.blit(gray_img, (int(self.miner.x), int(screen_y)))
+
+        # Enemigos en gris
+        for enemy in self.enemies:
+            if not enemy.active:
+                continue
+            screen_y = enemy.y - cam_y
+            if -50 < screen_y < VIEWPORT_HEIGHT + 50:
+                if enemy.exploding:
+                    # Explosion en gris
+                    progress = enemy.explosion_timer / enemy.explosion_duration
+                    radius = int(8 + progress * 10)
+                    for i in range(2):
+                        r = radius - i * 5
+                        if r > 0:
+                            gray_val = 100 if i == 0 else 70
+                            pygame.draw.circle(self.screen, (gray_val, gray_val, gray_val),
+                                             (int(enemy.x + 16), int(screen_y + 16)), r)
+                else:
+                    # Hilo de araña en gris
+                    if enemy.enemy_type == "spider":
+                        ceiling_y = enemy._find_ceiling_y(self.level_map)
+                        if ceiling_y is not None:
+                            thread_top = ceiling_y - cam_y
+                            thread_bottom = screen_y + enemy.height // 2
+                            center_x = int(enemy.x + enemy.width // 2)
+                            pygame.draw.line(self.screen, COLOR_GRAY,
+                                           (center_x, int(thread_top)),
+                                           (center_x, int(thread_bottom)), 1)
+                    if enemy.image:
+                        gray_img = self._to_grayscale(enemy.image)
+                        self.screen.blit(gray_img, (int(enemy.x), int(screen_y)))
+
+        # Jugador en gris
+        if self.player:
+            screen_y = self.player.y - cam_y
+            # Seleccionar sprite (misma logica que player.draw)
+            base_img = self.player.image
+            if self.player.shooting_timer > 0 and self.player.image_shooting:
+                base_img = self.player.image_shooting
+            elif not self.player.is_grounded and self.player.image_fly:
+                base_img = self.player.image_fly
+            elif self.player.is_walking and self.player.walk_frames:
+                base_img = self.player.walk_frames[self.player.walk_frame_index]
+            if base_img:
+                gray_img = self._to_grayscale(base_img)
+                if self.player.facing_right:
+                    gray_img = pygame.transform.flip(gray_img, True, False)
+                self.screen.blit(gray_img, (int(self.player.x), int(screen_y)))
+
+        # Lasers y dinamitas en color (visibles)
+        for laser in self.lasers:
+            laser.draw(self.screen, cam_y)
+        for dynamite in self.dynamites:
+            dynamite.draw(self.screen, cam_y)
 
     def render_level(self):
         """Render visible part of level"""
@@ -1323,7 +1353,7 @@ class Game:
                 if self.player:
                     self.player.draw(self.screen, self.camera_y)
 
-                # Oscuridad con spotlight
+                # Oscuridad estilo C64
                 self._render_dark_mode_overlay()
 
                 self.render_floating_scores()
