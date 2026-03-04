@@ -50,7 +50,7 @@ class Enemy:
             if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
                 tile = level_map[tile_y][tile_x]
                 # Colisiona con paredes, bloques, pisos
-                if tile in ('#', 'B', '.', 'W'):
+                if tile in ('#', 'G', '.', 'W'):
                     return True
 
         return False
@@ -63,7 +63,7 @@ class Enemy:
         for tile_y in range(start_tile_y - 1, -1, -1):
             if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
                 tile = level_map[tile_y][tile_x]
-                if tile in ('#', 'B', '.', 'W'):
+                if tile in ('#', 'G', '.', 'W'):
                     # El fondo del tile sólido
                     return (tile_y + 1) * TILE_SIZE
         return None

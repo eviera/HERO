@@ -70,10 +70,12 @@ class Editor:
             self.tiles['blank'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['blank'].fill(COLOR_BLACK)
 
-        # Bloque destructible
-        self.tiles['block'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
-        self.tiles['block'].fill(COLOR_MAGENTA)
-        pygame.draw.rect(self.tiles['block'], (200, 0, 200), (2, 2, 28, 28))
+        # Granito (indestructible)
+        try:
+            self.tiles['granite'] = pygame.image.load("tiles/granite.png").convert_alpha()
+        except:
+            self.tiles['granite'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['granite'].fill((60, 60, 65))
 
         # Pared rompible
         try:
@@ -167,8 +169,8 @@ class Editor:
                     self.screen.blit(self.tiles['wall'], (x, int(y)))
                 elif tile == '.':
                     self.screen.blit(self.tiles['floor'], (x, int(y)))
-                elif tile == 'B':
-                    self.screen.blit(self.tiles['block'], (x, int(y)))
+                elif tile == 'G':
+                    self.screen.blit(self.tiles['granite'], (x, int(y)))
                 elif tile == 'W':
                     self.screen.blit(self.tiles['breakable'], (x, int(y)))
                 else:
@@ -243,8 +245,8 @@ class Editor:
                 preview = pygame.transform.scale(self.tiles['wall'], (20, 20))
             elif tc == '.':
                 preview = pygame.transform.scale(self.tiles['floor'], (20, 20))
-            elif tc == 'B':
-                preview = pygame.transform.scale(self.tiles['block'], (20, 20))
+            elif tc == 'G':
+                preview = pygame.transform.scale(self.tiles['granite'], (20, 20))
             elif tc == 'W':
                 preview = pygame.transform.scale(self.tiles['breakable'], (20, 20))
             else:

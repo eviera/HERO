@@ -251,10 +251,12 @@ class Game:
             self.tiles['blank'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['blank'].fill(COLOR_BLACK)
 
-        # Destructible block tile (B)
-        self.tiles['block'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
-        self.tiles['block'].fill(COLOR_MAGENTA)
-        pygame.draw.rect(self.tiles['block'], (200, 0, 200), (2, 2, 28, 28))
+        # Granite tile (G) - indestructible
+        try:
+            self.tiles['granite'] = pygame.image.load("tiles/granite.png").convert_alpha()
+        except:
+            self.tiles['granite'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['granite'].fill((60, 60, 65))
 
         # Breakable wall tile (W)
         try:
@@ -576,7 +578,7 @@ class Game:
                     for row_index in range(len(self.level_map)):
                         for col_index in range(len(self.level_map[row_index])):
                             tile = self.level_map[row_index][col_index]
-                            if tile in ('B', '#', 'W'):  # Destruye bloques, paredes y rompibles
+                            if tile in ('#', 'W'):  # Destruye paredes y rompibles (G es indestructible)
                                 tile_x = col_index * TILE_SIZE
                                 tile_y = row_index * TILE_SIZE
                                 tile_rect = pygame.Rect(tile_x, tile_y, TILE_SIZE, TILE_SIZE)
@@ -866,8 +868,8 @@ class Game:
                     self.screen.blit(self.tiles['wall'], (x, y))
                 elif tile == '.':
                     self.screen.blit(self.tiles['floor'], (x, y))
-                elif tile == 'B':
-                    self.screen.blit(self.tiles['block'], (x, y))
+                elif tile == 'G':
+                    self.screen.blit(self.tiles['granite'], (x, y))
                 elif tile == 'W':
                     self.screen.blit(self.tiles['breakable'], (x, y))
                 # Espacios vacios: no dibujar nada, el cave_bg ya se ve

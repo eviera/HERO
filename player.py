@@ -161,7 +161,7 @@ class Player:
 
             if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
                 tile = level_map[tile_y][tile_x]
-                if tile in ('#', 'B', '.', 'W'):
+                if tile in ('#', 'G', '.', 'W'):
                     return True
 
         return False
