@@ -67,10 +67,10 @@ COLOR_MAGENTA = (255, 0, 255)
 # Tile types (caracter, nombre, color_fallback)
 TILE_TYPES = [
     (' ', 'Aire',       COLOR_BLACK),
-    ('#', 'Rocas',       COLOR_GRAY),       # destructible
+    ('#', 'Tierra',      COLOR_GRAY),       # destructible
     ('.', 'Suelo',      (100, 70, 50)),     # indestructible
     ('G', 'Granito',    (60, 60, 65)),      # indestructible
-    ('W', 'Rompible',   (180, 170, 160)),   # destructible
+    ('R', 'Rocas',   (180, 170, 160)),      # destructible
     ('S', 'Start',      COLOR_BLUE),
     ('M', 'Minero',     COLOR_GREEN),
     ('V', 'Murcielago', COLOR_RED),

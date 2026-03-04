@@ -79,10 +79,10 @@ class Editor:
 
         # Pared rompible
         try:
-            self.tiles['breakable'] = pygame.image.load("tiles/breakable_wall.png").convert_alpha()
+            self.tiles['rock'] = pygame.image.load("tiles/breakable_wall.png").convert_alpha()
         except:
-            self.tiles['breakable'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
-            self.tiles['breakable'].fill((180, 170, 160))
+            self.tiles['rock'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['rock'].fill((180, 170, 160))
 
         # Cargar sprites de entidades
         self.sprites = {}
@@ -171,8 +171,8 @@ class Editor:
                     self.screen.blit(self.tiles['floor'], (x, int(y)))
                 elif tile == 'G':
                     self.screen.blit(self.tiles['granite'], (x, int(y)))
-                elif tile == 'W':
-                    self.screen.blit(self.tiles['breakable'], (x, int(y)))
+                elif tile == 'R':
+                    self.screen.blit(self.tiles['rock'], (x, int(y)))
                 else:
                     self.screen.blit(self.tiles['blank'], (x, int(y)))
 
@@ -247,8 +247,8 @@ class Editor:
                 preview = pygame.transform.scale(self.tiles['floor'], (20, 20))
             elif tc == 'G':
                 preview = pygame.transform.scale(self.tiles['granite'], (20, 20))
-            elif tc == 'W':
-                preview = pygame.transform.scale(self.tiles['breakable'], (20, 20))
+            elif tc == 'R':
+                preview = pygame.transform.scale(self.tiles['rock'], (20, 20))
             else:
                 preview.fill(tcolor if tc != ' ' else (30, 30, 30))
                 # Letra para entidades

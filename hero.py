@@ -260,10 +260,10 @@ class Game:
 
         # Breakable wall tile (W)
         try:
-            self.tiles['breakable'] = pygame.image.load("tiles/breakable_wall.png").convert_alpha()
+            self.tiles['rock'] = pygame.image.load("tiles/breakable_wall.png").convert_alpha()
         except:
-            self.tiles['breakable'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
-            self.tiles['breakable'].fill((180, 170, 160))
+            self.tiles['rock'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['rock'].fill((180, 170, 160))
 
         # Load sprites
         try:
@@ -578,7 +578,7 @@ class Game:
                     for row_index in range(len(self.level_map)):
                         for col_index in range(len(self.level_map[row_index])):
                             tile = self.level_map[row_index][col_index]
-                            if tile in ('#', 'W'):  # Destruye paredes y rompibles (G es indestructible)
+                            if tile in ('#', 'R'):  # Destruye tierra y rocas (G es indestructible)
                                 tile_x = col_index * TILE_SIZE
                                 tile_y = row_index * TILE_SIZE
                                 tile_rect = pygame.Rect(tile_x, tile_y, TILE_SIZE, TILE_SIZE)
@@ -870,8 +870,8 @@ class Game:
                     self.screen.blit(self.tiles['floor'], (x, y))
                 elif tile == 'G':
                     self.screen.blit(self.tiles['granite'], (x, y))
-                elif tile == 'W':
-                    self.screen.blit(self.tiles['breakable'], (x, y))
+                elif tile == 'R':
+                    self.screen.blit(self.tiles['rock'], (x, y))
                 # Espacios vacios: no dibujar nada, el cave_bg ya se ve
 
     def render_hud(self):
