@@ -64,8 +64,8 @@ Controla a Roderick Hero, equipado con un helicoptero personal, mientras navegas
 |--------|--------|
 | Destruir enemigo con laser | 50 |
 | Destruir enemigo con dinamita | 75 |
-| Destruir pared con dinamita | 20 |
-| Destruir bloque con dinamita | 10 |
+| Destruir tierra (#) con dinamita | 20 |
+| Destruir rocas (R) con dinamita | 10 |
 | Rescatar minero | 1,000 |
 | Bonus energia restante | 1:1 (se drena en animacion) |
 | Bonus bombas restantes | 50 por bomba |
@@ -101,9 +101,9 @@ Controla a Roderick Hero, equipado con un helicoptero personal, mientras navegas
 Los niveles se cargan desde `screens.json` y pueden editarse con `editor.py`.
 
 ### Nivel 1 - Tutorial: Rescate con dinamita
-- Nivel introductorio con bloques destructibles
+- Nivel introductorio con rocas destructibles
 - 2 murcielagos y 1 arana
-- Paredes rompibles (W) y bloques (B)
+- Rocas (R) y tierra (#) destructibles, granito (G) indestructible
 - Minero encerrado en una seccion inferior
 
 ### Nivel 2 - Minero encerrado
@@ -203,16 +203,19 @@ hero/
 │   ├── player_shooting.png  # Sprite disparando
 │   ├── player_walk1.png     # Animacion de caminata frame 1
 │   ├── player_walk2.png     # Animacion de caminata frame 2
-│   ├── bat.png              # Sprite de murcielago
+│   ├── bat1.png             # Sprite de murcielago frame 1
+│   ├── bat2.png             # Sprite de murcielago frame 2
 │   ├── spider.png           # Sprite de arana
 │   ├── miner.png            # Sprite del minero
 │   ├── bomb1.png            # Animacion de bomba frame 1
 │   ├── bomb2.png            # Animacion de bomba frame 2
 │   └── bomb3.png            # Animacion de bomba frame 3
 ├── tiles/
-│   ├── wall.png             # Pared solida (#)
+│   ├── wall.png             # Tierra (#)
 │   ├── floor.png            # Suelo/plataforma (.)
-│   ├── breakable_wall.png   # Pared rompible (W)
+│   ├── granite.png          # Granito indestructible (G)
+│   ├── breakable_wall.png   # Rocas destructibles (R)
+│   ├── lamp.png             # Lampara (L)
 │   └── blank.png            # Espacio vacio
 └── sounds/
     ├── shoot.wav            # Efecto de disparo
@@ -240,12 +243,13 @@ El juego genera graficos procedurales como fallback si no encuentra las imagenes
 | Simbolo | Significado |
 |---------|-------------|
 | `S` | Start - Posicion inicial del jugador |
-| `#` | Pared solida (indestructible, se destruye con dinamita) |
-| `.` | Suelo/plataforma (solido) |
-| `B` | Bloque destructible (magenta, solo con dinamita) |
-| `W` | Pared rompible (gris claro, solo con dinamita) |
+| `#` | Tierra (solida, destructible con dinamita) |
+| `.` | Suelo/plataforma (solido, indestructible) |
+| `G` | Granito (solido, indestructible) |
+| `R` | Rocas (solido, destructible con dinamita) |
 | `V` | Enemigo - Murcielago (patrulla horizontal) |
 | `A` | Enemigo - Arana (se mueve verticalmente con hilo) |
+| `L` | Lampara (toggle modo oscuridad al tocar) |
 | `M` | Minero a rescatar (objetivo del nivel) |
 | ` ` | Espacio vacio (fondo de caverna) |
 
@@ -260,7 +264,7 @@ El juego genera graficos procedurales como fallback si no encuentra las imagenes
 ### Uso de Dinamita
 - La dinamita explota en 1.5 segundos
 - Area de efecto de 80 pixeles de radio
-- Destruye paredes (#), bloques (B) y paredes rompibles (W)
+- Destruye tierra (#) y rocas (R). No destruye granito (G) ni suelo (.)
 - Puede eliminar varios enemigos a la vez
 - Cuidado: la explosion tambien daña al jugador
 
@@ -307,7 +311,7 @@ Ejecuta `python editor.py` para abrir el editor visual de niveles. Permite crear
 - [ ] Mas niveles (6-20 como el original)
 - [ ] Animar murcielagos (alas)
 - [ ] Tiles de fondo decorativos
-- [ ] Lamparas que al tocar apagan la luz
+- [x] Lamparas que al tocar apagan la luz
 - [ ] Serpientes que salen desde la cueva
 - [ ] Enemigos que vibran en el lugar
 - [ ] Bloques y nivel de magma

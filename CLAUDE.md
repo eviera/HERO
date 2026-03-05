@@ -13,14 +13,15 @@ Este es un remake del clásico juego de Atari **H.E.R.O.** (Helicopter Emergency
 
 ```
 hero/
-├── hero.py                      # Archivo principal del juego (~1255 líneas)
-├── constants.py                 # Constantes del juego (~90 líneas)
+├── hero.py                      # Archivo principal del juego (~1410 líneas)
+├── constants.py                 # Constantes del juego (~96 líneas)
 ├── player.py                    # Clase Player (~208 líneas)
 ├── enemy.py                     # Clase Enemy (~166 líneas)
 ├── laser.py                     # Clase Laser (~51 líneas)
 ├── dynamite.py                  # Clase Dynamite (~112 líneas)
 ├── miner.py                     # Clase Miner (~37 líneas)
 ├── audio_effects.py             # Emulación SID de Commodore 64 (numpy)
+├── editor.py                    # Editor visual de niveles
 ├── screens.json                 # Niveles del juego (cargados en runtime)
 ├── scores.json                  # High scores persistidos
 ├── CLAUDE.md                    # Este archivo
@@ -75,11 +76,20 @@ hero/
 ### Constantes Principales (constants.py)
 
 ```python
-# Dimensiones
-SCREEN_WIDTH = 512
-SCREEN_HEIGHT = 480
-FPS = 60
+# Dimensiones y Render Pipeline (dos superficies)
 TILE_SIZE = 32
+FPS = 60
+RENDER_SCALE = 1.5          # Escala de game_surface al screen final
+
+# Superficie de juego (lógica interna, sin escalar)
+GAME_WIDTH = 16 * TILE_SIZE              # 512
+GAME_VIEWPORT_HEIGHT = 8 * TILE_SIZE     # 256 - 8 tiles visibles
+
+# Pantalla final (escalada)
+SCREEN_WIDTH = int(GAME_WIDTH * RENDER_SCALE)              # 768
+VIEWPORT_HEIGHT = int(GAME_VIEWPORT_HEIGHT * RENDER_SCALE)  # 384
+HUD_HEIGHT = 80
+SCREEN_HEIGHT = VIEWPORT_HEIGHT + HUD_HEIGHT                # 464
 
 # Físicas del Juego
 GRAVITY = 400              # Gravedad constante
@@ -105,21 +115,18 @@ DYNAMITE_EXPLOSION_RADIUS = 80
 DYNAMITE_QUANTITY = 5
 
 # Enemigos
-BAT_SPEED = 52              # Velocidad horizontal del murciélago
+BAT_SPEED = 60              # Velocidad horizontal del murciélago
 BAT_SPEED_SCALE = 0.05      # +5% por nivel
-BAT_ANIM_DISTANCE = 16      # Píxeles entre cambios de sprite
+BAT_ANIM_DISTANCE = 8       # Píxeles entre cambios de sprite
 SPIDER_SPEED = 30            # Velocidad vertical de la araña
+ENEMY_SPEED_VARIATION = 0.05 # ±5% variación aleatoria por enemigo
 
 # Control
 DEAD_ZONE = 0.15
 
 # Nivel
 LEVEL_WIDTH = 16   # tiles
-LEVEL_HEIGHT = 30  # tiles
-
-# Viewport
-HUD_HEIGHT = 80
-VIEWPORT_HEIGHT = SCREEN_HEIGHT - HUD_HEIGHT
+LEVEL_HEIGHT = 24  # tiles
 
 # SID Audio Effects
 SID_INTENSITY = 'light'
@@ -152,15 +159,15 @@ SID_DISTORTION = 0.2
 **Métodos:**
 - `init(level_map)`: Inicializa posición buscando "S" en el mapa
 - `update(dt, keys, joy_axis_x, joy_axis_y, level_map, game)`: Actualiza física y movimiento
-- `check_collision(x, y, level_map)`: Verifica colisiones con tiles (#, B, ., W)
-- `draw(screen, camera_y)`: Renderiza al jugador (prioridad: disparo > vuelo > caminata > idle)
+- `check_collision(x, y, level_map)`: Verifica colisiones con tiles (#, ., G, R)
+- `draw(surface, camera_y)`: Renderiza al jugador (prioridad: disparo > vuelo > caminata > idle)
 - `get_rect()`: Rectángulo de colisión
 
 **Características:**
 - Física con gravedad constante
 - Propulsor para volar (mantener presionado, intensidad gradual con joystick)
 - Descenso activo con tecla ↓ o joystick abajo (DIVE_POWER)
-- Colisión con paredes (#), suelos (.), bloques (B) y rompibles (W)
+- Colisión con paredes (#), suelos (.), granito (G) y rocas (R)
 - Movimiento independiente del framerate (delta-time)
 - Energía: se drena al volar, se recupera en el suelo (no hay drenaje pasivo)
 - Animación de caminata con sonidos alternados cada WALK_STEP_DISTANCE píxeles
@@ -189,8 +196,8 @@ SID_DISTORTION = 0.2
 
 **Métodos:**
 - `update(dt, level_map)`: Actualiza movimiento y patrullaje
-- `check_collision(x, y, level_map)`: Colisión con tiles (#, B, ., W)
-- `draw(screen, camera_y, level_map)`: Renderiza enemigo, hilo de araña o explosión
+- `check_collision(x, y, level_map)`: Colisión con tiles (#, ., G, R)
+- `draw(surface, camera_y, level_map)`: Renderiza enemigo, hilo de araña o explosión
 - `get_rect()`: Rectángulo de colisión
 - `_find_ceiling_y(level_map)`: (privado) Busca techo para hilo de araña
 
@@ -207,11 +214,11 @@ SID_DISTORTION = 0.2
 
 **Métodos:**
 - `update(dt, level_map)`: Actualiza posición y colisiones
-- `draw(screen, camera_y)`: Renderiza láser
+- `draw(surface, camera_y)`: Renderiza láser
 - `get_rect()`: Rectángulo de colisión
 
 **Características:**
-- Colisiona con paredes (#), suelos (.), bloques (B) y rompibles (W)
+- Colisiona con paredes (#), suelos (.), granito (G) y rocas (R)
 - Se desactiva al salir de límites del nivel
 - Sale de la punta del arma del jugador (posición ajustada según dirección)
 
@@ -233,7 +240,7 @@ SID_DISTORTION = 0.2
 **Métodos:**
 - `update(dt, level_map)`: Actualiza caída, colisión con suelo y temporizador
 - `check_collision(x, y, level_map)`: Colisión con tiles
-- `draw(screen, camera_y)`: Renderiza dinamita animada o explosión animada
+- `draw(surface, camera_y)`: Renderiza dinamita animada o explosión animada
 - `get_explosion_rect()`: Rectángulo de área de explosión
 
 **Características:**
@@ -241,7 +248,7 @@ SID_DISTORTION = 0.2
 - Se coloca enfrente del héroe según su dirección
 - Explota después de 1.5 segundos
 - Radio de explosión de DYNAMITE_EXPLOSION_RADIUS píxeles
-- Destruye bloques (B), paredes (#), rompibles (W) y enemigos
+- Destruye paredes (#), rocas (R) y enemigos (G es indestructible)
 - Animación con sprites bomb1/bomb2/bomb3 tanto en cuenta regresiva como en explosión
 - Explosión daña al jugador si está en el radio
 
@@ -256,7 +263,7 @@ SID_DISTORTION = 0.2
 - `image`: Sprite del minero
 
 **Métodos:**
-- `draw(screen, camera_y)`: Renderiza minero (sprite o fallback con brazos animados)
+- `draw(surface, camera_y)`: Renderiza minero (sprite o fallback con brazos animados)
 - `get_rect()`: Rectángulo de colisión
 
 ### Clase Game (hero.py)
@@ -264,7 +271,10 @@ SID_DISTORTION = 0.2
 **Responsabilidad:** Motor principal del juego, gestiona estado global y sistemas.
 
 **Atributos principales:**
-- `screen`: Superficie de renderizado (512x480)
+- `screen`: Superficie final de composición (768x464)
+- `game_surface`: Superficie de juego sin escalar (512x256, 8 tiles visibles)
+- `_scaled_game`: Superficie pre-alocada para escalar game_surface (768x384)
+- `splash_surface`: Superficie del splash (512x480, tamaño original)
 - `display_surface`: Superficie de display real (fullscreen)
 - `fullscreen`: Estado de pantalla completa (default: True)
 - `render_scale/w/h/x/y`: Parámetros de escalado con aspect ratio
@@ -295,31 +305,35 @@ SID_DISTORTION = 0.2
 8. **`rescue_miner()`**: Inicia animación de nivel completado (3 fases)
 9. **`update_playing(dt)`**: Actualización del estado PLAYING
 10. **`update_level_complete(dt)`**: Animación ColecoVision de 3 fases
-11. **`render_level()`**: Renderiza tiles visibles con fondo de caverna
-12. **`render_hud()`**: HUD estilo ColecoVision con paneles grises
-13. **`render_splash()`**: Splash screen con imagen de fondo
-14. **`render_entering_name()`**: Pantalla de entrada de nombre
-15. **`render_level_complete()`**: Renderiza las 3 fases de level complete
-16. **`toggle_fullscreen()`**: Alterna ventana/fullscreen
-17. **`add_floating_score()`**: Agrega texto flotante de puntos
-18. **`render_floating_scores()`**: Renderiza textos flotantes
-19. **`draw_text_with_outline()`**: Texto con contorno para splash
-20. **`loop()`**: Loop principal del juego
+11. **`render_level()`**: Renderiza tiles visibles con fondo de caverna (en game_surface)
+12. **`render_lamps()`**: Dibuja lámparas en game_surface
+13. **`_render_dark_mode_overlay()`**: Modo oscuridad estilo C64 (en game_surface)
+14. **`_render_game_to_screen()`**: Escala game_surface (512x256) → screen (768x384)
+15. **`render_hud()`**: HUD estilo ColecoVision con paneles grises (en screen)
+16. **`render_splash()`**: Splash screen a 512x480 escalado con aspect ratio
+17. **`render_entering_name()`**: Pantalla de entrada de nombre
+18. **`render_level_complete()`**: Renderiza las 3 fases de level complete
+19. **`toggle_fullscreen()`**: Alterna ventana/fullscreen
+20. **`add_floating_score()`**: Agrega texto flotante de puntos
+21. **`render_floating_scores()`**: Renderiza textos flotantes (en game_surface)
+22. **`draw_text_with_outline()`**: Texto con contorno (acepta surface opcional)
+23. **`loop()`**: Loop principal del juego
 
 ## Sistema de Niveles
 
 ### Formato del Mapa
 
-Grid de 16 columnas x 30 filas (LEVEL_WIDTH x LEVEL_HEIGHT) usando caracteres:
+Grid de 16 columnas x 24 filas (LEVEL_WIDTH x LEVEL_HEIGHT) usando caracteres:
 
 - `"S"`: Posición inicial del jugador (Start)
-- `"#"`: Pared sólida (destructible con dinamita)
-- `"."`: Suelo/plataforma (sólido, transitable)
+- `"#"`: Tierra (sólida, destructible con dinamita)
+- `"."`: Suelo/plataforma (sólido, indestructible)
+- `"G"`: Granito (sólido, indestructible)
+- `"R"`: Rocas (sólido, destructible con dinamita)
 - `" "`: Espacio vacío (aire)
 - `"V"`: Enemigo murciélago (bat)
 - `"A"`: Enemigo araña (spider)
-- `"B"`: Bloque destructible (solo con dinamita)
-- `"W"`: Pared rompible (destructible con dinamita)
+- `"L"`: Lámpara (toggle modo oscuridad al tocar)
 - `"M"`: Minero a rescatar (objetivo)
 
 ### Carga de Niveles
@@ -337,10 +351,14 @@ Secuencia de ejecución por frame:
    - PLAYING: `update_playing(dt)` (jugador, enemigos, láseres, dinamitas, colisiones, cámara, flash)
    - LEVEL_COMPLETE: `update_level_complete(dt)` (3 fases de animación)
 5. Gestionar música de splash (play/stop según estado)
-6. Limpiar pantalla
-7. Renderizar según estado (splash/playing/level_complete/entering_name)
+6. Limpiar screen
+7. Renderizar según estado:
+   - SPLASH: render_splash() (512x480 → escala a screen)
+   - PLAYING: game_surface → render_level/entidades/dark_mode → _render_game_to_screen() → render_hud()
+   - LEVEL_COMPLETE: igual que PLAYING + overlay fase 2
+   - ENTERING_NAME: directo en screen
 8. Renderizar quit confirm overlay si activo
-9. Escalar a display con aspect ratio y flip
+9. Escalar screen a display con aspect ratio y flip
 
 ## Sistema de Input
 
@@ -411,8 +429,8 @@ Estilo ColecoVision TMS9918A. Posición: parte inferior de la pantalla (HUD_HEIG
 - **Rescatar minero**: +1000 pts
 - **Matar enemigo con láser**: +50 pts
 - **Matar enemigo con explosión**: +75 pts
-- **Destruir pared (#) con dinamita**: +20 pts
-- **Destruir bloque (B/W) con dinamita**: +10 pts
+- **Destruir tierra (#) con dinamita**: +20 pts
+- **Destruir rocas (R) con dinamita**: +10 pts
 - **Energía restante al completar nivel**: se convierte 1:1 en puntos
 - **Bombas restantes al completar nivel**: +50 pts cada una
 - **Vida extra**: cada 20,000 puntos
@@ -437,14 +455,16 @@ Estilo ColecoVision TMS9918A. Posición: parte inferior de la pantalla (HUD_HEIG
 - **Importación de módulos**: `from constants import *`, `from player import Player`
 - **Fallbacks visuales**: Todas las entidades tienen renderizado fallback si falta el sprite
 
-### Renderizado
+### Renderizado (pipeline de dos superficies)
 
-- Fullscreen por defecto con escalado manteniendo aspect ratio
-- Render a superficie interna (512x480), luego escala al display
-- Orden: Fondo caverna → Tiles → Entidades → Floating scores → HUD → Flip
-- Coordenadas: (0,0) es esquina superior izquierda
-- Sistema de tiles: 32x32 píxeles
-- Cámara vertical suave: Sigue al jugador en eje Y con lerp
+- **game_surface** (512x256): Toda la lógica de juego se renderiza aquí a escala 1:1 (tiles 32x32)
+- **screen** (768x464): game_surface se escala x1.5 (→768x384) + HUD (80px) se dibuja directo
+- **display_surface** (fullscreen): screen se escala manteniendo aspect ratio al monitor
+- **splash_surface** (512x480): Splash se renderiza al tamaño original, se escala con aspect ratio al screen
+- Orden en game_surface: Fondo caverna → Tiles → Lámparas → Entidades → Dark overlay → Floating scores
+- Orden en screen: game_surface escalado → HUD → Overlays (quit confirm, level complete fase 2)
+- Coordenadas de juego: (0,0) esquina superior izquierda, tiles 32x32
+- Cámara vertical suave: Sigue al jugador en eje Y con lerp (usa GAME_VIEWPORT_HEIGHT)
 
 ## Cómo Modificar el Juego
 
@@ -489,7 +509,7 @@ MAX_ENERGY = 2550             # Energía total
 
 ### Crear Nuevos Niveles
 
-Editar **screens.json**. Cada nivel es un objeto con un campo `"map"` que contiene un array de 30 strings de 16 caracteres. Las dimensiones se normalizan automáticamente.
+Editar **screens.json**. Cada nivel es un objeto con un campo `"map"` que contiene un array de 24 strings de 16 caracteres. Las dimensiones se normalizan automáticamente.
 
 ## Recursos y Referencias
 
@@ -508,10 +528,13 @@ Editar **screens.json**. Cada nivel es un objeto con un campo `"map"` que contie
 - **Usar las constantes** de constants.py, no hardcodear valores
 - **Comentarios en español** (es el idioma del desarrollador)
 - **Los suelos (.) son sólidos** - Igual que las paredes (#)
-- **Tiles sólidos para colisión**: #, B, ., W
+- **Tiles sólidos para colisión**: #, ., G, R
+- **Tiles destructibles con dinamita**: # (tierra), R (rocas). G (granito) es indestructible
+- **Renderizado de juego en game_surface** - Entidades dibujan en game_surface, NO en self.screen
+- **Cámara usa GAME_VIEWPORT_HEIGHT** (256) - No confundir con VIEWPORT_HEIGHT (384, escalado)
 - **Niveles en screens.json** - No hardcodear niveles en hero.py
 - **Sprites con fondo transparente** - Todo sprite generado debe usar `pygame.SRCALPHA` y fondo transparente
 
 ---
 
-*Última actualización: 2026-02-25*
+*Última actualización: 2026-03-05*

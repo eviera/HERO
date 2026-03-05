@@ -14,17 +14,10 @@
 /--- lampara tiene q ser lamp.png y no dibujada por codigo
 /--- lamp.png fondo transparente
 /--- todos los sprites en gris, como en la commodore 64 https://youtu.be/bpzN0fagzi8?t=71
+/- Queremos cortar el 'alto' de la pantalla ? digo para que pase de una seccion a otra del nivel y que solo se vea un pedazo, tal como es en el original ???
 - serpientes que salen desde la cueva
 - bichos que se mueven como en el lugar (izq der), rapido  >o< 
 - bloques y nivel de magma
-
-
-
-
-
-******************************
-- Queremos cortar el 'alto' de la pantalla ? digo para que pase de una seccion a otra del nivel y que solo se vea un pedazo, tal como es en el original ???
-******************************
 
 
 
