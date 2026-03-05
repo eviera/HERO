@@ -94,7 +94,7 @@ class Editor:
         self.sprites = {}
         try:
             self.sprites['player'] = pygame.image.load("sprites/player.png").convert_alpha()
-            self.sprites['enemy'] = pygame.image.load("sprites/bat.png").convert_alpha()
+            self.sprites['enemy'] = pygame.image.load("sprites/bat1.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['miner'] = pygame.image.load("sprites/miner.png").convert_alpha()
         except Exception as e:
@@ -107,6 +107,8 @@ class Editor:
         self.cursor_col = 0
         self.selected_tile = 1  # Pared por defecto
         self.camera_y = 0
+        self.target_camera_y = 0
+        self.camera_animating = False
         self.saved_indicator = 0  # Timer para mensaje "Guardado!"
 
         # Normalizar todas las pantallas cargadas
@@ -132,6 +134,8 @@ class Editor:
         self.cursor_row = 1
         self.cursor_col = 1
         self.camera_y = 0
+        self.target_camera_y = 0
+        self.camera_animating = False
 
     def get_current_map(self):
         return self.screens[self.current_level]["map"]
@@ -143,17 +147,15 @@ class Editor:
         level_map[row] = row_str[:col] + char + row_str[col + 1:]
 
     def update_camera(self):
-        """Mantener el cursor visible en pantalla"""
-        cursor_pixel_y = self.cursor_row * TILE_SIZE
-        margin = 3 * TILE_SIZE
-        vh = self.editor_viewport_h
-
-        if cursor_pixel_y - self.camera_y < margin:
-            self.camera_y = max(0, cursor_pixel_y - margin)
-        elif cursor_pixel_y - self.camera_y > vh - margin - TILE_SIZE:
-            max_camera = LEVEL_HEIGHT * TILE_SIZE - vh
-            self.camera_y = min(max_camera,
-                                cursor_pixel_y - vh + margin + TILE_SIZE)
+        """Cámara fija por tercios: filas 0-7, 8-15, 16-23"""
+        block_size = 8 * TILE_SIZE
+        max_camera = LEVEL_HEIGHT * TILE_SIZE - self.editor_viewport_h
+        cursor_block = self.cursor_row // 8  # 0, 1 o 2
+        target = min(max_camera, cursor_block * block_size)
+        if abs(self.target_camera_y - target) > 0:
+            self.target_camera_y = target
+            if abs(self.camera_y - target) > 1:
+                self.camera_animating = True
 
     def render_grid(self):
         """Renderizar la cuadricula del nivel"""
@@ -278,7 +280,7 @@ class Editor:
 
         # Controles
         hint = self.small_font.render(
-            "Spc:Poner ^S:Guardar PgUp/Dn:Nivel ^N:Nuevo",
+            "Spc:Poner ^S:Guardar PgUp/Dn:Nivel Q/A:Tercio",
             True, COLOR_GRAY
         )
         self.screen.blit(hint, (8, hud_y + 52))
@@ -392,6 +394,8 @@ class Editor:
                             self.cursor_row = 0
                             self.cursor_col = 0
                             self.camera_y = 0
+                            self.target_camera_y = 0
+                            self.camera_animating = False
 
                     # Cambiar de nivel
                     elif event.key == pygame.K_PAGEUP:
@@ -400,14 +404,43 @@ class Editor:
                             self.cursor_row = 0
                             self.cursor_col = 0
                             self.camera_y = 0
+                            self.target_camera_y = 0
+                            self.camera_animating = False
                     elif event.key == pygame.K_PAGEDOWN:
                         if self.current_level < len(self.screens) - 1:
                             self.current_level += 1
                             self.cursor_row = 0
                             self.cursor_col = 0
                             self.camera_y = 0
+                            self.target_camera_y = 0
+                            self.camera_animating = False
 
+                    # Saltar por tercios con Q/A (mover cursor al tercio anterior/siguiente)
+                    elif event.key == pygame.K_q:
+                        current_block = self.cursor_row // 8
+                        if current_block > 0:
+                            self.cursor_row = (current_block - 1) * 8
+                        else:
+                            # Ya en primer tercio: ir a la primera fila
+                            self.cursor_row = 0
+
+                    elif event.key == pygame.K_a:
+                        current_block = self.cursor_row // 8
+                        if current_block < 2:
+                            self.cursor_row = (current_block + 1) * 8
+                        else:
+                            # Ya en tercer tercio: ir a la ultima fila
+                            self.cursor_row = LEVEL_HEIGHT - 1
+
+            # Cámara por tercios con animación
             self.update_camera()
+            if self.camera_animating:
+                diff = self.target_camera_y - self.camera_y
+                if abs(diff) < 1:
+                    self.camera_y = self.target_camera_y
+                    self.camera_animating = False
+                else:
+                    self.camera_y += diff * 0.15
 
             # Render
             self.screen.fill(COLOR_BLACK)
