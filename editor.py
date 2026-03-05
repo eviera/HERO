@@ -44,7 +44,13 @@ def normalize_map(level_map):
 class Editor:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # El editor usa dimensiones de juego sin escalar
+        editor_w = GAME_WIDTH
+        editor_viewport_h = GAME_VIEWPORT_HEIGHT
+        editor_hud_h = HUD_HEIGHT
+        self.editor_viewport_h = editor_viewport_h
+        self.editor_h = editor_viewport_h + editor_hud_h
+        self.screen = pygame.display.set_mode((editor_w, self.editor_h))
         pygame.display.set_caption("H.E.R.O. Level Editor")
         self.clock = pygame.time.Clock()
 
@@ -140,20 +146,22 @@ class Editor:
         """Mantener el cursor visible en pantalla"""
         cursor_pixel_y = self.cursor_row * TILE_SIZE
         margin = 3 * TILE_SIZE
+        vh = self.editor_viewport_h
 
         if cursor_pixel_y - self.camera_y < margin:
             self.camera_y = max(0, cursor_pixel_y - margin)
-        elif cursor_pixel_y - self.camera_y > VIEWPORT_HEIGHT - margin - TILE_SIZE:
-            max_camera = LEVEL_HEIGHT * TILE_SIZE - VIEWPORT_HEIGHT
+        elif cursor_pixel_y - self.camera_y > vh - margin - TILE_SIZE:
+            max_camera = LEVEL_HEIGHT * TILE_SIZE - vh
             self.camera_y = min(max_camera,
-                                cursor_pixel_y - VIEWPORT_HEIGHT + margin + TILE_SIZE)
+                                cursor_pixel_y - vh + margin + TILE_SIZE)
 
     def render_grid(self):
         """Renderizar la cuadricula del nivel"""
         level_map = self.get_current_map()
+        vh = self.editor_viewport_h
 
         start_row = max(0, int(self.camera_y / TILE_SIZE) - 1)
-        end_row = min(LEVEL_HEIGHT, int((self.camera_y + VIEWPORT_HEIGHT) / TILE_SIZE) + 2)
+        end_row = min(LEVEL_HEIGHT, int((self.camera_y + vh) / TILE_SIZE) + 2)
 
         for row_index in range(start_row, end_row):
             if row_index >= len(level_map):
@@ -200,8 +208,8 @@ class Editor:
 
     def render_hud(self):
         """Renderizar barra de estado inferior"""
-        hud_y = VIEWPORT_HEIGHT
-        hud_bg = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT - VIEWPORT_HEIGHT))
+        hud_y = self.editor_viewport_h
+        hud_bg = pygame.Surface((GAME_WIDTH, self.editor_h - self.editor_viewport_h))
         hud_bg.fill((20, 20, 50))
         self.screen.blit(hud_bg, (0, hud_y))
 

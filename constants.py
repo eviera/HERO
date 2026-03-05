@@ -4,10 +4,19 @@
 import pygame
 
 # Window dimensions
-SCREEN_WIDTH = 512
-SCREEN_HEIGHT = 480
-FPS = 60
 TILE_SIZE = 32
+FPS = 60
+RENDER_SCALE = 1.5  # Escala de la superficie de juego al screen final
+
+# Superficie de juego (lógica interna, sin escalar)
+GAME_WIDTH = 16 * TILE_SIZE               # 512 - ancho del nivel en pixels
+GAME_VIEWPORT_HEIGHT = 8 * TILE_SIZE      # 256 - 8 tiles visibles verticalmente
+
+# Pantalla final (escalada)
+SCREEN_WIDTH = int(GAME_WIDTH * RENDER_SCALE)              # 768
+VIEWPORT_HEIGHT = int(GAME_VIEWPORT_HEIGHT * RENDER_SCALE)  # 384
+HUD_HEIGHT = 80  # ColecoVision-style HUD height
+SCREEN_HEIGHT = VIEWPORT_HEIGHT + HUD_HEIGHT                # 464
 
 # Game constants - FÍSICAS CORRECTAS
 GRAVITY = 400  # Gravedad constante (reducida para caída más suave)
@@ -39,12 +48,7 @@ CAVE_DOT_SIZE = 2  # Tamaño en pixels de las pintitas
 
 # Level dimensions - NIVELES VERTICALES
 LEVEL_WIDTH = 16  # tiles
-LEVEL_HEIGHT = 30  # tiles - 2-3 pantallas de largo
-
-# Viewport (lo que se ve en pantalla)
-VIEWPORT_WIDTH = SCREEN_WIDTH
-HUD_HEIGHT = 80  # ColecoVision-style HUD height
-VIEWPORT_HEIGHT = SCREEN_HEIGHT - HUD_HEIGHT  # Menos el HUD
+LEVEL_HEIGHT = 24  # tiles (era 30)
 
 # Game States
 STATE_SPLASH = "splash"

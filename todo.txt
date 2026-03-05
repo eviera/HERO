@@ -28,3 +28,21 @@
 
 
 
+
+AI prompts
+------------------
+Quiero hacer un cambio radical en la pantalla.
+Actualmente se estan mostrando unos 12 o 13 bloques (tiles) en la zona de juego, sin contar la zona de scores.
+Quiero cambiar esto para que solo se muestren 8 bloques de juego, y que el tamaño total sea de 24 bloques (ahora es de 30), y que la zona de scores quede igual, 
+pero no se cual es la mejor estrategia entre:
+- Reescalar todos los bloques n pixeles (que los 12 o 13 bloques de antes sean los 8 de ahora implicaria aumentar el tamaño de todos los tiles y sprites 1.5 o 1.6 veces),
+pero esto creo que tambien reescalaria la zona de scores, y de no hacerlo, quedaria raro (creo)
+- 'Acortar' el tamaño de la pantalla total... pero no se como se veria en pantalla completa
+- Alguna otra solucion que no se me ocurre
+Ademas habria que cambiar en el editor, para que ahora tenga 24 filas en lugar de 30
+Piensa cual seria la mejor opcion, planea e implementala.
+(quiero que me digas en detalle que es lo que terminas haciendo)
+
+
+
+
