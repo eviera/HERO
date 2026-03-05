@@ -302,8 +302,8 @@ class Game:
             print(f"Error loading sprites: {e}")
 
         # Crear mini-iconos para el HUD (ColecoVision style)
-        if 'player' in self.sprites:
-            self.hud_player_icon = pygame.transform.scale(self.sprites['player'], (16, 16))
+        if 'player_fly' in self.sprites:
+            self.hud_player_icon = pygame.transform.scale(self.sprites['player_fly'], (16, 16))
         if 'bomb1' in self.sprites:
             self.hud_bomb_icon = pygame.transform.scale(self.sprites['bomb1'], (16, 16))
 
