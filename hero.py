@@ -334,12 +334,16 @@ class Game:
         except Exception as e:
             print(f"Error loading sounds: {e}")
             
-        # Load background image (escalada a pantalla final)
+        # Splash: se renderiza a 512x480 (tamaño original) y se pega centrado en screen
+        self._splash_w, self._splash_h = 512, 480
+        self.splash_surface = pygame.Surface((self._splash_w, self._splash_h))
+
+        # Load background image (al tamaño original del splash)
         try:
             self.background_image = pygame.image.load("images/hero_background.png").convert_alpha()
-            self.background_image = pygame.transform.scale(self.background_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.background_image = pygame.transform.scale(self.background_image, (self._splash_w, self._splash_h))
 
-            self.gray_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.gray_overlay = pygame.Surface((self._splash_w, self._splash_h))
             self.gray_overlay.set_alpha(140)
             self.gray_overlay.fill((128, 128, 128))
             
@@ -1112,7 +1116,8 @@ class Game:
         score_text = self.hud_font.render(f"{self.score}", True, cv_yellow)
         self.screen.blit(score_text, (ce - score_text.get_width(), bottom_y))
 
-    def draw_text_with_outline(self, font, text, color, outline_color, center, outline=1):
+    def draw_text_with_outline(self, font, text, color, outline_color, center, outline=1, surface=None):
+        target = surface or self.screen
         # Texto base
         text_surf = font.render(text, True, color)
         text_rect = text_surf.get_rect(center=center)
@@ -1123,44 +1128,53 @@ class Game:
                 if dx != 0 or dy != 0:
                     outline_surf = font.render(text, True, outline_color)
                     outline_rect = outline_surf.get_rect(center=(center[0] + dx, center[1] + dy))
-                    self.screen.blit(outline_surf, outline_rect)
+                    target.blit(outline_surf, outline_rect)
 
         # Texto principal arriba
-        self.screen.blit(text_surf, text_rect)
+        target.blit(text_surf, text_rect)
 
 
     def render_splash(self):
-        """Render splash screen"""
-        self.screen.blit(self.background_image, (0, 0))
-        self.screen.blit(self.gray_overlay, (0, 0))
+        """Render splash screen - dibuja a 512x480 (original) y pega centrado sin estirar"""
+        s = self.splash_surface
+        cx = self._splash_w // 2
 
+        s.blit(self.background_image, (0, 0))
+        s.blit(self.gray_overlay, (0, 0))
 
         """
         title = self.font.render("H.E.R.O.", True, COLOR_WHITE)
-        title_rect = title.get_rect(center=(SCREEN_WIDTH//2, 80))
-        self.screen.blit(title, title_rect)
+        title_rect = title.get_rect(center=(cx, 80))
+        s.blit(title, title_rect)
 
         subtitle = self.small_font.render("Helicopter Emergency", True, COLOR_GRAY)
-        subtitle_rect = subtitle.get_rect(center=(SCREEN_WIDTH//2, 120))
-        self.screen.blit(subtitle, subtitle_rect)
+        subtitle_rect = subtitle.get_rect(center=(cx, 120))
+        s.blit(subtitle, subtitle_rect)
 
         subtitle2 = self.small_font.render("Rescue Operation", True, COLOR_GRAY)
-        subtitle2_rect = subtitle2.get_rect(center=(SCREEN_WIDTH//2, 140))
-        self.screen.blit(subtitle2, subtitle2_rect)
+        subtitle2_rect = subtitle2.get_rect(center=(cx, 140))
+        s.blit(subtitle2, subtitle2_rect)
         """
 
-        self.draw_text_with_outline(self.small_font, "Press SPACE to Play", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 190))
-        self.draw_text_with_outline(self.small_font, "Press ESC to Quit", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 215))
-        self.draw_text_with_outline(self.small_font, "CONTROLS", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 250))
-        self.draw_text_with_outline(self.small_font, "Arrows: Move/Fly", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 275))
-        self.draw_text_with_outline(self.small_font, "SPACE: Shoot", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 295))
-        self.draw_text_with_outline(self.small_font, "Z: Drop Bomb", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 315))
-        self.draw_text_with_outline(self.small_font, "Controller: Stick/X/B", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 335))
-        self.draw_text_with_outline(self.small_font, "HIGH SCORES", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 370))
+        self.draw_text_with_outline(self.small_font, "Press SPACE to Play", COLOR_WHITE, COLOR_BLACK, (cx, 200), surface=s)
+        self.draw_text_with_outline(self.small_font, "Press ESC to Quit", COLOR_WHITE, COLOR_BLACK, (cx, 230), surface=s)
+        self.draw_text_with_outline(self.small_font, "CONTROLS", COLOR_WHITE, COLOR_BLACK, (cx, 270), surface=s)
+        self.draw_text_with_outline(self.small_font, "Arrows: Move/Fly", COLOR_WHITE, COLOR_BLACK, (cx, 295), surface=s)
+        self.draw_text_with_outline(self.small_font, "SPACE: Shoot", COLOR_WHITE, COLOR_BLACK, (cx, 315), surface=s)
+        self.draw_text_with_outline(self.small_font, "Z: Drop Bomb", COLOR_WHITE, COLOR_BLACK, (cx, 335), surface=s)
+        self.draw_text_with_outline(self.small_font, "Controller: Stick/X/B", COLOR_WHITE, COLOR_BLACK, (cx, 355), surface=s)
+        self.draw_text_with_outline(self.small_font, "HIGH SCORES", COLOR_WHITE, COLOR_BLACK, (cx, 390), surface=s)
 
         scores = load_scores()[:3]
         for i, score in enumerate(scores):
-            self.draw_text_with_outline(self.small_font, f"{i+1}. {score['name']}: {score['score']}", COLOR_WHITE, COLOR_BLACK, (SCREEN_WIDTH//2, 395 + i*20))
+            self.draw_text_with_outline(self.small_font, f"{i+1}. {score['name']}: {score['score']}", COLOR_WHITE, COLOR_BLACK, (cx, 420 + i*20), surface=s)
+
+        # Escalar splash manteniendo aspect ratio y centrar en screen
+        scale = min(SCREEN_WIDTH / self._splash_w, SCREEN_HEIGHT / self._splash_h)
+        sw = int(self._splash_w * scale)
+        sh = int(self._splash_h * scale)
+        scaled = pygame.transform.scale(s, (sw, sh))
+        self.screen.blit(scaled, ((SCREEN_WIDTH - sw) // 2, (SCREEN_HEIGHT - sh) // 2))
 
     def render_entering_name(self):
         """Render name entry screen"""
