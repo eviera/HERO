@@ -8,7 +8,6 @@
 /- animar muercielagos
 /- transparentar el tile del minero
 /- paredes irrompibles de granito oscuro
-- tiles de fondo
 /- lamparas que al tocar apagan la luz
 /-- mejorar:
 /--- lampara tiene q ser lamp.png y no dibujada por codigo
@@ -17,8 +16,9 @@
 /- Queremos cortar el 'alto' de la pantalla ? digo para que pase de una seccion a otra del nivel y que solo se vea un pedazo, tal como es en el original ???
 - serpientes que salen desde la cueva
 - bichos que se mueven como en el lugar (izq der), rapido  >o< 
-- bloques y nivel de magma
-
+- bloques y nivel de magma (si lo toca me quemo)
+- niveles horizontales ?? (requeriria quizas stichear un par de niveles verticales para que no sea tan complicado de implementar en el editor)
+- tiles de fondo
 
 
 

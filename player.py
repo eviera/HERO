@@ -82,13 +82,11 @@ class Player:
                 # Teclado: potencia completa
                 self.using_propulsor = True
                 self.vel_y -= PROPULSOR_POWER * dt
-                game.energy -= ENERGY_DRAIN_PROPULSOR * dt
             elif joy_axis_y < -DEAD_ZONE:
                 # Joystick arriba: potencia gradual segun inclinacion
                 intensity = abs(joy_axis_y)  # 0.15 a 1.0
                 self.using_propulsor = True
                 self.vel_y -= PROPULSOR_POWER * intensity * dt
-                game.energy -= ENERGY_DRAIN_PROPULSOR * intensity * dt
 
         # Descenso activo - helice invertida para bajar mas rapido
         if keys[pygame.K_DOWN]:
@@ -122,9 +120,14 @@ class Player:
         self.x = max(0, min(self.x, LEVEL_WIDTH * TILE_SIZE - self.width))
         self.y = max(0, min(self.y, LEVEL_HEIGHT * TILE_SIZE - self.height))
 
-        # Energia: recuperar en el suelo, no drenar pasivamente
-        if self.is_grounded and not self.using_propulsor:
-            game.energy = min(game.energy + ENERGY_RECOVERY * dt, MAX_ENERGY)
+        # Energia: se consume siempre, ritmo segun estado
+        if self.using_propulsor:
+            game.energy -= ENERGY_DRAIN_FLYING * dt
+        elif self.is_walking:
+            game.energy -= ENERGY_DRAIN_WALKING * dt
+        else:
+            game.energy -= ENERGY_DRAIN_IDLE * dt
+        game.energy = max(game.energy, 0)
 
         # Animacion de caminata: solo si esta en el suelo y se mueve horizontalmente
         if self.is_grounded and abs(self.vel_x) > 10 and not self.using_propulsor:
