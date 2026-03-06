@@ -19,6 +19,8 @@
 - bloques y nivel de magma (si lo toca me quemo)
 - niveles horizontales ?? (requeriria quizas stichear un par de niveles verticales para que no sea tan complicado de implementar en el editor)
 - tiles de fondo
+/- sonido de break walls (los dos)
+- editor: mejorar la forma de buscar tiles, porque con los numeros del 1-9 no alcanza
 
 
 
