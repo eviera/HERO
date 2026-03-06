@@ -12,6 +12,7 @@ class Laser:
         self.height = LASER_HEIGHT
         self.active = True
         self.color = COLOR_YELLOW
+        self.hit_rock_pos = None  # (row, col) si impactó una roca
 
     def update(self, dt, level_map):
         self.x += self.direction * LASER_SPEED * dt
@@ -37,6 +38,8 @@ class Laser:
                 tile = level_map[tile_y][tile_x]
                 # Colisiona con paredes, pisos y bloques destructibles
                 if tile in ('#', '.', 'G', 'R'):
+                    if tile == 'R':
+                        self.hit_rock_pos = (tile_y, tile_x)
                     self.active = False
                     return
 

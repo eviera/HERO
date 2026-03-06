@@ -272,6 +272,13 @@ class Game:
             self.tiles['rock'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['rock'].fill((180, 170, 160))
 
+        # Roca dañada (estado intermedio por impactos de láser)
+        try:
+            self.tiles['rock_damaged'] = pygame.image.load("tiles/broken_wall.png").convert_alpha()
+        except:
+            self.tiles['rock_damaged'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['rock_damaged'].fill((140, 130, 120))
+
         # Lamp tile (L) - lampara dorada
         try:
             self.tiles['lamp'] = pygame.image.load("tiles/lamp.png").convert_alpha()
@@ -317,6 +324,8 @@ class Game:
             self.sounds['walk1'] = pygame.mixer.Sound("sounds/walk1.wav")
             self.sounds['walk2'] = pygame.mixer.Sound("sounds/walk2.wav")
             self.sounds['win_screen'] = pygame.mixer.Sound("sounds/win_screen.wav")
+            self.sounds['rock_break'] = pygame.mixer.Sound("sounds/rock_break.wav")
+            self.sounds['rock_crack'] = pygame.mixer.Sound("sounds/rock_crack.wav")
 
             # Load splash theme original
             splash_original = pygame.mixer.Sound("sounds/splash_screen_theme.wav")
@@ -445,6 +454,7 @@ class Game:
         self.dynamites = []
         self.miner = None
         self.floating_scores = []
+        self.rock_health = {}  # {(row, col): hits_restantes} para rocas dañadas por láser
 
         # Reset lampara/oscuridad
         self.dark_mode = False
@@ -515,7 +525,7 @@ class Game:
                 laser_x = self.player.x + 3 - LASER_WIDTH
             laser = Laser(laser_x, self.player.y + 16, direction)
             self.lasers.append(laser)
-            self.shoot_cooldown = 0.2
+            self.shoot_cooldown = LASER_COOLDOWN
 
             # Activar sprite de disparo
             self.player.shooting_timer = 0.15
@@ -620,6 +630,8 @@ class Game:
                                     row = list(self.level_map[row_index])
                                     row[col_index] = ' '
                                     self.level_map[row_index] = "".join(row)
+                                    # Limpiar health de roca si tenía daño por láser
+                                    self.rock_health.pop((row_index, col_index), None)
                                     # Más puntos por destruir paredes que bloques
                                     pts = 20 if tile == '#' else 10
                                     self.score += pts
@@ -751,6 +763,30 @@ class Game:
         # Update lasers
         for laser in self.lasers[:]:
             laser.update(dt, self.level_map)
+            # Procesar impacto en roca antes de eliminar el láser
+            if laser.hit_rock_pos:
+                row, col = laser.hit_rock_pos
+                key = (row, col)
+                if key not in self.rock_health:
+                    self.rock_health[key] = ROCK_LASER_HITS
+                self.rock_health[key] -= 1
+                if self.rock_health[key] == ROCK_DAMAGE_MIDPOINT:
+                    # Sonido de agrietamiento al llegar al estado intermedio
+                    if 'rock_crack' in self.sounds:
+                        self.sounds['rock_crack'].play()
+                if self.rock_health[key] <= 0:
+                    # Destruir la roca
+                    row_list = list(self.level_map[row])
+                    row_list[col] = ' '
+                    self.level_map[row] = "".join(row_list)
+                    del self.rock_health[key]
+                    tile_x = col * TILE_SIZE
+                    tile_y = row * TILE_SIZE
+                    self.score += 10
+                    self.add_floating_score(tile_x + 16, tile_y, 10)
+                    if 'rock_break' in self.sounds:
+                        self.sounds['rock_break'].play()
+                laser.hit_rock_pos = None
             if not laser.active:
                 self.lasers.remove(laser)
 
@@ -1012,7 +1048,12 @@ class Game:
                 elif tile == 'G':
                     self.game_surface.blit(self.tiles['granite'], (x, y))
                 elif tile == 'R':
-                    self.game_surface.blit(self.tiles['rock'], (x, y))
+                    # Mostrar sprite dañado si la roca fue impactada lo suficiente
+                    key = (row_index, col_index)
+                    if key in self.rock_health and self.rock_health[key] <= ROCK_DAMAGE_MIDPOINT:
+                        self.game_surface.blit(self.tiles['rock_damaged'], (x, y))
+                    else:
+                        self.game_surface.blit(self.tiles['rock'], (x, y))
                 # Espacios vacios: no dibujar nada, el cave_bg ya se ve
 
     def _render_game_to_screen(self):

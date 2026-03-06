@@ -113,7 +113,6 @@ class Player:
         if not self.check_collision(self.x, new_y, level_map):
             self.y = new_y
         else:
-            # Hit floor or ceiling - stop at last valid position
             self.vel_y = 0
 
         # Keep in level bounds
@@ -145,12 +144,12 @@ class Player:
             self.walk_frame_index = 0
 
     def check_collision(self, x, y, level_map):
-        """Check collision with tiles"""
+        """Check collision with tiles (hitbox estrecho centrado en el cuerpo)"""
         corners = [
-            (x + 2, y + 2),
-            (x + self.width - 3, y + 2),
-            (x + 2, y + self.height - 3),
-            (x + self.width - 3, y + self.height - 3)
+            (x + PLAYER_FOOT_INSET, y + 2),
+            (x + self.width - PLAYER_FOOT_INSET - 1, y + 2),
+            (x + PLAYER_FOOT_INSET, y + self.height - 3),
+            (x + self.width - PLAYER_FOOT_INSET - 1, y + self.height - 3)
         ]
 
         for corner_x, corner_y in corners:

@@ -23,9 +23,11 @@ GRAVITY = 400  # Gravedad constante (reducida para caída más suave)
 PROPULSOR_POWER = 800  # Poder del propulsor (aumentado para facilitar el ascenso)
 PLAYER_SPEED_X = 150  # Velocidad horizontal
 WALK_STEP_DISTANCE = 16  # Pixeles entre pasos
+PLAYER_FOOT_INSET = 8    # Margen interior del hitbox de colision (hitbox = 16px centrado)
 MAX_FALL_SPEED = 400  # Velocidad máxima de caída
 DIVE_POWER = 600      # Poder de descenso activo (helice invertida)
-LASER_SPEED = 400
+LASER_SPEED = 500
+LASER_COOLDOWN = 0.12         # Segundos entre disparos (~8 disparos/seg)
 LASER_WIDTH = 10  # Ancho del láser en pixels
 LASER_HEIGHT = 2  # Alto del láser en pixels
 ENERGY_DRAIN_IDLE = 15        # Energía por segundo estando quieto
@@ -36,6 +38,10 @@ DYNAMITE_FUSE_TIME = 1.5  # Tiempo antes de explotar (desde que se suelta)
 DYNAMITE_EXPLOSION_RADIUS = 80
 DYNAMITE_QUANTITY = 5
 DEAD_ZONE = 0.15
+
+# Rocas - destrucción con láser
+ROCK_LASER_HITS = 10          # Disparos para destruir una roca
+ROCK_DAMAGE_MIDPOINT = 5     # Disparos para estado intermedio (agrietada)
 
 # Enemigos
 BAT_SPEED = 60             # Velocidad horizontal del murciélago
