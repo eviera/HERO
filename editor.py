@@ -47,7 +47,7 @@ class Editor:
         # El editor usa dimensiones de juego sin escalar
         editor_w = GAME_WIDTH
         editor_viewport_h = GAME_VIEWPORT_HEIGHT
-        editor_hud_h = HUD_HEIGHT
+        editor_hud_h = 130
         self.editor_viewport_h = editor_viewport_h
         self.editor_h = editor_viewport_h + editor_hud_h
         self.screen = pygame.display.set_mode((editor_w, self.editor_h))
@@ -89,6 +89,13 @@ class Editor:
         except:
             self.tiles['rock'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['rock'].fill((180, 170, 160))
+
+        # Lampara
+        try:
+            self.tiles['lamp'] = pygame.image.load("tiles/lamp.png").convert_alpha()
+        except:
+            self.tiles['lamp'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['lamp'].fill((255, 200, 50))
 
         # Cargar sprites de entidades
         self.sprites = {}
@@ -183,6 +190,9 @@ class Editor:
                     self.screen.blit(self.tiles['granite'], (x, int(y)))
                 elif tile == 'R':
                     self.screen.blit(self.tiles['rock'], (x, int(y)))
+                elif tile == 'L':
+                    self.screen.blit(self.tiles['blank'], (x, int(y)))
+                    self.screen.blit(self.tiles['lamp'], (x, int(y)))
                 else:
                     self.screen.blit(self.tiles['blank'], (x, int(y)))
 
@@ -215,80 +225,107 @@ class Editor:
         hud_bg.fill((20, 20, 50))
         self.screen.blit(hud_bg, (0, hud_y))
 
-        # Info del nivel
+        # --- Zona de texto (arriba) ---
+        # Linea 1: Nivel + Actual
         level_text = self.font.render(
             f"Nivel {self.current_level + 1}/{len(self.screens)}",
             True, COLOR_WHITE
         )
         self.screen.blit(level_text, (8, hud_y + 4))
 
-        # Posicion del cursor
-        pos_text = self.font.render(
-            f"Fila:{self.cursor_row:02d} Col:{self.cursor_col:02d}",
-            True, COLOR_WHITE
-        )
-        self.screen.blit(pos_text, (8, hud_y + 18))
-
-        # Tile seleccionado
-        char, name, color = TILE_TYPES[self.selected_tile]
-        tile_text = self.font.render(f"[{char}] {name}", True, COLOR_YELLOW)
-        self.screen.blit(tile_text, (8, hud_y + 32))
-
-        # Tile bajo el cursor
         current_map = self.get_current_map()
         cursor_char = current_map[self.cursor_row][self.cursor_col]
         cursor_name = next((n for c, n, _ in TILE_TYPES if c == cursor_char), '?')
         cursor_text = self.font.render(
             f"Actual:[{cursor_char}] {cursor_name}", True, COLOR_GRAY
         )
-        self.screen.blit(cursor_text, (170, hud_y + 4))
+        self.screen.blit(cursor_text, (250, hud_y + 4))
 
-        # Paleta de tiles (lado derecho)
-        palette_x = 170
-        palette_y = hud_y + 22
+        # Linea 2: Posicion del cursor
+        pos_text = self.font.render(
+            f"Fila:{self.cursor_row:02d} Col:{self.cursor_col:02d}",
+            True, COLOR_WHITE
+        )
+        self.screen.blit(pos_text, (8, hud_y + 18))
+
+        # Linea 3: Tile seleccionado
+        char, name, color = TILE_TYPES[self.selected_tile]
+        tile_text = self.font.render(f"[{char}] {name}", True, COLOR_YELLOW)
+        self.screen.blit(tile_text, (8, hud_y + 32))
+
+        # --- Separador ---
+        pygame.draw.line(self.screen, (60, 60, 80),
+                         (8, hud_y + 46), (GAME_WIDTH - 8, hud_y + 46))
+
+        # --- Zona de paleta (abajo) ---
+        KEY_LABELS = "123456789" + "0" + "QWERTYUIOP"
+        tiles_per_row = 8
+        tile_spacing = 38
+        preview_size = 20
+        row_height = 32
+
+        # Centrar paleta horizontalmente
+        total_row_width = tiles_per_row * tile_spacing - (tile_spacing - preview_size)
+        palette_x = (GAME_WIDTH - total_row_width) // 2
+        palette_y = hud_y + 52
+
         for i, (tc, tn, tcolor) in enumerate(TILE_TYPES):
-            px = palette_x + i * 30
+            row = i // tiles_per_row
+            col = i % tiles_per_row
+            px = palette_x + col * tile_spacing
+            py = palette_y + row * row_height
 
-            # Preview cuadrado pequeno
-            preview = pygame.Surface((20, 20))
-            if tc == '#':
-                preview = pygame.transform.scale(self.tiles['wall'], (20, 20))
-            elif tc == '.':
-                preview = pygame.transform.scale(self.tiles['floor'], (20, 20))
-            elif tc == 'G':
-                preview = pygame.transform.scale(self.tiles['granite'], (20, 20))
-            elif tc == 'R':
-                preview = pygame.transform.scale(self.tiles['rock'], (20, 20))
+            # Preview cuadrado
+            ps = preview_size
+            # Mapa de tiles con sprite
+            sprite_for_tile = {
+                'S': 'player', 'V': 'enemy', 'A': 'spider', 'M': 'miner'
+            }
+            tile_for_tile = {
+                '#': 'wall', '.': 'floor', 'G': 'granite', 'R': 'rock',
+                'L': 'lamp'
+            }
+
+            preview = pygame.Surface((ps, ps), pygame.SRCALPHA)
+            if tc in tile_for_tile:
+                preview = pygame.transform.scale(self.tiles[tile_for_tile[tc]], (ps, ps))
+            elif tc in sprite_for_tile and sprite_for_tile[tc] in self.sprites:
+                preview.fill((30, 30, 30))
+                scaled = pygame.transform.scale(self.sprites[sprite_for_tile[tc]], (ps, ps))
+                preview.blit(scaled, (0, 0))
             else:
                 preview.fill(tcolor if tc != ' ' else (30, 30, 30))
-                # Letra para entidades
-                if tc in ('S', 'V', 'A', 'M'):
+                if tc not in (' ', '#', '.', 'G', 'R'):
                     l = self.small_font.render(tc, True, COLOR_WHITE)
-                    preview.blit(l, (6, 6))
+                    lx = (ps - l.get_width()) // 2
+                    ly = (ps - l.get_height()) // 2
+                    preview.blit(l, (lx, ly))
 
-            self.screen.blit(preview, (px, palette_y))
-
-            # Numero de tecla
-            num_color = COLOR_YELLOW if i == self.selected_tile else COLOR_GRAY
-            num_text = self.small_font.render(str(i + 1), True, num_color)
-            self.screen.blit(num_text, (px + 7, palette_y + 22))
+            self.screen.blit(preview, (px, py))
 
             # Borde de seleccion
             if i == self.selected_tile:
                 pygame.draw.rect(self.screen, COLOR_YELLOW,
-                                 (px - 2, palette_y - 2, 24, 24), 2)
+                                 (px - 2, py - 2, preview_size + 4, preview_size + 4), 2)
 
-        # Controles
+            # Etiqueta de tecla debajo
+            key_label = KEY_LABELS[i] if i < len(KEY_LABELS) else "?"
+            num_color = COLOR_YELLOW if i == self.selected_tile else COLOR_GRAY
+            num_text = self.small_font.render(key_label, True, num_color)
+            label_x = px + (preview_size - num_text.get_width()) // 2
+            self.screen.blit(num_text, (label_x, py + preview_size + 3))
+
+        # --- Controles (fondo) ---
         hint = self.small_font.render(
-            "Spc:Poner ^S:Guardar PgUp/Dn:Nivel Q/A:Tercio",
+            "Spc:Poner  ^S:Guardar  PgUp/Dn:Nivel",
             True, COLOR_GRAY
         )
-        self.screen.blit(hint, (8, hud_y + 52))
+        self.screen.blit(hint, (8, hud_y + 118))
 
         # Indicador de guardado
         if self.saved_indicator > 0:
             save_text = self.font.render("Guardado!", True, COLOR_GREEN)
-            self.screen.blit(save_text, (410, hud_y + 52))
+            self.screen.blit(save_text, (380, hud_y + 116))
 
     def run(self):
         """Loop principal del editor"""
@@ -360,6 +397,9 @@ class Editor:
                     elif event.key == pygame.K_9:
                         if len(TILE_TYPES) > 8:
                             self.selected_tile = 8
+                    elif event.key == pygame.K_0:
+                        if len(TILE_TYPES) > 9:
+                            self.selected_tile = 9
 
                     # Tab para ciclar tipo de tile
                     elif event.key == pygame.K_TAB:
