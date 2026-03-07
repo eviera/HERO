@@ -300,6 +300,8 @@ class Game:
             self.sprites['bat1'] = pygame.image.load("sprites/bat1.png").convert_alpha()
             self.sprites['bat2'] = pygame.image.load("sprites/bat2.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
+            self.sprites['bug1'] = pygame.image.load("sprites/bug1.png").convert_alpha()
+            self.sprites['bug2'] = pygame.image.load("sprites/bug2.png").convert_alpha()
             self.sprites['bomb1'] = pygame.image.load("sprites/bomb1.png").convert_alpha()
             self.sprites['bomb2'] = pygame.image.load("sprites/bomb2.png").convert_alpha()
             self.sprites['bomb3'] = pygame.image.load("sprites/bomb3.png").convert_alpha()
@@ -497,6 +499,15 @@ class Game:
                     if 'spider' in self.sprites:
                         enemy.image = self.sprites['spider']
                     self.enemies.append(enemy)
+                elif tile == "B":
+                    enemy = Enemy(x, y, "bug")
+                    # Variación aleatoria ±5% en velocidad de bicho
+                    speed_variation = random.uniform(1 - ENEMY_SPEED_VARIATION, 1 + ENEMY_SPEED_VARIATION)
+                    enemy.speed = BUG_SPEED * speed_variation
+                    if 'bug1' in self.sprites:
+                        enemy.images = [self.sprites['bug1'], self.sprites['bug2']]
+                        enemy.image = enemy.images[0]
+                    self.enemies.append(enemy)
                 elif tile == "M":
                     self.miner = Miner(x, y)
                     if 'miner' in self.sprites:
@@ -587,8 +598,9 @@ class Game:
                 if enemy.active and not enemy.exploding and laser_rect.colliderect(enemy.get_rect()):
                     enemy.exploding = True
                     laser.active = False
-                    self.score += 50
-                    self.add_floating_score(enemy.x + 16, enemy.y, 50)
+                    pts = TILE_SCORES[ENEMY_TILE_CHARS[enemy.enemy_type]]
+                    self.score += pts
+                    self.add_floating_score(enemy.x + 16, enemy.y, pts)
 
                     # Play splatter sound
                     if 'splatter' in self.sounds:
@@ -610,8 +622,8 @@ class Game:
                     for enemy in self.enemies:
                         if enemy.active and not enemy.exploding and explosion_rect.colliderect(enemy.get_rect()):
                             enemy.exploding = True
-                            self.score += 75
-                            self.add_floating_score(enemy.x + 16, enemy.y, 75)
+                            self.score += EXPLOSION_KILL_SCORE
+                            self.add_floating_score(enemy.x + 16, enemy.y, EXPLOSION_KILL_SCORE)
 
                             # Play splatter sound
                             if 'splatter' in self.sounds:
@@ -632,8 +644,7 @@ class Game:
                                     self.level_map[row_index] = "".join(row)
                                     # Limpiar health de roca si tenía daño por láser
                                     self.rock_health.pop((row_index, col_index), None)
-                                    # Más puntos por destruir paredes que bloques
-                                    pts = 20 if tile == '#' else 10
+                                    pts = TILE_SCORES.get(tile, 0)
                                     self.score += pts
                                     self.add_floating_score(tile_x + 16, tile_y, pts)
 
@@ -662,7 +673,7 @@ class Game:
     def rescue_miner(self):
         """Rescue miner and complete level - inicia animacion ColecoVision"""
         self.miner.rescued = True
-        self.score += 1000  # Solo puntos base por rescate
+        self.score += TILE_SCORES['M']
 
         # Stop helicopter sound
         if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
@@ -782,8 +793,8 @@ class Game:
                     del self.rock_health[key]
                     tile_x = col * TILE_SIZE
                     tile_y = row * TILE_SIZE
-                    self.score += 10
-                    self.add_floating_score(tile_x + 16, tile_y, 10)
+                    self.score += TILE_SCORES['R']
+                    self.add_floating_score(tile_x + 16, tile_y, TILE_SCORES['R'])
                     if 'rock_break' in self.sounds:
                         self.sounds['rock_break'].play()
                 laser.hit_rock_pos = None
@@ -902,7 +913,7 @@ class Game:
                 })
 
                 self.dynamite_count -= 1
-                self.score += 50
+                self.score += BOMB_REMAINING_SCORE
 
                 if 'explosion' in self.sounds:
                     self.sounds['explosion'].play()

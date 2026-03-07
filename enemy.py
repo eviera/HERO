@@ -11,7 +11,8 @@ class Enemy:
         self.start_x = x
         self.start_y = y
         self.enemy_type = enemy_type
-        self.speed = BAT_SPEED if enemy_type == "bat" else SPIDER_SPEED
+        speed_table = {"bat": BAT_SPEED, "spider": SPIDER_SPEED, "bug": BUG_SPEED}
+        self.speed = speed_table.get(enemy_type, BAT_SPEED)
         self.direction = random.choice([-1, 1])
         self.active = True
         self.width = 32
@@ -28,6 +29,18 @@ class Enemy:
         if enemy_type == "spider":
             self.spider_max_y = y + 2 * TILE_SIZE  # límite inferior
             self.direction = 1  # empieza bajando
+
+        # Bicho: se mueve en zona 3x3 tiles alrededor del spawn
+        if enemy_type == "bug":
+            spawn_col = int(x / TILE_SIZE)
+            spawn_row = int(y / TILE_SIZE)
+            self.bug_zone_min_x = (spawn_col - 1) * TILE_SIZE
+            self.bug_zone_max_x = (spawn_col + 2) * TILE_SIZE - self.width
+            self.bug_zone_min_y = (spawn_row - 1) * TILE_SIZE
+            self.bug_zone_max_y = (spawn_row + 2) * TILE_SIZE - self.height
+            # Dirección inicial aleatoria (cardinal)
+            dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+            self.bug_dx, self.bug_dy = random.choice(dirs)
 
     def check_collision(self, x, y, level_map):
         """Check collision with tiles using all 4 corners (margen de 1px)"""
@@ -79,7 +92,55 @@ class Enemy:
                 self.active = False
             return
 
-        if self.enemy_type == "spider":
+        if self.enemy_type == "bug":
+            # Bicho se mueve en zona 3x3 tiles, rebota contra límites y paredes
+            new_x = self.x + self.bug_dx * self.speed * dt
+            new_y = self.y + self.bug_dy * self.speed * dt
+
+            # Verificar límites de zona y colisión con paredes
+            bounced = False
+
+            # Clamp horizontal a zona y verificar colisión
+            if new_x < self.bug_zone_min_x:
+                new_x = self.bug_zone_min_x
+                bounced = True
+            elif new_x > self.bug_zone_max_x:
+                new_x = self.bug_zone_max_x
+                bounced = True
+            elif self.bug_dx != 0 and self.check_collision(new_x, self.y, level_map):
+                new_x = self.x
+                bounced = True
+
+            # Clamp vertical a zona y verificar colisión
+            if new_y < self.bug_zone_min_y:
+                new_y = self.bug_zone_min_y
+                bounced = True
+            elif new_y > self.bug_zone_max_y:
+                new_y = self.bug_zone_max_y
+                bounced = True
+            elif self.bug_dy != 0 and self.check_collision(self.x, new_y, level_map):
+                new_y = self.y
+                bounced = True
+
+            self.x = new_x
+            self.y = new_y
+
+            if bounced:
+                # Elegir nueva dirección aleatoria (distinta a la actual)
+                dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                current = (self.bug_dx, self.bug_dy)
+                options = [d for d in dirs if d != current]
+                self.bug_dx, self.bug_dy = random.choice(options)
+
+            # Animación de patas
+            if self.images:
+                self.distance_traveled += self.speed * dt
+                if self.distance_traveled >= BUG_ANIM_DISTANCE:
+                    self.distance_traveled -= BUG_ANIM_DISTANCE
+                    self.anim_frame = 1 - self.anim_frame
+                    self.image = self.images[self.anim_frame]
+
+        elif self.enemy_type == "spider":
             # Arañas bajan desde el spawn hasta 2 tiles y vuelven al techo
             new_y = self.y + self.direction * self.speed * dt
 
@@ -159,7 +220,20 @@ class Enemy:
                                        (center_x, int(thread_bottom)), 1)
 
                 if self.image:
-                    screen.blit(self.image, (int(self.x), int(screen_y)))
+                    if self.enemy_type == "bug":
+                        # Rotar sprite según dirección de movimiento
+                        # Sprite base mira arriba (0, -1)
+                        angle = 0
+                        if self.bug_dx == 1:    # derecha
+                            angle = -90
+                        elif self.bug_dx == -1:  # izquierda
+                            angle = 90
+                        elif self.bug_dy == 1:   # abajo
+                            angle = 180
+                        rotated = pygame.transform.rotate(self.image, angle)
+                        screen.blit(rotated, (int(self.x), int(screen_y)))
+                    else:
+                        screen.blit(self.image, (int(self.x), int(screen_y)))
                 else:
                     pygame.draw.circle(screen, COLOR_RED,
                                      (int(self.x + 16), int(screen_y + 16)), 12)

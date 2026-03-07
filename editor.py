@@ -47,7 +47,7 @@ class Editor:
         # El editor usa dimensiones de juego sin escalar
         editor_w = GAME_WIDTH
         editor_viewport_h = GAME_VIEWPORT_HEIGHT
-        editor_hud_h = 130
+        editor_hud_h = 150
         self.editor_viewport_h = editor_viewport_h
         self.editor_h = editor_viewport_h + editor_hud_h
         self.screen = pygame.display.set_mode((editor_w, self.editor_h))
@@ -103,6 +103,7 @@ class Editor:
             self.sprites['player'] = pygame.image.load("sprites/player.png").convert_alpha()
             self.sprites['enemy'] = pygame.image.load("sprites/bat1.png").convert_alpha()
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
+            self.sprites['bug'] = pygame.image.load("sprites/bug1.png").convert_alpha()
             self.sprites['miner'] = pygame.image.load("sprites/miner.png").convert_alpha()
         except Exception as e:
             print(f"Error cargando sprites: {e}")
@@ -197,12 +198,12 @@ class Editor:
                     self.screen.blit(self.tiles['blank'], (x, int(y)))
 
                 # Dibujar sprites de entidades encima
-                sprite_map = {'S': 'player', 'V': 'enemy', 'A': 'spider', 'M': 'miner'}
+                sprite_map = {'S': 'player', 'V': 'enemy', 'A': 'spider', 'B': 'bug', 'M': 'miner'}
                 if tile in sprite_map and sprite_map[tile] in self.sprites:
                     self.screen.blit(self.sprites[sprite_map[tile]], (x, int(y)))
                 elif tile in sprite_map:
                     # Fallback: dibujar letra con color
-                    colors = {'S': COLOR_BLUE, 'V': COLOR_RED, 'A': COLOR_ORANGE, 'M': COLOR_GREEN}
+                    colors = {'S': COLOR_BLUE, 'V': COLOR_RED, 'A': COLOR_ORANGE, 'B': COLOR_GREEN, 'M': COLOR_GREEN}
                     letter = self.font.render(tile, True, colors[tile])
                     lx = x + (TILE_SIZE - letter.get_width()) // 2
                     ly = int(y) + (TILE_SIZE - letter.get_height()) // 2
@@ -235,7 +236,7 @@ class Editor:
 
         current_map = self.get_current_map()
         cursor_char = current_map[self.cursor_row][self.cursor_col]
-        cursor_name = next((n for c, n, _ in TILE_TYPES if c == cursor_char), '?')
+        cursor_name = next((n for c, n, *_ in TILE_TYPES if c == cursor_char), '?')
         cursor_text = self.font.render(
             f"Actual:[{cursor_char}] {cursor_name}", True, COLOR_GRAY
         )
@@ -249,7 +250,7 @@ class Editor:
         self.screen.blit(pos_text, (8, hud_y + 18))
 
         # Linea 3: Tile seleccionado
-        char, name, color = TILE_TYPES[self.selected_tile]
+        char, name, color, _score = TILE_TYPES[self.selected_tile]
         tile_text = self.font.render(f"[{char}] {name}", True, COLOR_YELLOW)
         self.screen.blit(tile_text, (8, hud_y + 32))
 
@@ -258,7 +259,7 @@ class Editor:
                          (8, hud_y + 46), (GAME_WIDTH - 8, hud_y + 46))
 
         # --- Zona de paleta (abajo) ---
-        KEY_LABELS = "123456789" + "0" + "QWERTYUIOP"
+        KEY_LABELS = "123456789" + "WERTYUIOP"
         tiles_per_row = 8
         tile_spacing = 38
         preview_size = 20
@@ -269,7 +270,7 @@ class Editor:
         palette_x = (GAME_WIDTH - total_row_width) // 2
         palette_y = hud_y + 52
 
-        for i, (tc, tn, tcolor) in enumerate(TILE_TYPES):
+        for i, (tc, tn, tcolor, _tscore) in enumerate(TILE_TYPES):
             row = i // tiles_per_row
             col = i % tiles_per_row
             px = palette_x + col * tile_spacing
@@ -279,7 +280,7 @@ class Editor:
             ps = preview_size
             # Mapa de tiles con sprite
             sprite_for_tile = {
-                'S': 'player', 'V': 'enemy', 'A': 'spider', 'M': 'miner'
+                'S': 'player', 'V': 'enemy', 'A': 'spider', 'B': 'bug', 'M': 'miner'
             }
             tile_for_tile = {
                 '#': 'wall', '.': 'floor', 'G': 'granite', 'R': 'rock',
@@ -320,12 +321,17 @@ class Editor:
             "Spc:Poner  ^S:Guardar  PgUp/Dn:Nivel",
             True, COLOR_GRAY
         )
-        self.screen.blit(hint, (8, hud_y + 118))
+        self.screen.blit(hint, (8, hud_y + 126))
+        hint2 = self.small_font.render(
+            "Q/A:Saltar tercio arriba/abajo",
+            True, COLOR_GRAY
+        )
+        self.screen.blit(hint2, (8, hud_y + 138))
 
         # Indicador de guardado
         if self.saved_indicator > 0:
             save_text = self.font.render("Guardado!", True, COLOR_GREEN)
-            self.screen.blit(save_text, (380, hud_y + 116))
+            self.screen.blit(save_text, (380, hud_y + 134))
 
     def run(self):
         """Loop principal del editor"""
@@ -397,9 +403,12 @@ class Editor:
                     elif event.key == pygame.K_9:
                         if len(TILE_TYPES) > 8:
                             self.selected_tile = 8
-                    elif event.key == pygame.K_0:
+                    elif event.key == pygame.K_w:
                         if len(TILE_TYPES) > 9:
                             self.selected_tile = 9
+                    elif event.key == pygame.K_e:
+                        if len(TILE_TYPES) > 10:
+                            self.selected_tile = 10
 
                     # Tab para ciclar tipo de tile
                     elif event.key == pygame.K_TAB:

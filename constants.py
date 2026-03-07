@@ -48,6 +48,8 @@ BAT_SPEED = 60             # Velocidad horizontal del murciélago
 BAT_SPEED_SCALE = 0.05     # +5% por nivel
 BAT_ANIM_DISTANCE = 8     # Píxeles entre cambios de sprite
 SPIDER_SPEED = 30          # Velocidad vertical de la araña
+BUG_SPEED = 120            # Velocidad del bicho (se mueve en zona 3x3)
+BUG_ANIM_DISTANCE = 8     # Píxeles entre cambios de sprite del bicho
 ENEMY_SPEED_VARIATION = 0.05  # ±5% variación aleatoria de velocidad por enemigo
 
 # Cave background dots (pintitas del fondo de caverna)
@@ -75,19 +77,32 @@ COLOR_ORANGE = (255, 165, 0)
 COLOR_GRAY = (128, 128, 128)
 COLOR_MAGENTA = (255, 0, 255)
 
-# Tile types (caracter, nombre, color_fallback)
+# Tile types (caracter, nombre, color_fallback, puntos al destruir/matar/rescatar)
 TILE_TYPES = [
-    (' ', 'Aire',       COLOR_BLACK),
-    ('#', 'Tierra',      COLOR_GRAY),       # destructible
-    ('.', 'Suelo',      (100, 70, 50)),     # indestructible
-    ('G', 'Granito',    (60, 60, 65)),      # indestructible
-    ('R', 'Rocas',   (180, 170, 160)),      # destructible
-    ('S', 'Start',      COLOR_BLUE),
-    ('M', 'Minero',     COLOR_GREEN),
-    ('V', 'Murcielago', COLOR_RED),
-    ('A', 'Arana',      COLOR_ORANGE),
-    ('L', 'Lampara',   (255, 200, 50)),
+    (' ', 'Aire',       COLOR_BLACK,       0),
+    ('#', 'Tierra',     COLOR_GRAY,        20),   # destructible con dinamita
+    ('.', 'Suelo',      (100, 70, 50),     0),    # indestructible
+    ('G', 'Granito',    (60, 60, 65),      0),    # indestructible
+    ('R', 'Rocas',      (180, 170, 160),   25),   # destructible con dinamita/láser
+    ('S', 'Start',      COLOR_BLUE,        0),
+    ('M', 'Minero',     COLOR_GREEN,       1000), # puntos al rescatar
+    ('V', 'Murcielago', COLOR_RED,         70),   # puntos al matar con láser
+    ('A', 'Arana',      COLOR_ORANGE,      50),   # puntos al matar con láser
+    ('B', 'Bicho',      COLOR_GREEN,       50),   # puntos al matar con láser
+    ('L', 'Lampara',    (255, 200, 50),    0),
 ]
+
+# Lookup rápido: caracter → puntos
+TILE_SCORES = {t[0]: t[3] for t in TILE_TYPES}
+
+# Puntuación por matar enemigos con explosión (mayor que con láser)
+EXPLOSION_KILL_SCORE = 75
+
+# Puntuación por bomba restante al completar nivel
+BOMB_REMAINING_SCORE = 50
+
+# Mapeo de tipo de enemigo a caracter de tile
+ENEMY_TILE_CHARS = {'bat': 'V', 'spider': 'A', 'bug': 'B'}
 
 # Scores file
 SCORES_FILE = "scores.json"

@@ -15,12 +15,12 @@
 /--- todos los sprites en gris, como en la commodore 64 https://youtu.be/bpzN0fagzi8?t=71
 /- Queremos cortar el 'alto' de la pantalla ? digo para que pase de una seccion a otra del nivel y que solo se vea un pedazo, tal como es en el original ???
 - serpientes que salen desde la cueva
-- bichos que se mueven como en el lugar (izq der), rapido  >o< 
+/- bichos que se mueven como en el lugar (izq der), rapido  >o< 
 - bloques y nivel de magma (si lo toca me quemo)
 - niveles horizontales ?? (requeriria quizas stichear un par de niveles verticales para que no sea tan complicado de implementar en el editor)
 - tiles de fondo
 /- sonido de break walls (los dos)
-- editor: mejorar la forma de buscar tiles, porque con los numeros del 1-9 no alcanza
+/- editor: mejorar la forma de buscar tiles, porque con los numeros del 1-9 no alcanza
 
 
 
@@ -38,6 +38,14 @@ Ademas habria que cambiar en el editor, para que ahora tenga 24 filas en lugar d
 Piensa cual seria la mejor opcion, planea e implementala.
 (quiero que me digas en detalle que es lo que terminas haciendo)
 
+----
 
-
+Vamos a crear un nuevo enemigo. Se va a llamar Bug o Bicho, se va a representar con la letra B.
+Va a dar 50 puntos si lo matas. La idea es que se mueva solo a un bloque de distancia donde es colocado. Por ejemplo si lo coloco en
+la posicion fila 10, columna 13, solo se puede mover entre las filas 9 y 11 y entre las columnas 12 y 14 (un cuadrado de 3x3 bloques).
+El sprite va a estar en sprites/bug1.png y sprites/bug2.png alternando las 6 patas como que camina  y quiero que lo armes vos (hace que en ambos mire para arriba)
+Cuando vaya para un lado, rota el sprite en esa direccion (arriba, abajo, izquierda o derecha). Obviamente si el hero lo toca se muere el hero.
+Quiero que se mueva bastante rapido en su cuadrado de 3x3. Pone una constante para la velocidad asi lo podemos modificar facil
+Agregalo al editor con su sprite.
+Piensa, planea e implementa.
 
