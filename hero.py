@@ -59,15 +59,15 @@ def add_score(name, score):
 # Leyenda:
 #   S = Start (jugador)
 #   M = Miner (persona a rescatar)
-#   E = Enemy bat (murciélago)
+#   V = Enemy bat (murciélago)
 #   A = Spider (araña)
-#   B = Bloque destructible (solo se rompe con dinamita)
+#   B = Bug (bicho)
 #   # = Pared sólida
 #   . = Suelo/plataforma
 #   (espacio) = Aire
 
 def load_levels_from_file():
-    """Cargar niveles desde screens.json"""
+    """Cargar niveles desde screens.json (tamaño dinámico, múltiplos del viewport)"""
     if os.path.exists(SCREENS_FILE):
         try:
             with open(SCREENS_FILE, 'r', encoding='utf-8') as f:
@@ -75,15 +75,24 @@ def load_levels_from_file():
                 levels = []
                 for s in screens:
                     level_map = s["map"]
-                    # Normalizar dimensiones
+                    # Determinar dimensiones del mapa
+                    map_height = len(level_map)
+                    map_width = max(len(row) for row in level_map) if level_map else VIEWPORT_COLS
+
+                    # Redondear hacia arriba al múltiplo del viewport más cercano
+                    target_w = max(VIEWPORT_COLS, ((map_width + VIEWPORT_COLS - 1) // VIEWPORT_COLS) * VIEWPORT_COLS)
+                    target_h = max(VIEWPORT_ROWS, ((map_height + VIEWPORT_ROWS - 1) // VIEWPORT_ROWS) * VIEWPORT_ROWS)
+
+                    # Normalizar filas al ancho objetivo
                     normalized = []
                     for row in level_map:
-                        if len(row) < LEVEL_WIDTH:
-                            row = row + '#' * (LEVEL_WIDTH - len(row))
-                        normalized.append(row[:LEVEL_WIDTH])
-                    while len(normalized) < LEVEL_HEIGHT:
-                        normalized.append('#' * LEVEL_WIDTH)
-                    levels.append(normalized[:LEVEL_HEIGHT])
+                        if len(row) < target_w:
+                            row = row + '#' * (target_w - len(row))
+                        normalized.append(row[:target_w])
+                    # Completar filas faltantes
+                    while len(normalized) < target_h:
+                        normalized.append('#' * target_w)
+                    levels.append(normalized[:target_h])
                 return levels
         except Exception as e:
             print(f"Error cargando niveles: {e}")
@@ -96,7 +105,7 @@ def generate_level(level_num):
     if len(LEVELS) == 0:
         print("ERROR: No se encontraron niveles en screens.json")
         # Nivel de emergencia
-        empty = ['#' * LEVEL_WIDTH] * LEVEL_HEIGHT
+        empty = ['#' * DEFAULT_LEVEL_WIDTH] * DEFAULT_LEVEL_HEIGHT
         return list(empty)
     if level_num < 0 or level_num >= len(LEVELS):
         level_num = 0
@@ -143,7 +152,8 @@ class Game:
         # Cave background
         self.cave_bg = None
 
-        # Camera
+        # Camera (ambos ejes para niveles de tamaño dinámico)
+        self.camera_x = 0
         self.camera_y = 0
 
         # Input
@@ -405,8 +415,10 @@ class Game:
 
     def _generate_cave_background(self):
         """Genera superficie de fondo con pintitas simulando textura de caverna"""
-        width = LEVEL_WIDTH * TILE_SIZE
-        height = LEVEL_HEIGHT * TILE_SIZE
+        level_w = len(self.level_map[0]) if self.level_map else DEFAULT_LEVEL_WIDTH
+        level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
+        width = level_w * TILE_SIZE
+        height = level_h * TILE_SIZE
         self.cave_bg = pygame.Surface((width, height))
         self.cave_bg.fill(COLOR_BLACK)
 
@@ -520,8 +532,13 @@ class Game:
                         self.level_map[row_index][col_index + 1:]
                     )
 
-        # Reset camera to player (en coordenadas de juego)
-        self.camera_y = self.player.y - GAME_VIEWPORT_HEIGHT / 2
+        # Reset camera to player (en coordenadas de juego, ambos ejes, clampeado)
+        level_w = len(self.level_map[0]) if self.level_map else DEFAULT_LEVEL_WIDTH
+        level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
+        max_cam_x = max(0, level_w * TILE_SIZE - GAME_WIDTH)
+        max_cam_y = max(0, level_h * TILE_SIZE - GAME_VIEWPORT_HEIGHT)
+        self.camera_x = max(0, min(self.player.x - GAME_WIDTH / 2, max_cam_x))
+        self.camera_y = max(0, min(self.player.y - GAME_VIEWPORT_HEIGHT / 2, max_cam_y))
 
     def shoot_laser(self):
         """Player shoots laser"""
@@ -560,15 +577,27 @@ class Game:
             self.dynamite_count -= 1
 
     def update_camera(self):
-        """Update camera to follow player (en coordenadas de juego)"""
+        """Update camera to follow player (en coordenadas de juego, ambos ejes)"""
+        level_w = len(self.level_map[0]) if self.level_map else DEFAULT_LEVEL_WIDTH
+        level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
+
+        # Eje horizontal
+        target_x = self.player.x - GAME_WIDTH / 2
+        self.camera_x += (target_x - self.camera_x) * 0.1
+        max_cam_x = level_w * TILE_SIZE - GAME_WIDTH
+        if max_cam_x > 0:
+            self.camera_x = max(0, min(self.camera_x, max_cam_x))
+        else:
+            self.camera_x = 0
+
+        # Eje vertical
         target_y = self.player.y - GAME_VIEWPORT_HEIGHT / 2
-
-        # Smooth camera
         self.camera_y += (target_y - self.camera_y) * 0.1
-
-        # Keep camera in bounds
-        self.camera_y = max(0, min(self.camera_y,
-                                   LEVEL_HEIGHT * TILE_SIZE - GAME_VIEWPORT_HEIGHT))
+        max_cam_y = level_h * TILE_SIZE - GAME_VIEWPORT_HEIGHT
+        if max_cam_y > 0:
+            self.camera_y = max(0, min(self.camera_y, max_cam_y))
+        else:
+            self.camera_y = 0
 
     def check_collisions(self):
         """Check all collisions"""
@@ -715,12 +744,12 @@ class Game:
             alpha = int(255 * (fs['timer'] / fs['max_timer']))
             text_surf = self.hud_font.render(fs['text'], True, cv_yellow)
 
-            # Posicion en coordenadas de juego
-            screen_x = int(fs['x']) - text_surf.get_width() // 2
+            # Posicion en coordenadas de juego (con offset de ambas cámaras)
+            screen_x = int(fs['x']) - int(self.camera_x) - text_surf.get_width() // 2
             screen_y = int(fs['y']) - int(self.camera_y)
 
-            # Clampar dentro de los margenes de las paredes externas
-            screen_x = max(TILE_SIZE, min(screen_x, (LEVEL_WIDTH - 1) * TILE_SIZE - text_surf.get_width()))
+            # Clampar dentro del viewport visible
+            screen_x = max(0, min(screen_x, GAME_WIDTH - text_surf.get_width()))
             screen_y = max(0, min(screen_y, GAME_VIEWPORT_HEIGHT - text_surf.get_height()))
 
             # Aplicar alpha con surface transparente
@@ -942,17 +971,20 @@ class Game:
 
     def render_lamps(self):
         """Dibuja las lamparas en sus posiciones (en game_surface)"""
+        cam_x = int(self.camera_x)
         cam_y = int(self.camera_y)
         for lamp in self.lamps:
-            screen_y = lamp['y'] - cam_y
-            if -TILE_SIZE < screen_y < GAME_VIEWPORT_HEIGHT:
-                self.game_surface.blit(self.tiles['lamp'], (lamp['x'], screen_y))
+            sx = lamp['x'] - cam_x
+            sy = lamp['y'] - cam_y
+            if -TILE_SIZE < sy < GAME_VIEWPORT_HEIGHT and -TILE_SIZE < sx < GAME_WIDTH:
+                self.game_surface.blit(self.tiles['lamp'], (sx, sy))
 
     def _render_dark_mode_overlay(self):
         """Modo oscuridad estilo C64: fondo negro, sprites en gris, lasers/dinamitas en color"""
         if not self.dark_mode or self.explosion_flash:
             return
 
+        cam_x = int(self.camera_x)
         cam_y = int(self.camera_y)
 
         # Cubrir viewport con negro (oculta tiles/fondo) - en game_surface
@@ -961,24 +993,27 @@ class Game:
         # Lamparas en gris
         gray_lamp = self._to_grayscale(self.tiles['lamp'])
         for lamp in self.lamps:
-            screen_y = lamp['y'] - cam_y
-            if -TILE_SIZE < screen_y < GAME_VIEWPORT_HEIGHT:
-                self.game_surface.blit(gray_lamp, (lamp['x'], screen_y))
+            sx = lamp['x'] - cam_x
+            sy = lamp['y'] - cam_y
+            if -TILE_SIZE < sy < GAME_VIEWPORT_HEIGHT and -TILE_SIZE < sx < GAME_WIDTH:
+                self.game_surface.blit(gray_lamp, (sx, sy))
 
         # Minero en gris
         if self.miner and not self.miner.rescued:
-            screen_y = self.miner.y - cam_y
-            if -50 < screen_y < GAME_VIEWPORT_HEIGHT + 50:
+            sx = self.miner.x - cam_x
+            sy = self.miner.y - cam_y
+            if -50 < sy < GAME_VIEWPORT_HEIGHT + 50 and -50 < sx < GAME_WIDTH + 50:
                 if self.miner.image:
                     gray_img = self._to_grayscale(self.miner.image)
-                    self.game_surface.blit(gray_img, (int(self.miner.x), int(screen_y)))
+                    self.game_surface.blit(gray_img, (int(sx), int(sy)))
 
         # Enemigos en gris
         for enemy in self.enemies:
             if not enemy.active:
                 continue
-            screen_y = enemy.y - cam_y
-            if -50 < screen_y < GAME_VIEWPORT_HEIGHT + 50:
+            sx = enemy.x - cam_x
+            sy = enemy.y - cam_y
+            if -50 < sy < GAME_VIEWPORT_HEIGHT + 50 and -50 < sx < GAME_WIDTH + 50:
                 if enemy.exploding:
                     # Explosion en gris
                     progress = enemy.explosion_timer / enemy.explosion_duration
@@ -988,68 +1023,78 @@ class Game:
                         if r > 0:
                             gray_val = 100 if i == 0 else 70
                             pygame.draw.circle(self.game_surface, (gray_val, gray_val, gray_val),
-                                             (int(enemy.x + 16), int(screen_y + 16)), r)
+                                             (int(sx + 16), int(sy + 16)), r)
                 else:
                     # Hilo de araña en gris
                     if enemy.enemy_type == "spider":
                         ceiling_y = enemy._find_ceiling_y(self.level_map)
                         if ceiling_y is not None:
                             thread_top = ceiling_y - cam_y
-                            thread_bottom = screen_y + enemy.height // 2
-                            center_x = int(enemy.x + enemy.width // 2)
+                            thread_bottom = sy + enemy.height // 2
+                            center_x = int(sx + enemy.width // 2)
                             pygame.draw.line(self.game_surface, COLOR_GRAY,
                                            (center_x, int(thread_top)),
                                            (center_x, int(thread_bottom)), 1)
                     if enemy.image:
                         gray_img = self._to_grayscale(enemy.image)
-                        self.game_surface.blit(gray_img, (int(enemy.x), int(screen_y)))
+                        self.game_surface.blit(gray_img, (int(sx), int(sy)))
 
         # Jugador en gris
         if self.player:
-            screen_y = self.player.y - cam_y
-            # Seleccionar sprite (misma logica que player.draw)
-            base_img = self.player.image
-            if self.player.shooting_timer > 0 and self.player.image_shooting:
-                base_img = self.player.image_shooting
-            elif not self.player.is_grounded and self.player.image_fly:
-                base_img = self.player.image_fly
-            elif self.player.is_walking and self.player.walk_frames:
-                base_img = self.player.walk_frames[self.player.walk_frame_index]
-            if base_img:
-                gray_img = self._to_grayscale(base_img)
-                if self.player.facing_right:
-                    gray_img = pygame.transform.flip(gray_img, True, False)
-                self.game_surface.blit(gray_img, (int(self.player.x), int(screen_y)))
+            sx = self.player.x - cam_x
+            sy = self.player.y - cam_y
+            if -50 < sy < GAME_VIEWPORT_HEIGHT + 50 and -50 < sx < GAME_WIDTH + 50:
+                # Seleccionar sprite (misma logica que player.draw)
+                base_img = self.player.image
+                if self.player.shooting_timer > 0 and self.player.image_shooting:
+                    base_img = self.player.image_shooting
+                elif not self.player.is_grounded and self.player.image_fly:
+                    base_img = self.player.image_fly
+                elif self.player.is_walking and self.player.walk_frames:
+                    base_img = self.player.walk_frames[self.player.walk_frame_index]
+                if base_img:
+                    gray_img = self._to_grayscale(base_img)
+                    if self.player.facing_right:
+                        gray_img = pygame.transform.flip(gray_img, True, False)
+                    self.game_surface.blit(gray_img, (int(sx), int(sy)))
 
         # Lasers y dinamitas en color (visibles)
         for laser in self.lasers:
-            laser.draw(self.game_surface, cam_y)
+            laser.draw(self.game_surface, cam_x, cam_y)
         for dynamite in self.dynamites:
-            dynamite.draw(self.game_surface, cam_y)
+            dynamite.draw(self.game_surface, cam_x, cam_y)
 
     def render_level(self):
         """Render visible part of level (en game_surface, sin escalar)"""
+        level_w = len(self.level_map[0]) if self.level_map else DEFAULT_LEVEL_WIDTH
+        level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
         # Usar offset entero consistente para fondo y tiles
+        cam_x = int(self.camera_x)
         cam_y = int(self.camera_y)
 
         # Dibujar fondo de caverna (o flash blanco si hay explosion)
         if self.explosion_flash:
             self.game_surface.fill(COLOR_WHITE, (0, 0, GAME_WIDTH, GAME_VIEWPORT_HEIGHT))
         elif self.cave_bg:
-            src_rect = pygame.Rect(0, cam_y, GAME_WIDTH, GAME_VIEWPORT_HEIGHT)
+            src_rect = pygame.Rect(cam_x, cam_y, GAME_WIDTH, GAME_VIEWPORT_HEIGHT)
             self.game_surface.blit(self.cave_bg, (0, 0), src_rect)
 
-        # Calculate visible tiles
+        # Calculate visible tiles (ambos ejes)
+        start_col = max(0, cam_x // TILE_SIZE - 1)
+        end_col = min(level_w, (cam_x + GAME_WIDTH) // TILE_SIZE + 2)
         start_row = max(0, cam_y // TILE_SIZE - 1)
-        end_row = min(LEVEL_HEIGHT, (cam_y + GAME_VIEWPORT_HEIGHT) // TILE_SIZE + 2)
+        end_row = min(level_h, (cam_y + GAME_VIEWPORT_HEIGHT) // TILE_SIZE + 2)
 
         for row_index in range(start_row, end_row):
             if row_index >= len(self.level_map):
                 break
 
             row = self.level_map[row_index]
-            for col_index, tile in enumerate(row):
-                x = col_index * TILE_SIZE
+            for col_index in range(start_col, end_col):
+                if col_index >= len(row):
+                    break
+                tile = row[col_index]
+                x = col_index * TILE_SIZE - cam_x
                 y = row_index * TILE_SIZE - cam_y
 
                 if tile == '#':
@@ -1259,19 +1304,19 @@ class Game:
         self.render_lamps()
 
         if self.miner:
-            self.miner.draw(self.game_surface, self.camera_y)
+            self.miner.draw(self.game_surface, self.camera_x, self.camera_y)
 
         for enemy in self.enemies:
-            enemy.draw(self.game_surface, self.camera_y, self.level_map)
+            enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map)
 
         for laser in self.lasers:
-            laser.draw(self.game_surface, self.camera_y)
+            laser.draw(self.game_surface, self.camera_x, self.camera_y)
 
         for dynamite in self.dynamites:
-            dynamite.draw(self.game_surface, self.camera_y)
+            dynamite.draw(self.game_surface, self.camera_x, self.camera_y)
 
         if self.player:
-            self.player.draw(self.game_surface, self.camera_y)
+            self.player.draw(self.game_surface, self.camera_x, self.camera_y)
 
         # Oscuridad con spotlight
         self._render_dark_mode_overlay()
@@ -1415,19 +1460,19 @@ class Game:
 
                 # Draw entities en game_surface
                 if self.miner:
-                    self.miner.draw(self.game_surface, self.camera_y)
+                    self.miner.draw(self.game_surface, self.camera_x, self.camera_y)
 
                 for enemy in self.enemies:
-                    enemy.draw(self.game_surface, self.camera_y, self.level_map)
+                    enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map)
 
                 for laser in self.lasers:
-                    laser.draw(self.game_surface, self.camera_y)
+                    laser.draw(self.game_surface, self.camera_x, self.camera_y)
 
                 for dynamite in self.dynamites:
-                    dynamite.draw(self.game_surface, self.camera_y)
+                    dynamite.draw(self.game_surface, self.camera_x, self.camera_y)
 
                 if self.player:
-                    self.player.draw(self.game_surface, self.camera_y)
+                    self.player.draw(self.game_surface, self.camera_x, self.camera_y)
 
                 # Oscuridad estilo C64
                 self._render_dark_mode_overlay()

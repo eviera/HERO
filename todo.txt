@@ -49,3 +49,11 @@ Quiero que se mueva bastante rapido en su cuadrado de 3x3. Pone una constante pa
 Agregalo al editor con su sprite.
 Piensa, planea e implementa.
 
+-----
+
+Quiero que analices el codigo y consideres cuan facil o dificil seria hacer niveles de tamaño dinamico.
+Actualmente contamos solo con niveles de 24 filas por 16 columnas, donde se ven a la vez 8 filas por 16 columnas.
+Quisiera que siempre el viewport (la parte que se ve) sea de 8 filas por 16 columnas, pero que los niveles pudiesen tener multiplos de este viewport, es decir
+por ejemplo se podria tener un nivel con 24 filas y 32 columnas, o 48 filas y 16 columnas, o 32 filas y 16 columnas, etc, siempre en multiplos del tamaño del viewport
+Habria que considerar un scrolling horizontal del viewport (ahora tenemos un scrolling vertical entre los tres tercios de las 24 filas) para que se mueva en pantallas mas grandes de 16 columnas
+Analiza el codigo y dime si es posible implementar esto.

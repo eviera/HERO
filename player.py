@@ -40,6 +40,8 @@ class Player:
 
     def update(self, dt, keys, joy_axis_x, joy_axis_y, level_map, game):
         """Update player with CORRECT HERO physics"""
+        level_w = len(level_map[0]) if level_map else DEFAULT_LEVEL_WIDTH
+        level_h = len(level_map) if level_map else DEFAULT_LEVEL_HEIGHT
 
         # Actualizar timer de disparo
         if self.shooting_timer > 0:
@@ -115,9 +117,9 @@ class Player:
         else:
             self.vel_y = 0
 
-        # Keep in level bounds
-        self.x = max(0, min(self.x, LEVEL_WIDTH * TILE_SIZE - self.width))
-        self.y = max(0, min(self.y, LEVEL_HEIGHT * TILE_SIZE - self.height))
+        # Keep in level bounds (dimensiones dinamicas del mapa)
+        self.x = max(0, min(self.x, level_w * TILE_SIZE - self.width))
+        self.y = max(0, min(self.y, level_h * TILE_SIZE - self.height))
 
         # Energia: se consume siempre, ritmo segun estado
         if self.using_propulsor:
@@ -145,6 +147,8 @@ class Player:
 
     def check_collision(self, x, y, level_map):
         """Check collision with tiles (hitbox estrecho centrado en el cuerpo)"""
+        level_h = len(level_map) if level_map else 0
+        level_w = len(level_map[0]) if level_map and level_map[0] else 0
         corners = [
             (x + PLAYER_FOOT_INSET, y + 2),
             (x + self.width - PLAYER_FOOT_INSET - 1, y + 2),
@@ -156,22 +160,22 @@ class Player:
             tile_x = int(corner_x / TILE_SIZE)
             tile_y = int(corner_y / TILE_SIZE)
 
-            if tile_y < 0 or tile_y >= LEVEL_HEIGHT:
+            if tile_y < 0 or tile_y >= level_h:
                 return True
-            if tile_x < 0 or tile_x >= LEVEL_WIDTH:
+            if tile_x < 0 or tile_x >= level_w:
                 return True
 
-            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
-                tile = level_map[tile_y][tile_x]
-                if tile in ('#', 'G', '.', 'R'):
-                    return True
+            tile = level_map[tile_y][tile_x]
+            if tile in ('#', 'G', '.', 'R'):
+                return True
 
         return False
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def draw(self, screen, camera_y):
+    def draw(self, screen, camera_x, camera_y):
+        screen_x = self.x - camera_x
         screen_y = self.y - camera_y
         if self.image:
             # Prioridad de sprites: disparo > vuelo > caminata > idle
@@ -187,23 +191,23 @@ class Player:
             img = base_img
             if self.facing_right:
                 img = pygame.transform.flip(base_img, True, False)
-            screen.blit(img, (int(self.x), int(screen_y)))
+            screen.blit(img, (int(screen_x), int(screen_y)))
         else:
             # Draw simple helicopter
             pygame.draw.rect(screen, COLOR_BLUE,
-                           (int(self.x + 8), int(screen_y + 12), 16, 12))
+                           (int(screen_x + 8), int(screen_y + 12), 16, 12))
             # Rotor
             rotor_y = int(screen_y + 8)
             if self.using_propulsor:
                 # Rotor spinning
                 offset = (pygame.time.get_ticks() % 100) / 100 * 32
                 pygame.draw.line(screen, COLOR_WHITE,
-                               (int(self.x + offset), rotor_y),
-                               (int(self.x + offset), rotor_y), 3)
+                               (int(screen_x + offset), rotor_y),
+                               (int(screen_x + offset), rotor_y), 3)
             else:
                 pygame.draw.line(screen, COLOR_WHITE,
-                               (int(self.x), rotor_y),
-                               (int(self.x + 32), rotor_y), 2)
+                               (int(screen_x), rotor_y),
+                               (int(screen_x + 32), rotor_y), 2)
             # Cockpit
             pygame.draw.circle(screen, (100, 150, 255),
-                             (int(self.x + 16), int(screen_y + 16)), 6)
+                             (int(screen_x + 16), int(screen_y + 16)), 6)

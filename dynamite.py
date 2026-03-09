@@ -19,6 +19,8 @@ class Dynamite:
 
     def check_collision(self, x, y, level_map):
         """Check collision with tiles"""
+        level_h = len(level_map) if level_map else 0
+        level_w = len(level_map[0]) if level_map and level_map[0] else 0
         # Check bottom corners
         corners = [
             (x + 2, y + self.height - 1),
@@ -29,15 +31,14 @@ class Dynamite:
             tile_x = int(corner_x / TILE_SIZE)
             tile_y = int(corner_y / TILE_SIZE)
 
-            if tile_y < 0 or tile_y >= LEVEL_HEIGHT:
+            if tile_y < 0 or tile_y >= level_h:
                 return True
-            if tile_x < 0 or tile_x >= LEVEL_WIDTH:
+            if tile_x < 0 or tile_x >= level_w:
                 return True
 
-            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
-                tile = level_map[tile_y][tile_x]
-                if tile in ('#', 'G', '.', 'R'):
-                    return True
+            tile = level_map[tile_y][tile_x]
+            if tile in ('#', 'G', '.', 'R'):
+                return True
 
         return False
 
@@ -75,9 +76,10 @@ class Dynamite:
             )
         return None
 
-    def draw(self, screen, camera_y):
+    def draw(self, screen, camera_x, camera_y):
+        screen_x = self.x - camera_x
         screen_y = self.y - camera_y
-        if -100 < screen_y < VIEWPORT_HEIGHT + 100:
+        if -100 < screen_y < GAME_VIEWPORT_HEIGHT + 100 and -100 < screen_x < GAME_WIDTH + 100:
             if not self.exploded:
                 if self.explosion_sprites:
                     # Alternar bomb1/bomb2/bomb3 desde que se suelta
@@ -85,13 +87,13 @@ class Dynamite:
                     frame_duration = 0.1
                     frame_index = int(elapsed / frame_duration) % len(self.explosion_sprites)
                     sprite = self.explosion_sprites[frame_index]
-                    sx = int(self.x - sprite.get_width() / 2)
+                    sx = int(screen_x - sprite.get_width() / 2)
                     sy = int(screen_y - sprite.get_height() / 2)
                     screen.blit(sprite, (sx, sy))
                 else:
                     # Fallback: rectangulo rojo
                     pygame.draw.rect(screen, COLOR_RED,
-                                   (int(self.x), int(screen_y), self.width, self.height))
+                                   (int(screen_x), int(screen_y), self.width, self.height))
             else:
                 # Draw explosion con sprites animados
                 if self.explosion_sprites:
@@ -99,13 +101,13 @@ class Dynamite:
                     frame_duration = 0.06  # Ciclar rapido entre frames
                     frame_index = int(elapsed / frame_duration) % len(self.explosion_sprites)
                     sprite = self.explosion_sprites[frame_index]
-                    sx = int(self.x - sprite.get_width() / 2)
+                    sx = int(screen_x - sprite.get_width() / 2)
                     sy = int(screen_y - sprite.get_height() / 2)
                     screen.blit(sprite, (sx, sy))
                 else:
                     # Fallback: circulos si no hay sprites
                     radius = int(DYNAMITE_EXPLOSION_RADIUS * (self.explosion_time / 0.5))
                     pygame.draw.circle(screen, COLOR_ORANGE,
-                                     (int(self.x), int(screen_y)), radius)
+                                     (int(screen_x), int(screen_y)), radius)
                     pygame.draw.circle(screen, COLOR_YELLOW,
-                                     (int(self.x), int(screen_y)), int(radius * 0.6))
+                                     (int(screen_x), int(screen_y)), int(radius * 0.6))

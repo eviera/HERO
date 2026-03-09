@@ -17,8 +17,9 @@ class Laser:
     def update(self, dt, level_map):
         self.x += self.direction * LASER_SPEED * dt
 
-        # Check bounds
-        if self.x < 0 or self.x > LEVEL_WIDTH * TILE_SIZE:
+        # Check bounds (dimensiones dinamicas del mapa)
+        level_w = len(level_map[0]) if level_map and level_map[0] else DEFAULT_LEVEL_WIDTH
+        if self.x < 0 or self.x > level_w * TILE_SIZE:
             self.active = False
             return
 
@@ -46,8 +47,9 @@ class Laser:
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def draw(self, screen, camera_y):
+    def draw(self, screen, camera_x, camera_y):
+        screen_x = self.x - camera_x
         screen_y = self.y - camera_y
-        if -50 < screen_y < VIEWPORT_HEIGHT + 50:
+        if -50 < screen_y < GAME_VIEWPORT_HEIGHT + 50 and -50 < screen_x < GAME_WIDTH + 50:
             pygame.draw.rect(screen, self.color,
-                           (int(self.x), int(screen_y), self.width, self.height))
+                           (int(screen_x), int(screen_y), self.width, self.height))

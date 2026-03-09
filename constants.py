@@ -8,9 +8,13 @@ TILE_SIZE = 32
 FPS = 60
 RENDER_SCALE = 1.5  # Escala de la superficie de juego al screen final
 
-# Superficie de juego (lógica interna, sin escalar)
-GAME_WIDTH = 16 * TILE_SIZE               # 512 - ancho del nivel en pixels
-GAME_VIEWPORT_HEIGHT = 8 * TILE_SIZE      # 256 - 8 tiles visibles verticalmente
+# Viewport (tamaño visible en tiles)
+VIEWPORT_COLS = 16   # tiles visibles horizontalmente
+VIEWPORT_ROWS = 8    # tiles visibles verticalmente
+
+# Superficie de juego (lógica interna, sin escalar) - derivada del viewport
+GAME_WIDTH = VIEWPORT_COLS * TILE_SIZE             # 512 - ancho del viewport en pixels
+GAME_VIEWPORT_HEIGHT = VIEWPORT_ROWS * TILE_SIZE   # 256 - alto del viewport en pixels
 
 # Pantalla final (escalada)
 SCREEN_WIDTH = int(GAME_WIDTH * RENDER_SCALE)              # 768
@@ -55,9 +59,11 @@ ENEMY_SPEED_VARIATION = 0.05  # ±5% variación aleatoria de velocidad por enemi
 # Cave background dots (pintitas del fondo de caverna)
 CAVE_DOT_SIZE = 2  # Tamaño en pixels de las pintitas
 
-# Level dimensions - NIVELES VERTICALES
-LEVEL_WIDTH = 16  # tiles
-LEVEL_HEIGHT = 24  # tiles (era 30)
+# Dimensiones por defecto de nivel (para compatibilidad y editor)
+DEFAULT_LEVEL_WIDTH = 16   # tiles
+DEFAULT_LEVEL_HEIGHT = 24  # tiles
+LEVEL_WIDTH = DEFAULT_LEVEL_WIDTH    # Alias para editor (legacy)
+LEVEL_HEIGHT = DEFAULT_LEVEL_HEIGHT  # Alias para editor (legacy)
 
 # Game States
 STATE_SPLASH = "splash"

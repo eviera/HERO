@@ -44,6 +44,8 @@ class Enemy:
 
     def check_collision(self, x, y, level_map):
         """Check collision with tiles using all 4 corners (margen de 1px)"""
+        level_h = len(level_map) if level_map else 0
+        level_w = len(level_map[0]) if level_map and level_map[0] else 0
         corners = [
             (x + 1, y + 1),
             (x + self.width - 2, y + 1),
@@ -55,16 +57,14 @@ class Enemy:
             tile_x = int(corner_x / TILE_SIZE)
             tile_y = int(corner_y / TILE_SIZE)
 
-            if tile_y < 0 or tile_y >= LEVEL_HEIGHT:
+            if tile_y < 0 or tile_y >= level_h:
                 return True
-            if tile_x < 0 or tile_x >= LEVEL_WIDTH:
+            if tile_x < 0 or tile_x >= level_w:
                 return True
 
-            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
-                tile = level_map[tile_y][tile_x]
-                # Colisiona con paredes, bloques, pisos
-                if tile in ('#', 'G', '.', 'R'):
-                    return True
+            tile = level_map[tile_y][tile_x]
+            if tile in ('#', 'G', '.', 'R'):
+                return True
 
         return False
 
@@ -190,9 +190,10 @@ class Enemy:
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def draw(self, screen, camera_y, level_map=None):
+    def draw(self, screen, camera_x, camera_y, level_map=None):
+        screen_x = self.x - camera_x
         screen_y = self.y - camera_y
-        if -50 < screen_y < VIEWPORT_HEIGHT + 50:
+        if -50 < screen_y < GAME_VIEWPORT_HEIGHT + 50 and -50 < screen_x < GAME_WIDTH + 50:
             if self.exploding:
                 # Draw explosion animation - más pequeña y marrón
                 progress = self.explosion_timer / self.explosion_duration
@@ -206,7 +207,7 @@ class Enemy:
                         else:
                             color = (101, 67, 33)  # Marrón oscuro
                         pygame.draw.circle(screen, color,
-                                         (int(self.x + 16), int(screen_y + 16)), r)
+                                         (int(screen_x + 16), int(screen_y + 16)), r)
             else:
                 # Dibujar hilo de araña antes del sprite
                 if self.enemy_type == "spider" and level_map is not None:
@@ -214,7 +215,7 @@ class Enemy:
                     if ceiling_y is not None:
                         thread_top = ceiling_y - camera_y
                         thread_bottom = screen_y + self.height // 2
-                        center_x = int(self.x + self.width // 2)
+                        center_x = int(screen_x + self.width // 2)
                         pygame.draw.line(screen, COLOR_WHITE,
                                        (center_x, int(thread_top)),
                                        (center_x, int(thread_bottom)), 1)
@@ -231,9 +232,9 @@ class Enemy:
                         elif self.bug_dy == 1:   # abajo
                             angle = 180
                         rotated = pygame.transform.rotate(self.image, angle)
-                        screen.blit(rotated, (int(self.x), int(screen_y)))
+                        screen.blit(rotated, (int(screen_x), int(screen_y)))
                     else:
-                        screen.blit(self.image, (int(self.x), int(screen_y)))
+                        screen.blit(self.image, (int(screen_x), int(screen_y)))
                 else:
                     pygame.draw.circle(screen, COLOR_RED,
-                                     (int(self.x + 16), int(screen_y + 16)), 12)
+                                     (int(screen_x + 16), int(screen_y + 16)), 12)

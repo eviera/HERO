@@ -16,21 +16,22 @@ class Miner:
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def draw(self, screen, camera_y):
+    def draw(self, screen, camera_x, camera_y):
+        screen_x = self.x - camera_x
         screen_y = self.y - camera_y
-        if -50 < screen_y < VIEWPORT_HEIGHT + 50:
+        if -50 < screen_y < GAME_VIEWPORT_HEIGHT + 50 and -50 < screen_x < GAME_WIDTH + 50:
             if self.image:
                 # Draw sprite
-                screen.blit(self.image, (int(self.x), int(screen_y)))
+                screen.blit(self.image, (int(screen_x), int(screen_y)))
             else:
                 # Fallback: Draw miner
-                pygame.draw.circle(screen, COLOR_GREEN, (int(self.x + 16), int(screen_y + 10)), 8)
-                pygame.draw.rect(screen, COLOR_GREEN, (int(self.x + 12), int(screen_y + 18), 8, 12))
+                pygame.draw.circle(screen, COLOR_GREEN, (int(screen_x + 16), int(screen_y + 10)), 8)
+                pygame.draw.rect(screen, COLOR_GREEN, (int(screen_x + 12), int(screen_y + 18), 8, 12))
                 # Arms waving
                 wave = math.sin(pygame.time.get_ticks() / 200) * 5
                 pygame.draw.line(screen, COLOR_GREEN,
-                               (int(self.x + 16), int(screen_y + 20)),
-                               (int(self.x + 10 + wave), int(screen_y + 26)), 2)
+                               (int(screen_x + 16), int(screen_y + 20)),
+                               (int(screen_x + 10 + wave), int(screen_y + 26)), 2)
                 pygame.draw.line(screen, COLOR_GREEN,
-                               (int(self.x + 16), int(screen_y + 20)),
-                               (int(self.x + 22 - wave), int(screen_y + 26)), 2)
+                               (int(screen_x + 16), int(screen_y + 20)),
+                               (int(screen_x + 22 - wave), int(screen_y + 26)), 2)
