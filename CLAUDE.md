@@ -81,15 +81,25 @@ TILE_SIZE = 32
 FPS = 60
 RENDER_SCALE = 1.5          # Escala de game_surface al screen final
 
-# Superficie de juego (lógica interna, sin escalar)
-GAME_WIDTH = 16 * TILE_SIZE              # 512
-GAME_VIEWPORT_HEIGHT = 8 * TILE_SIZE     # 256 - 8 tiles visibles
+# Viewport: porción visible del nivel (siempre fija)
+VIEWPORT_COLS = 16           # tiles visibles horizontalmente
+VIEWPORT_ROWS = 8            # tiles visibles verticalmente
+
+# Superficie de juego (derivada del viewport, sin escalar)
+GAME_WIDTH = VIEWPORT_COLS * TILE_SIZE             # 512
+GAME_VIEWPORT_HEIGHT = VIEWPORT_ROWS * TILE_SIZE   # 256
 
 # Pantalla final (escalada)
 SCREEN_WIDTH = int(GAME_WIDTH * RENDER_SCALE)              # 768
 VIEWPORT_HEIGHT = int(GAME_VIEWPORT_HEIGHT * RENDER_SCALE)  # 384
 HUD_HEIGHT = 80
 SCREEN_HEIGHT = VIEWPORT_HEIGHT + HUD_HEIGHT                # 464
+
+# Dimensiones por defecto de nivel (para fallbacks)
+DEFAULT_LEVEL_WIDTH = 16    # tiles
+DEFAULT_LEVEL_HEIGHT = 24   # tiles
+LEVEL_WIDTH = DEFAULT_LEVEL_WIDTH    # Alias legacy (editor)
+LEVEL_HEIGHT = DEFAULT_LEVEL_HEIGHT  # Alias legacy (editor)
 
 # Físicas del Juego
 GRAVITY = 400              # Gravedad constante
@@ -124,10 +134,6 @@ ENEMY_SPEED_VARIATION = 0.05 # ±5% variación aleatoria por enemigo
 # Control
 DEAD_ZONE = 0.15
 
-# Nivel
-LEVEL_WIDTH = 16   # tiles
-LEVEL_HEIGHT = 24  # tiles
-
 # SID Audio Effects
 SID_INTENSITY = 'light'
 SID_BITDEPTH = 8
@@ -160,14 +166,14 @@ SID_DISTORTION = 0.2
 - `init(level_map)`: Inicializa posición buscando "S" en el mapa
 - `update(dt, keys, joy_axis_x, joy_axis_y, level_map, game)`: Actualiza física y movimiento
 - `check_collision(x, y, level_map)`: Verifica colisiones con tiles (#, ., G, R)
-- `draw(surface, camera_y)`: Renderiza al jugador (prioridad: disparo > vuelo > caminata > idle)
+- `draw(surface, camera_x, camera_y)`: Renderiza al jugador (prioridad: disparo > vuelo > caminata > idle)
 - `get_rect()`: Rectángulo de colisión
 
 **Características:**
 - Física con gravedad constante
 - Propulsor para volar (mantener presionado, intensidad gradual con joystick)
 - Descenso activo con tecla ↓ o joystick abajo (DIVE_POWER)
-- Colisión con paredes (#), suelos (.), granito (G) y rocas (R)
+- Colisión con paredes (#), suelos (.), granito (G) y rocas (R) — bounds dinámicos del mapa
 - Movimiento independiente del framerate (delta-time)
 - Energía: se drena al volar, se recupera en el suelo (no hay drenaje pasivo)
 - Animación de caminata con sonidos alternados cada WALK_STEP_DISTANCE píxeles
@@ -197,7 +203,7 @@ SID_DISTORTION = 0.2
 **Métodos:**
 - `update(dt, level_map)`: Actualiza movimiento y patrullaje
 - `check_collision(x, y, level_map)`: Colisión con tiles (#, ., G, R)
-- `draw(surface, camera_y, level_map)`: Renderiza enemigo, hilo de araña o explosión
+- `draw(surface, camera_x, camera_y, level_map)`: Renderiza enemigo, hilo de araña o explosión
 - `get_rect()`: Rectángulo de colisión
 - `_find_ceiling_y(level_map)`: (privado) Busca techo para hilo de araña
 
@@ -214,7 +220,7 @@ SID_DISTORTION = 0.2
 
 **Métodos:**
 - `update(dt, level_map)`: Actualiza posición y colisiones
-- `draw(surface, camera_y)`: Renderiza láser
+- `draw(surface, camera_x, camera_y)`: Renderiza láser
 - `get_rect()`: Rectángulo de colisión
 
 **Características:**
@@ -240,7 +246,7 @@ SID_DISTORTION = 0.2
 **Métodos:**
 - `update(dt, level_map)`: Actualiza caída, colisión con suelo y temporizador
 - `check_collision(x, y, level_map)`: Colisión con tiles
-- `draw(surface, camera_y)`: Renderiza dinamita animada o explosión animada
+- `draw(surface, camera_x, camera_y)`: Renderiza dinamita animada o explosión animada
 - `get_explosion_rect()`: Rectángulo de área de explosión
 
 **Características:**
@@ -263,7 +269,7 @@ SID_DISTORTION = 0.2
 - `image`: Sprite del minero
 
 **Métodos:**
-- `draw(surface, camera_y)`: Renderiza minero (sprite o fallback con brazos animados)
+- `draw(surface, camera_x, camera_y)`: Renderiza minero (sprite o fallback con brazos animados)
 - `get_rect()`: Rectángulo de colisión
 
 ### Clase Game (hero.py)
@@ -285,7 +291,7 @@ SID_DISTORTION = 0.2
 - `sprites`, `tiles`, `sounds`: Diccionarios de assets
 - `background_image`, `gray_overlay`: Splash screen
 - `cave_bg`: Fondo de caverna con pintitas generadas proceduralmente
-- `camera_y`: Posición vertical de la cámara
+- `camera_x`, `camera_y`: Posición de la cámara en ambos ejes (scrolling 2D)
 - `helicopter_playing`, `splash_theme_playing`: Estado de sonidos en loop
 - `explosion_flash`: Efecto de flash blanco/negro durante explosiones
 - `floating_scores`: Textos flotantes de puntuación
@@ -299,7 +305,7 @@ SID_DISTORTION = 0.2
 2. **`start_level()`**: Inicia nivel, parsea mapa, crea entidades, genera fondo de caverna
 3. **`shoot_laser()`**: Dispara láser con cooldown de 0.2s
 4. **`drop_dynamite()`**: Coloca dinamita enfrente del héroe
-5. **`update_camera()`**: Cámara suave que sigue al jugador (lerp 0.1)
+5. **`update_camera()`**: Cámara suave en ambos ejes que sigue al jugador (lerp 0.1)
 6. **`check_collisions()`**: Todas las colisiones (jugador/enemigos/láser/explosión)
 7. **`player_hit()`**: Daño al jugador, pierde vida o game over
 8. **`rescue_miner()`**: Inicia animación de nivel completado (3 fases)
@@ -321,9 +327,23 @@ SID_DISTORTION = 0.2
 
 ## Sistema de Niveles
 
+### Concepto de Viewport
+
+El **viewport** es la porción visible del nivel: **8 filas x 16 columnas** (VIEWPORT_ROWS x VIEWPORT_COLS = 256x512 px). El viewport es siempre fijo; lo que cambia es el tamaño del nivel.
+
+### Tamaño Dinámico de Niveles
+
+Los niveles pueden tener cualquier tamaño que sea **múltiplo del viewport** en ambos ejes:
+- Ancho: múltiplos de 16 columnas (VIEWPORT_COLS)
+- Alto: múltiplos de 8 filas (VIEWPORT_ROWS)
+
+Ejemplos: 16x24 (1x3 vp), 32x24 (2x3 vp), 48x32 (3x4 vp), etc.
+
+Las dimensiones se **infieren automáticamente** del mapa cargado (no requieren propiedades explícitas). Si las filas no son múltiplos exactos, se normalizan rellenando con `#`.
+
 ### Formato del Mapa
 
-Grid de 16 columnas x 24 filas (LEVEL_WIDTH x LEVEL_HEIGHT) usando caracteres:
+Grid de caracteres con ancho y alto dinámicos (múltiplos del viewport):
 
 - `"S"`: Posición inicial del jugador (Start)
 - `"#"`: Tierra (sólida, destructible con dinamita)
@@ -333,12 +353,21 @@ Grid de 16 columnas x 24 filas (LEVEL_WIDTH x LEVEL_HEIGHT) usando caracteres:
 - `" "`: Espacio vacío (aire)
 - `"V"`: Enemigo murciélago (bat)
 - `"A"`: Enemigo araña (spider)
+- `"B"`: Enemigo bicho (bug)
 - `"L"`: Lámpara (toggle modo oscuridad al tocar)
 - `"M"`: Minero a rescatar (objetivo)
 
 ### Carga de Niveles
 
-Los niveles se cargan desde **screens.json** (no están hardcodeados en hero.py). Cada entrada tiene un campo `"map"` con el array de strings. Las dimensiones se normalizan automáticamente a LEVEL_WIDTH x LEVEL_HEIGHT.
+Los niveles se cargan desde **screens.json** (no están hardcodeados en hero.py). Cada entrada tiene un campo `"map"` con el array de strings. Las dimensiones se infieren del mapa: ancho = fila más larga, alto = cantidad de filas. Se normalizan al múltiplo de viewport más cercano.
+
+### Dimensiones Dinámicas en el Código
+
+Las clases **NO usan constantes fijas** para el tamaño del nivel. En su lugar, derivan las dimensiones del `level_map` en runtime:
+- `level_w = len(level_map[0])` — ancho en tiles
+- `level_h = len(level_map)` — alto en tiles
+
+Esto aplica a: `Player.check_collision()`, `Player.update()`, `Enemy.check_collision()`, `Laser.update()`, `Dynamite.check_collision()`, `Game.update_camera()`, `Game.render_level()`, `Game._generate_cave_background()`.
 
 ## Loop Principal del Juego
 
@@ -457,14 +486,16 @@ Estilo ColecoVision TMS9918A. Posición: parte inferior de la pantalla (HUD_HEIG
 
 ### Renderizado (pipeline de dos superficies)
 
-- **game_surface** (512x256): Toda la lógica de juego se renderiza aquí a escala 1:1 (tiles 32x32)
+- **game_surface** (512x256): Toda la lógica de juego se renderiza aquí a escala 1:1 (tiles 32x32). Tamaño fijo = viewport.
 - **screen** (768x464): game_surface se escala x1.5 (→768x384) + HUD (80px) se dibuja directo
 - **display_surface** (fullscreen): screen se escala manteniendo aspect ratio al monitor
 - **splash_surface** (512x480): Splash se renderiza al tamaño original, se escala con aspect ratio al screen
 - Orden en game_surface: Fondo caverna → Tiles → Lámparas → Entidades → Dark overlay → Floating scores
 - Orden en screen: game_surface escalado → HUD → Overlays (quit confirm, level complete fase 2)
-- Coordenadas de juego: (0,0) esquina superior izquierda, tiles 32x32
-- Cámara vertical suave: Sigue al jugador en eje Y con lerp (usa GAME_VIEWPORT_HEIGHT)
+- Coordenadas de juego: (0,0) esquina superior izquierda del nivel, tiles 32x32
+- **Cámara 2D suave**: Sigue al jugador en ambos ejes con lerp 0.1 (usa camera_x y camera_y)
+- **Todas las entidades reciben camera_x y camera_y** en sus métodos draw() para offset de renderizado
+- Solo se renderizan tiles visibles en el viewport (culling en ambos ejes para eficiencia)
 
 ## Cómo Modificar el Juego
 
@@ -509,7 +540,14 @@ MAX_ENERGY = 2550             # Energía total
 
 ### Crear Nuevos Niveles
 
-Editar **screens.json**. Cada nivel es un objeto con un campo `"map"` que contiene un array de 24 strings de 16 caracteres. Las dimensiones se normalizan automáticamente.
+Editar **screens.json** o usar el **editor visual** (`python editor.py`).
+
+Cada nivel es un objeto con un campo `"map"` que contiene un array de strings. Las dimensiones son libres pero se normalizan a múltiplos del viewport (8 filas x 16 columnas):
+- Un nivel de 16x24 tiene filas de 16 caracteres y 24 filas (1x3 viewports)
+- Un nivel de 32x24 tiene filas de 32 caracteres y 24 filas (2x3 viewports)
+- Las dimensiones se infieren automáticamente del mapa (no requieren propiedades explícitas)
+
+El editor permite agregar/quitar viewports con Ctrl+Flechas.
 
 ## Recursos y Referencias
 
@@ -531,10 +569,13 @@ Editar **screens.json**. Cada nivel es un objeto con un campo `"map"` que contie
 - **Tiles sólidos para colisión**: #, ., G, R
 - **Tiles destructibles con dinamita**: # (tierra), R (rocas). G (granito) es indestructible
 - **Renderizado de juego en game_surface** - Entidades dibujan en game_surface, NO en self.screen
-- **Cámara usa GAME_VIEWPORT_HEIGHT** (256) - No confundir con VIEWPORT_HEIGHT (384, escalado)
+- **Cámara 2D (camera_x, camera_y)** - Scrolling en ambos ejes, usar GAME_VIEWPORT_HEIGHT (256) y GAME_WIDTH (512) para el viewport
+- **Niveles de tamaño dinámico** - NO usar LEVEL_WIDTH/LEVEL_HEIGHT para bounds check. Usar `len(level_map[0])` y `len(level_map)` en su lugar
+- **Viewport fijo** - VIEWPORT_COLS=16, VIEWPORT_ROWS=8. Los niveles son múltiplos de este tamaño
 - **Niveles en screens.json** - No hardcodear niveles en hero.py
+- **Entidades reciben camera_x y camera_y** - Todos los métodos draw() usan (camera_x, camera_y) para offset
 - **Sprites con fondo transparente** - Todo sprite generado debe usar `pygame.SRCALPHA` y fondo transparente
 
 ---
 
-*Última actualización: 2026-03-05*
+*Última actualización: 2026-03-09*

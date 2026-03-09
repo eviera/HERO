@@ -13,6 +13,8 @@ Controla a Roderick Hero, equipado con un helicoptero personal, mientras navegas
 ### Sistema de Juego
 
 - **5 Niveles** cargados desde archivo externo (`screens.json`), editables con el editor incluido
+- **Niveles de tamaño dinámico** en múltiplos del viewport de 8x16 tiles (ej: 16x24, 32x24, 48x32)
+- **Scrolling en ambos ejes** con cámara suave que sigue al jugador
 - **Pantalla de Inicio** con imagen de fondo, musica de tema y top 3 high scores
 - **Sistema de Puntuacion Persistente** guardado en JSON (top 10)
 - **Pantalla de Game Over** con entrada de nombre para registrar score
@@ -100,32 +102,41 @@ Controla a Roderick Hero, equipado con un helicoptero personal, mientras navegas
 
 Los niveles se cargan desde `screens.json` y pueden editarse con `editor.py`.
 
+### Tamaño dinámico
+
+Los niveles pueden tener cualquier tamaño en múltiplos del **viewport** (8 filas x 16 columnas = 256x512 px). El viewport es la porción visible del nivel en pantalla. La cámara sigue al jugador con scrolling suave en ambos ejes.
+
+Ejemplos de tamaños válidos:
+- **16x24** (1x3 viewports) — tamaño clásico, solo scrolling vertical
+- **32x24** (2x3 viewports) — ancho doble, scrolling horizontal y vertical
+- **48x32** (3x4 viewports) — nivel grande en ambas dimensiones
+
+Las dimensiones se infieren automáticamente del mapa en `screens.json` (no requiere propiedades explícitas de ancho/alto).
+
 ### Nivel 1 - Tutorial: Rescate con dinamita
-- Nivel introductorio con rocas destructibles
+- Nivel introductorio con rocas destructibles (16x24)
 - 2 murcielagos y 1 arana
 - Rocas (R) y tierra (#) destructibles, granito (G) indestructible
 - Minero encerrado en una seccion inferior
 
-### Nivel 2 - Minero encerrado
-- Diseño vertical con secciones separadas por plataformas
-- Multiples murcielagos y aranas distribuidos
-- Minero encerrado detras de bloques destructibles
-- Requiere manejo preciso del vuelo y dinamita
+### Nivel 2 - Copia del 1 pero agrandado
+- Version ampliada del nivel 1 (32x24, scrolling horizontal)
+- Demuestra niveles de tamaño dinámico
 
 ### Nivel 3 - Laberinto estrecho
-- Pasajes estrechos con secciones bloqueadas
+- Pasajes estrechos con secciones bloqueadas (16x24)
 - Navegacion compleja entre secciones
 - Bloques destructibles en puntos clave
 
 ### Nivel 4 - Muchos bloques
-- Capas horizontales de bloques destructibles
+- Capas horizontales de bloques destructibles (16x24)
 - Requiere uso intensivo de dinamita
 - Aranas y murcielagos entre capas
 
-### Nivel 5 - Dificil
+### Nivel 5 - Caverna ancha
+- Nivel amplio con scrolling horizontal (32x24)
 - Combinacion de pasajes estrechos y bloques
 - Multiples secciones verticales
-- Alta dificultad de navegacion
 
 ## Animacion de Nivel Completo
 
@@ -283,6 +294,31 @@ El juego genera graficos procedurales como fallback si no encuentra las imagenes
 
 Ejecuta `python editor.py` para abrir el editor visual de niveles. Permite crear y modificar los niveles guardados en `screens.json`.
 
+### Controles del Editor
+
+| Tecla | Accion |
+|-------|--------|
+| **Flechas** | Mover cursor tile a tile |
+| **Shift+Flechas** | Mover cursor pintando con tile seleccionado |
+| **Q / A** | Saltar un viewport arriba / abajo |
+| **Z / X** | Saltar un viewport izquierda / derecha |
+| **Space / Enter** | Colocar tile seleccionado |
+| **1-9, F, G** | Seleccionar tipo de tile |
+| **Tab / Shift+Tab** | Ciclar tipo de tile |
+| **Ctrl+Right** | Agregar viewport a la derecha (+16 columnas) |
+| **Ctrl+Left** | Quitar viewport derecho (-16 columnas) |
+| **Ctrl+Down** | Agregar viewport abajo (+8 filas) |
+| **Ctrl+Up** | Quitar viewport inferior (-8 filas) |
+| **Ctrl+S** | Guardar niveles |
+| **Ctrl+N** | Nuevo nivel |
+| **Ctrl+Delete** | Eliminar nivel actual |
+| **PgUp / PgDn** | Cambiar de nivel |
+| **ESC** | Salir del editor |
+
+### Minimapa
+
+El HUD del editor muestra un minimapa con la grilla de viewports del nivel, resaltando el viewport actual. Esto permite orientarse en niveles grandes.
+
 ## Creditos
 
 ### Juego Original
@@ -309,6 +345,8 @@ Ejecuta `python editor.py` para abrir el editor visual de niveles. Permite crear
 ## Futuras Mejoras Posibles
 
 - [ ] Mas niveles (6-20 como el original)
+- [x] Niveles de tamaño dinámico con scrolling 2D
+- [x] Editor con soporte para resize de viewports
 - [ ] Animar murcielagos (alas)
 - [ ] Tiles de fondo decorativos
 - [x] Lamparas que al tocar apagan la luz

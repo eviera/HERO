@@ -1,5 +1,6 @@
 # H.E.R.O. Level Editor
 # Editor de pantallas para el juego H.E.R.O.
+# Soporta niveles de tamaño dinámico (múltiplos del viewport 8x16)
 
 import pygame
 import json
@@ -29,17 +30,33 @@ def save_screens(screens):
         return False
 
 def normalize_map(level_map):
-    """Asegurar que el mapa sea exactamente LEVEL_WIDTH x LEVEL_HEIGHT"""
+    """Normalizar mapa a múltiplos del viewport (VIEWPORT_COLS x VIEWPORT_ROWS)"""
+    if not level_map:
+        return ['#' * VIEWPORT_COLS] * VIEWPORT_ROWS
+
+    map_height = len(level_map)
+    map_width = max(len(row) for row in level_map) if level_map else VIEWPORT_COLS
+
+    # Redondear al múltiplo de viewport más cercano
+    target_w = max(VIEWPORT_COLS, ((map_width + VIEWPORT_COLS - 1) // VIEWPORT_COLS) * VIEWPORT_COLS)
+    target_h = max(VIEWPORT_ROWS, ((map_height + VIEWPORT_ROWS - 1) // VIEWPORT_ROWS) * VIEWPORT_ROWS)
+
     result = []
     for row in level_map:
-        if len(row) < LEVEL_WIDTH:
-            row = row + '#' * (LEVEL_WIDTH - len(row))
-        elif len(row) > LEVEL_WIDTH:
-            row = row[:LEVEL_WIDTH]
+        if len(row) < target_w:
+            row = row + '#' * (target_w - len(row))
+        elif len(row) > target_w:
+            row = row[:target_w]
         result.append(row)
-    while len(result) < LEVEL_HEIGHT:
-        result.append('#' * LEVEL_WIDTH)
-    return result[:LEVEL_HEIGHT]
+    while len(result) < target_h:
+        result.append('#' * target_w)
+    return result[:target_h]
+
+def get_map_dims(level_map):
+    """Obtener dimensiones del mapa en tiles"""
+    h = len(level_map) if level_map else VIEWPORT_ROWS
+    w = len(level_map[0]) if level_map else VIEWPORT_COLS
+    return w, h
 
 class Editor:
     def __init__(self):
@@ -114,10 +131,13 @@ class Editor:
         self.cursor_row = 0
         self.cursor_col = 0
         self.selected_tile = 1  # Pared por defecto
+        self.camera_x = 0
         self.camera_y = 0
+        self.target_camera_x = 0
         self.target_camera_y = 0
         self.camera_animating = False
         self.saved_indicator = 0  # Timer para mensaje "Guardado!"
+        self.confirm_shrink = None  # Pendiente de confirmacion: 'cols' o 'rows'
 
         # Normalizar todas las pantallas cargadas
         for screen in self.screens:
@@ -127,13 +147,15 @@ class Editor:
             self.new_level()
 
     def new_level(self):
-        """Crear un nivel vacio con bordes de pared"""
+        """Crear un nivel vacío con bordes de pared (1x3 viewports por defecto)"""
+        w = VIEWPORT_COLS
+        h = VIEWPORT_ROWS * 3  # 24 filas por defecto
         empty_map = []
-        for r in range(LEVEL_HEIGHT):
-            if r == 0 or r == LEVEL_HEIGHT - 1:
-                empty_map.append('#' * LEVEL_WIDTH)
+        for r in range(h):
+            if r == 0 or r == h - 1:
+                empty_map.append('#' * w)
             else:
-                empty_map.append('#' + ' ' * (LEVEL_WIDTH - 2) + '#')
+                empty_map.append('#' + ' ' * (w - 2) + '#')
         self.screens.append({
             "name": f"Level {len(self.screens) + 1}",
             "map": empty_map
@@ -141,83 +163,232 @@ class Editor:
         self.current_level = len(self.screens) - 1
         self.cursor_row = 1
         self.cursor_col = 1
+        self.camera_x = 0
         self.camera_y = 0
+        self.target_camera_x = 0
         self.target_camera_y = 0
         self.camera_animating = False
 
     def get_current_map(self):
         return self.screens[self.current_level]["map"]
 
+    def get_level_dims(self):
+        """Dimensiones del nivel actual en tiles"""
+        return get_map_dims(self.get_current_map())
+
+    def get_viewport_grid(self):
+        """Cantidad de viewports en cada eje"""
+        w, h = self.get_level_dims()
+        return w // VIEWPORT_COLS, h // VIEWPORT_ROWS
+
     def set_tile(self, row, col, char):
         """Colocar un tile en la posicion dada"""
         level_map = self.get_current_map()
-        row_str = level_map[row]
-        level_map[row] = row_str[:col] + char + row_str[col + 1:]
+        if 0 <= row < len(level_map) and 0 <= col < len(level_map[row]):
+            row_str = level_map[row]
+            level_map[row] = row_str[:col] + char + row_str[col + 1:]
+
+    def add_viewport_cols(self):
+        """Agregar un viewport (VIEWPORT_COLS columnas) a la derecha"""
+        level_map = self.get_current_map()
+        extra = '#' * VIEWPORT_COLS
+        for i in range(len(level_map)):
+            level_map[i] = level_map[i] + extra
+
+    def remove_viewport_cols(self):
+        """Quitar el viewport más a la derecha (VIEWPORT_COLS columnas)"""
+        level_map = self.get_current_map()
+        w, _ = self.get_level_dims()
+        if w <= VIEWPORT_COLS:
+            return False  # No quitar si solo queda 1 viewport de ancho
+
+        new_w = w - VIEWPORT_COLS
+        for i in range(len(level_map)):
+            level_map[i] = level_map[i][:new_w]
+
+        # Ajustar cursor y cámara si quedan fuera
+        if self.cursor_col >= new_w:
+            self.cursor_col = new_w - 1
+        max_cam_x = (new_w - VIEWPORT_COLS) * TILE_SIZE
+        if self.camera_x > max_cam_x:
+            self.camera_x = max_cam_x
+            self.target_camera_x = max_cam_x
+        return True
+
+    def add_viewport_rows(self):
+        """Agregar un viewport (VIEWPORT_ROWS filas) abajo"""
+        level_map = self.get_current_map()
+        w, _ = self.get_level_dims()
+        for _ in range(VIEWPORT_ROWS):
+            level_map.append('#' * w)
+
+    def remove_viewport_rows(self):
+        """Quitar el viewport más abajo (VIEWPORT_ROWS filas)"""
+        level_map = self.get_current_map()
+        _, h = self.get_level_dims()
+        if h <= VIEWPORT_ROWS:
+            return False  # No quitar si solo queda 1 viewport de alto
+
+        new_h = h - VIEWPORT_ROWS
+        del level_map[new_h:]
+
+        # Ajustar cursor y cámara si quedan fuera
+        if self.cursor_row >= new_h:
+            self.cursor_row = new_h - 1
+        max_cam_y = (new_h - VIEWPORT_ROWS) * TILE_SIZE
+        if self.camera_y > max_cam_y:
+            self.camera_y = max_cam_y
+            self.target_camera_y = max_cam_y
+        return True
+
+    def _has_content_in_region(self, start_row, end_row, start_col, end_col):
+        """Verifica si hay contenido no-pared en una region del mapa"""
+        level_map = self.get_current_map()
+        for r in range(start_row, min(end_row, len(level_map))):
+            for c in range(start_col, min(end_col, len(level_map[r]))):
+                if level_map[r][c] not in ('#', ' '):
+                    return True
+        return False
 
     def update_camera(self):
-        """Cámara fija por tercios: filas 0-7, 8-15, 16-23"""
-        block_size = 8 * TILE_SIZE
-        max_camera = LEVEL_HEIGHT * TILE_SIZE - self.editor_viewport_h
-        cursor_block = self.cursor_row // 8  # 0, 1 o 2
-        target = min(max_camera, cursor_block * block_size)
-        if abs(self.target_camera_y - target) > 0:
-            self.target_camera_y = target
-            if abs(self.camera_y - target) > 1:
+        """Cámara fija por bloques de viewport en ambos ejes"""
+        w, h = self.get_level_dims()
+
+        # Bloque horizontal
+        block_x = VIEWPORT_COLS * TILE_SIZE
+        max_cam_x = max(0, (w - VIEWPORT_COLS) * TILE_SIZE)
+        cursor_block_x = self.cursor_col // VIEWPORT_COLS
+        target_x = min(max_cam_x, cursor_block_x * block_x)
+
+        # Bloque vertical
+        block_y = VIEWPORT_ROWS * TILE_SIZE
+        max_cam_y = max(0, (h - VIEWPORT_ROWS) * TILE_SIZE)
+        cursor_block_y = self.cursor_row // VIEWPORT_ROWS
+        target_y = min(max_cam_y, cursor_block_y * block_y)
+
+        if abs(self.target_camera_x - target_x) > 0 or abs(self.target_camera_y - target_y) > 0:
+            self.target_camera_x = target_x
+            self.target_camera_y = target_y
+            if abs(self.camera_x - target_x) > 1 or abs(self.camera_y - target_y) > 1:
                 self.camera_animating = True
 
     def render_grid(self):
         """Renderizar la cuadricula del nivel"""
         level_map = self.get_current_map()
+        w, h = self.get_level_dims()
         vh = self.editor_viewport_h
+        cam_x = self.camera_x
+        cam_y = self.camera_y
 
-        start_row = max(0, int(self.camera_y / TILE_SIZE) - 1)
-        end_row = min(LEVEL_HEIGHT, int((self.camera_y + vh) / TILE_SIZE) + 2)
+        start_row = max(0, int(cam_y / TILE_SIZE) - 1)
+        end_row = min(h, int((cam_y + vh) / TILE_SIZE) + 2)
+        start_col = max(0, int(cam_x / TILE_SIZE) - 1)
+        end_col = min(w, int((cam_x + GAME_WIDTH) / TILE_SIZE) + 2)
 
         for row_index in range(start_row, end_row):
             if row_index >= len(level_map):
                 break
             row = level_map[row_index]
-            for col_index in range(min(len(row), LEVEL_WIDTH)):
+            for col_index in range(start_col, end_col):
+                if col_index >= len(row):
+                    break
                 tile = row[col_index]
-                x = col_index * TILE_SIZE
-                y = row_index * TILE_SIZE - self.camera_y
+                x = col_index * TILE_SIZE - cam_x
+                y = row_index * TILE_SIZE - cam_y
 
                 # Dibujar fondo del tile
                 if tile == '#':
-                    self.screen.blit(self.tiles['wall'], (x, int(y)))
+                    self.screen.blit(self.tiles['wall'], (int(x), int(y)))
                 elif tile == '.':
-                    self.screen.blit(self.tiles['floor'], (x, int(y)))
+                    self.screen.blit(self.tiles['floor'], (int(x), int(y)))
                 elif tile == 'G':
-                    self.screen.blit(self.tiles['granite'], (x, int(y)))
+                    self.screen.blit(self.tiles['granite'], (int(x), int(y)))
                 elif tile == 'R':
-                    self.screen.blit(self.tiles['rock'], (x, int(y)))
+                    self.screen.blit(self.tiles['rock'], (int(x), int(y)))
                 elif tile == 'L':
-                    self.screen.blit(self.tiles['blank'], (x, int(y)))
-                    self.screen.blit(self.tiles['lamp'], (x, int(y)))
+                    self.screen.blit(self.tiles['blank'], (int(x), int(y)))
+                    self.screen.blit(self.tiles['lamp'], (int(x), int(y)))
                 else:
-                    self.screen.blit(self.tiles['blank'], (x, int(y)))
+                    self.screen.blit(self.tiles['blank'], (int(x), int(y)))
 
                 # Dibujar sprites de entidades encima
                 sprite_map = {'S': 'player', 'V': 'enemy', 'A': 'spider', 'B': 'bug', 'M': 'miner'}
                 if tile in sprite_map and sprite_map[tile] in self.sprites:
-                    self.screen.blit(self.sprites[sprite_map[tile]], (x, int(y)))
+                    self.screen.blit(self.sprites[sprite_map[tile]], (int(x), int(y)))
                 elif tile in sprite_map:
                     # Fallback: dibujar letra con color
                     colors = {'S': COLOR_BLUE, 'V': COLOR_RED, 'A': COLOR_ORANGE, 'B': COLOR_GREEN, 'M': COLOR_GREEN}
                     letter = self.font.render(tile, True, colors[tile])
-                    lx = x + (TILE_SIZE - letter.get_width()) // 2
+                    lx = int(x) + (TILE_SIZE - letter.get_width()) // 2
                     ly = int(y) + (TILE_SIZE - letter.get_height()) // 2
                     self.screen.blit(letter, (lx, ly))
 
                 # Lineas de cuadricula
                 pygame.draw.rect(self.screen, (40, 40, 40),
-                                 (x, int(y), TILE_SIZE, TILE_SIZE), 1)
+                                 (int(x), int(y), TILE_SIZE, TILE_SIZE), 1)
+
+        # Separadores de viewport (lineas mas visibles entre bloques)
+        for vx in range(1, w // VIEWPORT_COLS):
+            px = vx * VIEWPORT_COLS * TILE_SIZE - cam_x
+            if 0 <= px <= GAME_WIDTH:
+                pygame.draw.line(self.screen, (80, 80, 120),
+                                 (int(px), 0), (int(px), vh), 2)
+        for vy in range(1, h // VIEWPORT_ROWS):
+            py = vy * VIEWPORT_ROWS * TILE_SIZE - cam_y
+            if 0 <= py <= vh:
+                pygame.draw.line(self.screen, (80, 80, 120),
+                                 (0, int(py)), (GAME_WIDTH, int(py)), 2)
 
         # Dibujar cursor
-        cx = self.cursor_col * TILE_SIZE
-        cy = self.cursor_row * TILE_SIZE - self.camera_y
+        cx = self.cursor_col * TILE_SIZE - cam_x
+        cy = self.cursor_row * TILE_SIZE - cam_y
         pygame.draw.rect(self.screen, COLOR_YELLOW,
-                         (cx, int(cy), TILE_SIZE, TILE_SIZE), 3)
+                         (int(cx), int(cy), TILE_SIZE, TILE_SIZE), 3)
+
+    def render_minimap(self, mx, my, max_w, max_h):
+        """Renderizar minimapa en la posicion dada"""
+        vp_cols, vp_rows = self.get_viewport_grid()
+        if vp_cols == 0 or vp_rows == 0:
+            return
+
+        # Escala para que quepa en el espacio disponible
+        cell_w = min(max_w // vp_cols, 16)
+        cell_h = min(max_h // vp_rows, 12)
+        cell_w = max(cell_w, 6)
+        cell_h = max(cell_h, 6)
+
+        total_w = vp_cols * cell_w
+        total_h = vp_rows * cell_h
+
+        # Viewport actual (basado en la cámara)
+        cur_vx = int(self.camera_x) // (VIEWPORT_COLS * TILE_SIZE)
+        cur_vy = int(self.camera_y) // (VIEWPORT_ROWS * TILE_SIZE)
+
+        # Fondo del minimapa
+        pygame.draw.rect(self.screen, (15, 15, 30),
+                         (mx - 1, my - 1, total_w + 2, total_h + 2))
+
+        for vy in range(vp_rows):
+            for vx in range(vp_cols):
+                rx = mx + vx * cell_w
+                ry = my + vy * cell_h
+
+                # Color de fondo: gris oscuro o highlight para viewport actual
+                if vx == cur_vx and vy == cur_vy:
+                    color = (60, 60, 120)
+                    border = COLOR_YELLOW
+                else:
+                    color = (30, 30, 50)
+                    border = (50, 50, 70)
+
+                pygame.draw.rect(self.screen, color,
+                                 (rx, ry, cell_w - 1, cell_h - 1))
+                pygame.draw.rect(self.screen, border,
+                                 (rx, ry, cell_w - 1, cell_h - 1), 1)
+
+        # Etiqueta de dimensiones debajo
+        dim_text = self.small_font.render(f"{vp_cols}x{vp_rows}", True, COLOR_GRAY)
+        self.screen.blit(dim_text, (mx, my + total_h + 2))
 
     def render_hud(self):
         """Renderizar barra de estado inferior"""
@@ -226,25 +397,28 @@ class Editor:
         hud_bg.fill((20, 20, 50))
         self.screen.blit(hud_bg, (0, hud_y))
 
+        w, h = self.get_level_dims()
+        vp_cols, vp_rows = self.get_viewport_grid()
+
         # --- Zona de texto (arriba) ---
-        # Linea 1: Nivel + Actual
+        # Linea 1: Nivel + dimensiones
         level_text = self.font.render(
-            f"Nivel {self.current_level + 1}/{len(self.screens)}",
+            f"Nivel {self.current_level + 1}/{len(self.screens)}  {w}x{h}t ({vp_cols}x{vp_rows}vp)",
             True, COLOR_WHITE
         )
         self.screen.blit(level_text, (8, hud_y + 4))
 
+        # Linea 2: Posicion del cursor + tile actual
         current_map = self.get_current_map()
         cursor_char = current_map[self.cursor_row][self.cursor_col]
         cursor_name = next((n for c, n, *_ in TILE_TYPES if c == cursor_char), '?')
-        cursor_text = self.font.render(
-            f"Actual:[{cursor_char}] {cursor_name}", True, COLOR_GRAY
-        )
-        self.screen.blit(cursor_text, (250, hud_y + 4))
 
-        # Linea 2: Posicion del cursor
+        # Viewport actual del cursor
+        cur_vx = self.cursor_col // VIEWPORT_COLS + 1
+        cur_vy = self.cursor_row // VIEWPORT_ROWS + 1
+
         pos_text = self.font.render(
-            f"Fila:{self.cursor_row:02d} Col:{self.cursor_col:02d}",
+            f"F:{self.cursor_row:02d} C:{self.cursor_col:02d} VP:{cur_vx},{cur_vy}  [{cursor_char}]{cursor_name}",
             True, COLOR_WHITE
         )
         self.screen.blit(pos_text, (8, hud_y + 18))
@@ -254,12 +428,17 @@ class Editor:
         tile_text = self.font.render(f"[{char}] {name}", True, COLOR_YELLOW)
         self.screen.blit(tile_text, (8, hud_y + 32))
 
+        # --- Minimapa (esquina superior derecha del HUD) ---
+        minimap_x = GAME_WIDTH - 100
+        minimap_y = hud_y + 4
+        self.render_minimap(minimap_x, minimap_y, 90, 36)
+
         # --- Separador ---
         pygame.draw.line(self.screen, (60, 60, 80),
                          (8, hud_y + 46), (GAME_WIDTH - 8, hud_y + 46))
 
         # --- Zona de paleta (abajo) ---
-        KEY_LABELS = "123456789" + "WERTYUIOP"
+        KEY_LABELS = "123456789" + "FGHJKL"
         tiles_per_row = 8
         tile_spacing = 38
         preview_size = 20
@@ -278,7 +457,6 @@ class Editor:
 
             # Preview cuadrado
             ps = preview_size
-            # Mapa de tiles con sprite
             sprite_for_tile = {
                 'S': 'player', 'V': 'enemy', 'A': 'spider', 'B': 'bug', 'M': 'miner'
             }
@@ -316,22 +494,45 @@ class Editor:
             label_x = px + (preview_size - num_text.get_width()) // 2
             self.screen.blit(num_text, (label_x, py + preview_size + 3))
 
-        # --- Controles (fondo) ---
+        # --- Controles ---
         hint = self.small_font.render(
-            "Spc:Poner  ^S:Guardar  PgUp/Dn:Nivel",
+            "Spc:Poner ^S:Guardar PgUp/Dn:Nivel",
             True, COLOR_GRAY
         )
-        self.screen.blit(hint, (8, hud_y + 126))
+        self.screen.blit(hint, (8, hud_y + 120))
         hint2 = self.small_font.render(
-            "Q/A:Saltar tercio arriba/abajo",
+            "Q/A:VP arriba/abajo Z/X:VP izq/der",
             True, COLOR_GRAY
         )
-        self.screen.blit(hint2, (8, hud_y + 138))
+        self.screen.blit(hint2, (8, hud_y + 130))
+        hint3 = self.small_font.render(
+            "^Arrows:+/- viewports ^N:Nuevo ^Del:Borrar",
+            True, COLOR_GRAY
+        )
+        self.screen.blit(hint3, (8, hud_y + 140))
 
         # Indicador de guardado
         if self.saved_indicator > 0:
             save_text = self.font.render("Guardado!", True, COLOR_GREEN)
-            self.screen.blit(save_text, (380, hud_y + 134))
+            self.screen.blit(save_text, (GAME_WIDTH - 130, hud_y + 46))
+
+        # Dialogo de confirmacion para quitar viewport
+        if self.confirm_shrink:
+            overlay = pygame.Surface((GAME_WIDTH, self.editor_h), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            self.screen.blit(overlay, (0, 0))
+
+            if self.confirm_shrink == 'cols':
+                msg = "Quitar columna de viewports?"
+            else:
+                msg = "Quitar fila de viewports?"
+            msg_text = self.font.render(msg, True, COLOR_YELLOW)
+            msg_rect = msg_text.get_rect(center=(GAME_WIDTH // 2, self.editor_h // 2 - 20))
+            self.screen.blit(msg_text, msg_rect)
+
+            warn_text = self.small_font.render("Hay contenido! Y:Confirmar N:Cancelar", True, COLOR_RED)
+            warn_rect = warn_text.get_rect(center=(GAME_WIDTH // 2, self.editor_h // 2 + 10))
+            self.screen.blit(warn_text, warn_rect)
 
     def run(self):
         """Loop principal del editor"""
@@ -353,37 +554,79 @@ class Editor:
                     shift = mods & pygame.KMOD_SHIFT
                     ctrl = mods & pygame.KMOD_CTRL
 
+                    # Dialogo de confirmacion activo
+                    if self.confirm_shrink:
+                        if event.key == pygame.K_y:
+                            if self.confirm_shrink == 'cols':
+                                self.remove_viewport_cols()
+                            else:
+                                self.remove_viewport_rows()
+                            self.confirm_shrink = None
+                        else:
+                            self.confirm_shrink = None
+                        continue
+
+                    # Dimensiones actuales del nivel
+                    w, h = self.get_level_dims()
+
                     if event.key == pygame.K_ESCAPE:
                         running = False
 
                     # Movimiento del cursor
                     elif event.key == pygame.K_UP:
-                        self.cursor_row = max(0, self.cursor_row - 1)
-                        if shift:
-                            self.set_tile(self.cursor_row, self.cursor_col,
-                                          TILE_TYPES[self.selected_tile][0])
+                        if ctrl:
+                            # Ctrl+Up: quitar fila de viewports
+                            if h > VIEWPORT_ROWS:
+                                # Verificar contenido en las filas a eliminar
+                                start_r = h - VIEWPORT_ROWS
+                                if self._has_content_in_region(start_r, h, 0, w):
+                                    self.confirm_shrink = 'rows'
+                                else:
+                                    self.remove_viewport_rows()
+                        else:
+                            self.cursor_row = max(0, self.cursor_row - 1)
+                            if shift:
+                                self.set_tile(self.cursor_row, self.cursor_col,
+                                              TILE_TYPES[self.selected_tile][0])
                     elif event.key == pygame.K_DOWN:
-                        self.cursor_row = min(LEVEL_HEIGHT - 1, self.cursor_row + 1)
-                        if shift:
-                            self.set_tile(self.cursor_row, self.cursor_col,
-                                          TILE_TYPES[self.selected_tile][0])
+                        if ctrl:
+                            # Ctrl+Down: agregar fila de viewports
+                            self.add_viewport_rows()
+                        else:
+                            self.cursor_row = min(h - 1, self.cursor_row + 1)
+                            if shift:
+                                self.set_tile(self.cursor_row, self.cursor_col,
+                                              TILE_TYPES[self.selected_tile][0])
                     elif event.key == pygame.K_LEFT:
-                        self.cursor_col = max(0, self.cursor_col - 1)
-                        if shift:
-                            self.set_tile(self.cursor_row, self.cursor_col,
-                                          TILE_TYPES[self.selected_tile][0])
+                        if ctrl:
+                            # Ctrl+Left: quitar columna de viewports
+                            if w > VIEWPORT_COLS:
+                                start_c = w - VIEWPORT_COLS
+                                if self._has_content_in_region(0, h, start_c, w):
+                                    self.confirm_shrink = 'cols'
+                                else:
+                                    self.remove_viewport_cols()
+                        else:
+                            self.cursor_col = max(0, self.cursor_col - 1)
+                            if shift:
+                                self.set_tile(self.cursor_row, self.cursor_col,
+                                              TILE_TYPES[self.selected_tile][0])
                     elif event.key == pygame.K_RIGHT:
-                        self.cursor_col = min(LEVEL_WIDTH - 1, self.cursor_col + 1)
-                        if shift:
-                            self.set_tile(self.cursor_row, self.cursor_col,
-                                          TILE_TYPES[self.selected_tile][0])
+                        if ctrl:
+                            # Ctrl+Right: agregar columna de viewports
+                            self.add_viewport_cols()
+                        else:
+                            self.cursor_col = min(w - 1, self.cursor_col + 1)
+                            if shift:
+                                self.set_tile(self.cursor_row, self.cursor_col,
+                                              TILE_TYPES[self.selected_tile][0])
 
                     # Colocar tile
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         self.set_tile(self.cursor_row, self.cursor_col,
                                       TILE_TYPES[self.selected_tile][0])
 
-                    # Seleccion de tile (teclas 1-8)
+                    # Seleccion de tile (teclas 1-9, F, G, H, J, K, L)
                     elif event.key == pygame.K_1:
                         self.selected_tile = 0
                     elif event.key == pygame.K_2:
@@ -403,10 +646,10 @@ class Editor:
                     elif event.key == pygame.K_9:
                         if len(TILE_TYPES) > 8:
                             self.selected_tile = 8
-                    elif event.key == pygame.K_w:
+                    elif event.key == pygame.K_f:
                         if len(TILE_TYPES) > 9:
                             self.selected_tile = 9
-                    elif event.key == pygame.K_e:
+                    elif event.key == pygame.K_g:
                         if len(TILE_TYPES) > 10:
                             self.selected_tile = 10
 
@@ -419,7 +662,6 @@ class Editor:
 
                     # Guardar (Ctrl+S)
                     elif event.key == pygame.K_s and ctrl:
-                        # Validar niveles antes de guardar
                         for i, screen in enumerate(self.screens):
                             flat = ''.join(screen['map'])
                             if flat.count('S') != 1:
@@ -442,7 +684,9 @@ class Editor:
                                 self.current_level = len(self.screens) - 1
                             self.cursor_row = 0
                             self.cursor_col = 0
+                            self.camera_x = 0
                             self.camera_y = 0
+                            self.target_camera_x = 0
                             self.target_camera_y = 0
                             self.camera_animating = False
 
@@ -452,7 +696,9 @@ class Editor:
                             self.current_level -= 1
                             self.cursor_row = 0
                             self.cursor_col = 0
+                            self.camera_x = 0
                             self.camera_y = 0
+                            self.target_camera_x = 0
                             self.target_camera_y = 0
                             self.camera_animating = False
                     elif event.key == pygame.K_PAGEDOWN:
@@ -460,36 +706,55 @@ class Editor:
                             self.current_level += 1
                             self.cursor_row = 0
                             self.cursor_col = 0
+                            self.camera_x = 0
                             self.camera_y = 0
+                            self.target_camera_x = 0
                             self.target_camera_y = 0
                             self.camera_animating = False
 
-                    # Saltar por tercios con Q/A (mover cursor al tercio anterior/siguiente)
+                    # Saltar por viewports con Q/A (vertical) y Z/X (horizontal)
                     elif event.key == pygame.K_q:
-                        current_block = self.cursor_row // 8
+                        current_block = self.cursor_row // VIEWPORT_ROWS
                         if current_block > 0:
-                            self.cursor_row = (current_block - 1) * 8
+                            self.cursor_row = (current_block - 1) * VIEWPORT_ROWS
                         else:
-                            # Ya en primer tercio: ir a la primera fila
                             self.cursor_row = 0
 
                     elif event.key == pygame.K_a:
-                        current_block = self.cursor_row // 8
-                        if current_block < 2:
-                            self.cursor_row = (current_block + 1) * 8
+                        current_block = self.cursor_row // VIEWPORT_ROWS
+                        max_block = (h // VIEWPORT_ROWS) - 1
+                        if current_block < max_block:
+                            self.cursor_row = (current_block + 1) * VIEWPORT_ROWS
                         else:
-                            # Ya en tercer tercio: ir a la ultima fila
-                            self.cursor_row = LEVEL_HEIGHT - 1
+                            self.cursor_row = h - 1
 
-            # Cámara por tercios con animación
+                    elif event.key == pygame.K_z:
+                        current_block = self.cursor_col // VIEWPORT_COLS
+                        if current_block > 0:
+                            self.cursor_col = (current_block - 1) * VIEWPORT_COLS
+                        else:
+                            self.cursor_col = 0
+
+                    elif event.key == pygame.K_x:
+                        current_block = self.cursor_col // VIEWPORT_COLS
+                        max_block = (w // VIEWPORT_COLS) - 1
+                        if current_block < max_block:
+                            self.cursor_col = (current_block + 1) * VIEWPORT_COLS
+                        else:
+                            self.cursor_col = w - 1
+
+            # Cámara por bloques de viewport con animación
             self.update_camera()
             if self.camera_animating:
-                diff = self.target_camera_y - self.camera_y
-                if abs(diff) < 1:
+                diff_x = self.target_camera_x - self.camera_x
+                diff_y = self.target_camera_y - self.camera_y
+                if abs(diff_x) < 1 and abs(diff_y) < 1:
+                    self.camera_x = self.target_camera_x
                     self.camera_y = self.target_camera_y
                     self.camera_animating = False
                 else:
-                    self.camera_y += diff * 0.15
+                    self.camera_x += diff_x * 0.15
+                    self.camera_y += diff_y * 0.15
 
             # Render
             self.screen.fill(COLOR_BLACK)

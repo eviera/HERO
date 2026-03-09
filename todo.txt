@@ -17,7 +17,9 @@
 - serpientes que salen desde la cueva
 /- bichos que se mueven como en el lugar (izq der), rapido  >o< 
 - bloques y nivel de magma (si lo toca me quemo)
-- niveles horizontales ?? (requeriria quizas stichear un par de niveles verticales para que no sea tan complicado de implementar en el editor)
+/- niveles horizontales ?? (requeriria quizas stichear un par de niveles verticales para que no sea tan complicado de implementar en el editor)
+/-- cambios en el editor por niveles con viewport de 8x16
+--- mejorar un poco el manejo del editor cuando se agregan o sacan viewports. que llene con vacio ?
 - tiles de fondo
 /- sonido de break walls (los dos)
 /- editor: mejorar la forma de buscar tiles, porque con los numeros del 1-9 no alcanza
@@ -57,3 +59,8 @@ Quisiera que siempre el viewport (la parte que se ve) sea de 8 filas por 16 colu
 por ejemplo se podria tener un nivel con 24 filas y 32 columnas, o 48 filas y 16 columnas, o 32 filas y 16 columnas, etc, siempre en multiplos del tamaño del viewport
 Habria que considerar un scrolling horizontal del viewport (ahora tenemos un scrolling vertical entre los tres tercios de las 24 filas) para que se mueva en pantallas mas grandes de 16 columnas
 Analiza el codigo y dime si es posible implementar esto.
+
+-----
+Ahora tenemos que cambiar el editor para poder ajustarlo a estos niveles dinamicos con viewport de 8x16, pero no se me ocurre ninguna estrategia para ir mostrado de
+viewport en viewport y como poder 'agregar' o 'quitar' estos viewports para ampliar el nivel. Se te ocurre algo que sea facil para el usuario ?
+
