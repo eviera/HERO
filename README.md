@@ -2,358 +2,358 @@
 
 ## Helicopter Emergency Rescue Operation
 
-Un remake del clasico juego de Atari 2600 H.E.R.O., desarrollado en Python con Pygame.
+A remake of the classic Atari 2600 game H.E.R.O., developed in Python with Pygame.
 
-## Descripcion
+## Description
 
-Controla a Roderick Hero, equipado con un helicoptero personal, mientras navegas por minas subterraneas peligrosas para rescatar mineros atrapados. Enfrenta enemigos, destruye obstaculos y administra tu energia para completar los 5 niveles progresivamente mas dificiles.
+Control Roderick Hero, equipped with a personal helicopter, as you navigate dangerous underground mines to rescue trapped miners. Face enemies, destroy obstacles, and manage your energy to complete 5 progressively harder levels.
 
-## Caracteristicas
+## Features
 
-### Sistema de Juego
+### Game Systems
 
-- **5 Niveles** cargados desde archivo externo (`screens.json`), editables con el editor incluido
-- **Niveles de tamaño dinámico** en múltiplos del viewport de 8x16 tiles (ej: 16x24, 32x24, 48x32)
-- **Scrolling en ambos ejes** con cámara suave que sigue al jugador
-- **Pantalla de Inicio** con imagen de fondo, musica de tema y top 3 high scores
-- **Sistema de Puntuacion Persistente** guardado en JSON (top 10)
-- **Pantalla de Game Over** con entrada de nombre para registrar score
-- **Fisica Realista** con gravedad, vuelo con helicoptero y descenso activo
-- **Sistema de Energia** que se consume al volar y se recupera al estar en el suelo
-- **Sistema de Vidas** con vida extra cada 20,000 puntos
-- **Efectos de Sonido** completos (disparos, explosiones, muerte, helicoptero, pasos, victoria, splatter)
-- **HUD estilo ColecoVision** con paneles 3D, iconos de vidas y bombas
-- **Pantalla Completa** por defecto con escalado manteniendo aspect ratio (Alt+Enter para alternar)
-- **Confirmacion de Salida** con dialogo Y/N
-- **Fondo de Caverna** procedural con textura de roca
-- **Puntuaciones Flotantes** que aparecen al destruir enemigos y bloques
-- **Animacion de Nivel Completo** en 3 fases estilo ColecoVision
-- **Emulacion de Audio SID** (Commodore 64) disponible para efectos de sonido
-- **Editor de Niveles** incluido (`editor.py`)
+- **5 Levels** loaded from an external file (`screens.json`), editable with the included editor
+- **Dynamic level sizes** in multiples of the 8x16 tile viewport (e.g.: 16x24, 32x24, 48x32)
+- **Two-axis scrolling** with a smooth camera that follows the player
+- **Start Screen** with background image, theme music, and top 3 high scores
+- **Persistent Scoring System** saved in JSON (top 10)
+- **Game Over Screen** with name entry to register your score
+- **Realistic Physics** with gravity, helicopter flight, and active descent
+- **Energy System** that drains while flying and recovers while on the ground
+- **Lives System** with an extra life every 20,000 points
+- **Full Sound Effects** (shots, explosions, death, helicopter, footsteps, victory, splatter)
+- **ColecoVision-style HUD** with 3D panels, life and bomb icons
+- **Fullscreen** by default with aspect-ratio-preserving scaling (Alt+Enter to toggle)
+- **Exit Confirmation** with Y/N dialog
+- **Procedural Cave Background** with rock texture
+- **Floating Scores** that appear when destroying enemies and blocks
+- **Level Complete Animation** in 3 ColecoVision-style phases
+- **SID Audio Emulation** (Commodore 64) available for sound effects
+- **Level Editor** included (`editor.py`)
 
-### Mecanicas de Juego
+### Game Mechanics
 
-#### Movimiento
-- **Vuelo con Helicoptero**: Presiona arriba para volar (consume energia)
-- **Descenso Activo**: Presiona abajo para bajar mas rapido (helice invertida)
-- **Caminata Animada**: Al moverse en el suelo, con pasos alternados y sonido
-- **Gravedad**: El jugador cae cuando no esta volando
-- **Recuperacion de Energia**: La energia se recupera automaticamente al estar en el suelo
+#### Movement
+- **Helicopter Flight**: Press up to fly (consumes energy)
+- **Active Descent**: Press down to descend faster (inverted propeller)
+- **Animated Walking**: When moving on the ground, with alternating footsteps and sound
+- **Gravity**: The player falls when not flying
+- **Energy Recovery**: Energy recovers automatically while on the ground
 
-#### Combate
-- **Disparo Laser**: Destruye enemigos y colisiona con paredes/bloques
-- **Dinamita**: Explosiones de area que destruyen bloques, paredes y enemigos cercanos
+#### Combat
+- **Laser Shot**: Destroys enemies and collides with walls/blocks
+- **Dynamite**: Area explosions that destroy blocks, walls, and nearby enemies
 
-#### Enemigos
-- **Murcielagos** (V): Patrullan horizontalmente, rebotan contra paredes. Velocidad aumenta por nivel (+5%)
-- **Aranas** (A): Se mueven verticalmente desde el techo, colgando de un hilo. Descienden hasta 2 tiles y vuelven
+#### Enemies
+- **Bats** (V): Patrol horizontally, bounce off walls. Speed increases per level (+5%)
+- **Spiders** (A): Move vertically from the ceiling, hanging from a thread. Descend up to 2 tiles and return
 
-#### Efectos Visuales
-- **Flash de Explosion**: La pantalla parpadea blanco/negro durante explosiones de dinamita
-- **Animacion de Explosion**: Sprites animados (bomb1, bomb2, bomb3) para dinamita
-- **Sprites de Jugador**: Idle, volando, disparando y caminando (2 frames)
-- **Hilo de Arana**: Linea blanca que conecta la arana con el techo
+#### Visual Effects
+- **Explosion Flash**: The screen flashes white/black during dynamite explosions
+- **Explosion Animation**: Animated sprites (bomb1, bomb2, bomb3) for dynamite
+- **Player Sprites**: Idle, flying, shooting, and walking (2 frames)
+- **Spider Thread**: White line connecting the spider to the ceiling
 
-### Objetivos
+### Objectives
 
-1. **Encuentra al Minero** (M) en cada nivel
-2. **Rescata al Minero** tocandolo
-3. **Completa los 5 Niveles** para ganar el juego
+1. **Find the Miner** (M) in each level
+2. **Rescue the Miner** by touching them
+3. **Complete all 5 Levels** to win the game
 
-### Sistema de Puntuacion
+### Scoring System
 
-| Accion | Puntos |
+| Action | Points |
 |--------|--------|
-| Destruir enemigo con laser | 50 |
-| Destruir enemigo con dinamita | 75 |
-| Destruir tierra (#) con dinamita | 20 |
-| Destruir rocas (R) con dinamita | 10 |
-| Rescatar minero | 1,000 |
-| Bonus energia restante | 1:1 (se drena en animacion) |
-| Bonus bombas restantes | 50 por bomba |
+| Destroy enemy with laser | 50 |
+| Destroy enemy with dynamite | 75 |
+| Destroy dirt (#) with dynamite | 20 |
+| Destroy rocks (R) with dynamite | 10 |
+| Rescue miner | 1,000 |
+| Remaining energy bonus | 1:1 (drained in animation) |
+| Remaining bombs bonus | 50 per bomb |
 
-**Vida Extra**: Obtienes una vida adicional cada 20,000 puntos acumulados.
+**Extra Life**: You get an additional life every 20,000 accumulated points.
 
-## Controles
+## Controls
 
-### Teclado
+### Keyboard
 
-| Tecla | Accion |
-|-------|--------|
-| **Flechas izq/der** | Mover izquierda/derecha |
-| **Flecha arriba** | Volar hacia arriba (consume energia) |
-| **Flecha abajo** | Descenso rapido (helice invertida) |
-| **SPACE** | Disparar laser |
-| **Z** | Colocar dinamita |
-| **ESC** | Volver al menu (en juego) / Salir (en menu, con confirmacion) |
-| **ALT+ENTER** | Alternar pantalla completa/ventana |
-| **ENTER** | Confirmar nombre (en game over) |
+| Key | Action |
+|-----|--------|
+| **Left/Right arrows** | Move left/right |
+| **Up arrow** | Fly upward (consumes energy) |
+| **Down arrow** | Fast descent (inverted propeller) |
+| **SPACE** | Shoot laser |
+| **Z** | Place dynamite |
+| **ESC** | Return to menu (in game) / Exit (in menu, with confirmation) |
+| **ALT+ENTER** | Toggle fullscreen/windowed |
+| **ENTER** | Confirm name (on game over) |
 
-### Control Xbox/Gamepad
+### Xbox/Gamepad Controller
 
-| Boton/Stick | Accion |
-|------------|--------|
-| **Stick Izquierdo** | Mover (gradual, con zona muerta) |
-| **Boton A** | Iniciar juego (en menu) |
-| **Boton X** | Disparar laser |
-| **Boton B** | Colocar dinamita |
+| Button/Stick | Action |
+|-------------|--------|
+| **Left Stick** | Move (gradual, with dead zone) |
+| **A Button** | Start game (in menu) |
+| **X Button** | Shoot laser |
+| **B Button** | Place dynamite |
 
-## Niveles
+## Levels
 
-Los niveles se cargan desde `screens.json` y pueden editarse con `editor.py`.
+Levels are loaded from `screens.json` and can be edited with `editor.py`.
 
-### Tamaño dinámico
+### Dynamic Size
 
-Los niveles pueden tener cualquier tamaño en múltiplos del **viewport** (8 filas x 16 columnas = 256x512 px). El viewport es la porción visible del nivel en pantalla. La cámara sigue al jugador con scrolling suave en ambos ejes.
+Levels can be any size in multiples of the **viewport** (8 rows x 16 columns = 256x512 px). The viewport is the visible portion of the level on screen. The camera follows the player with smooth scrolling on both axes.
 
-Ejemplos de tamaños válidos:
-- **16x24** (1x3 viewports) — tamaño clásico, solo scrolling vertical
-- **32x24** (2x3 viewports) — ancho doble, scrolling horizontal y vertical
-- **48x32** (3x4 viewports) — nivel grande en ambas dimensiones
+Examples of valid sizes:
+- **16x24** (1x3 viewports) — classic size, vertical scrolling only
+- **32x24** (2x3 viewports) — double width, horizontal and vertical scrolling
+- **48x32** (3x4 viewports) — large level in both dimensions
 
-Las dimensiones se infieren automáticamente del mapa en `screens.json` (no requiere propiedades explícitas de ancho/alto).
+Dimensions are automatically inferred from the map in `screens.json` (no explicit width/height properties required).
 
-### Nivel 1 - Tutorial: Rescate con dinamita
-- Nivel introductorio con rocas destructibles (16x24)
-- 2 murcielagos y 1 arana
-- Rocas (R) y tierra (#) destructibles, granito (G) indestructible
-- Minero encerrado en una seccion inferior
+### Level 1 - Tutorial: Dynamite Rescue
+- Introductory level with destructible rocks (16x24)
+- 2 bats and 1 spider
+- Destructible rocks (R) and dirt (#), indestructible granite (G)
+- Miner trapped in a lower section
 
-### Nivel 2 - Copia del 1 pero agrandado
-- Version ampliada del nivel 1 (32x24, scrolling horizontal)
-- Demuestra niveles de tamaño dinámico
+### Level 2 - Enlarged Copy of Level 1
+- Expanded version of level 1 (32x24, horizontal scrolling)
+- Demonstrates dynamic-sized levels
 
-### Nivel 3 - Laberinto estrecho
-- Pasajes estrechos con secciones bloqueadas (16x24)
-- Navegacion compleja entre secciones
-- Bloques destructibles en puntos clave
+### Level 3 - Narrow Maze
+- Narrow passages with blocked sections (16x24)
+- Complex navigation between sections
+- Destructible blocks at key points
 
-### Nivel 4 - Muchos bloques
-- Capas horizontales de bloques destructibles (16x24)
-- Requiere uso intensivo de dinamita
-- Aranas y murcielagos entre capas
+### Level 4 - Many Blocks
+- Horizontal layers of destructible blocks (16x24)
+- Requires intensive use of dynamite
+- Spiders and bats between layers
 
-### Nivel 5 - Caverna ancha
-- Nivel amplio con scrolling horizontal (32x24)
-- Combinacion de pasajes estrechos y bloques
-- Multiples secciones verticales
+### Level 5 - Wide Cavern
+- Wide level with horizontal scrolling (32x24)
+- Combination of narrow passages and blocks
+- Multiple vertical sections
 
-## Animacion de Nivel Completo
+## Level Complete Animation
 
-Al rescatar al minero, se ejecuta una animacion en 3 fases:
+Upon rescuing the miner, a 3-phase animation plays:
 
-1. **Drenaje de Energia**: La energia restante se convierte en puntos 1:1, con beeps ascendentes
-2. **Explosion de Bombas**: Las bombas restantes explotan una por una en el HUD, sumando 50 puntos cada una
-3. **Pantalla de Victoria**: Overlay oscuro con "LEVEL COMPLETE!" y sonido de victoria
+1. **Energy Drain**: Remaining energy is converted to points 1:1, with ascending beeps
+2. **Bomb Explosions**: Remaining bombs explode one by one in the HUD, adding 50 points each
+3. **Victory Screen**: Dark overlay with "LEVEL COMPLETE!" and victory sound
 
 ## HUD (Heads-Up Display)
 
-HUD estilo ColecoVision TMS9918A con paneles grises 3D en los laterales:
+ColecoVision TMS9918A-style HUD with 3D gray side panels:
 
 ```
 +--------+------------------------------------+--------+
-| Panel  | POWER [================          ] | Panel  |
-| gris   | [vida][vida][vida]    [bomba][bomba]| gris   |
+| Gray   | POWER [================          ] | Gray   |
+| panel  | [life][life][life]    [bomb][bomb]  | panel  |
 |        | LEVEL: 1                     12500  |        |
 +--------+------------------------------------+--------+
 ```
 
-- **POWER**: Barra de energia (amarillo=llena, rojo=vacia)
-- **Vidas**: Iconos del jugador en miniatura
-- **Bombas**: Iconos de bomba alineados a la derecha
-- **LEVEL**: Numero de nivel actual
-- **Score**: Puntuacion alineada a la derecha
+- **POWER**: Energy bar (yellow=full, red=empty)
+- **Lives**: Miniature player icons
+- **Bombs**: Bomb icons aligned to the right
+- **LEVEL**: Current level number
+- **Score**: Score aligned to the right
 
-## Instalacion y Ejecucion
+## Installation and Running
 
-### Requisitos
+### Requirements
 
 ```
 Python 3.8+
 pygame 2.0+
-numpy (opcional, para emulacion SID)
+numpy (optional, for SID emulation)
 ```
 
-### Instalacion
+### Installation
 
 ```bash
-# Instalar dependencias
+# Install dependencies
 pip install pygame numpy
 
-# Ejecutar el juego
+# Run the game
 python hero.py
 
-# Ejecutar el editor de niveles
+# Run the level editor
 python editor.py
 ```
 
-### Estructura de Archivos
+### File Structure
 
 ```
 hero/
-├── hero.py                  # Juego principal (Game class, loop, render)
-├── constants.py             # Constantes del juego
-├── player.py                # Clase Player (fisica, animacion, caminata)
-├── enemy.py                 # Clase Enemy (murcielagos y aranas)
-├── laser.py                 # Clase Laser (proyectiles)
-├── dynamite.py              # Clase Dynamite (explosivos con sprites animados)
-├── miner.py                 # Clase Miner (objetivo a rescatar)
-├── audio_effects.py         # Emulacion SID de Commodore 64
-├── editor.py                # Editor de niveles visual
-├── screens.json             # Definicion de niveles (editable)
-├── scores.json              # High scores (generado automaticamente)
-├── CLAUDE.md                # Documentacion tecnica para desarrollo
-├── README.md                # Este archivo
+├── hero.py                  # Main game (Game class, loop, render)
+├── constants.py             # Game constants
+├── player.py                # Player class (physics, animation, walking)
+├── enemy.py                 # Enemy class (bats and spiders)
+├── laser.py                 # Laser class (projectiles)
+├── dynamite.py              # Dynamite class (explosives with animated sprites)
+├── miner.py                 # Miner class (rescue objective)
+├── audio_effects.py         # Commodore 64 SID emulation
+├── editor.py                # Visual level editor
+├── screens.json             # Level definitions (editable)
+├── scores.json              # High scores (auto-generated)
+├── CLAUDE.md                # Technical documentation for development
+├── README.md                # This file
 ├── fonts/
 │   └── PressStart2P-vaV7.ttf
 ├── images/
-│   └── hero_background.png  # Fondo de pantalla de inicio
+│   └── hero_background.png  # Start screen background
 ├── sprites/
-│   ├── player.png           # Sprite idle del jugador
-│   ├── player_fly.png       # Sprite volando
-│   ├── player_shooting.png  # Sprite disparando
-│   ├── player_walk1.png     # Animacion de caminata frame 1
-│   ├── player_walk2.png     # Animacion de caminata frame 2
-│   ├── bat1.png             # Sprite de murcielago frame 1
-│   ├── bat2.png             # Sprite de murcielago frame 2
-│   ├── spider.png           # Sprite de arana
-│   ├── miner.png            # Sprite del minero
-│   ├── bomb1.png            # Animacion de bomba frame 1
-│   ├── bomb2.png            # Animacion de bomba frame 2
-│   └── bomb3.png            # Animacion de bomba frame 3
+│   ├── player.png           # Player idle sprite
+│   ├── player_fly.png       # Flying sprite
+│   ├── player_shooting.png  # Shooting sprite
+│   ├── player_walk1.png     # Walk animation frame 1
+│   ├── player_walk2.png     # Walk animation frame 2
+│   ├── bat1.png             # Bat sprite frame 1
+│   ├── bat2.png             # Bat sprite frame 2
+│   ├── spider.png           # Spider sprite
+│   ├── miner.png            # Miner sprite
+│   ├── bomb1.png            # Bomb animation frame 1
+│   ├── bomb2.png            # Bomb animation frame 2
+│   └── bomb3.png            # Bomb animation frame 3
 ├── tiles/
-│   ├── wall.png             # Tierra (#)
-│   ├── floor.png            # Suelo/plataforma (.)
-│   ├── granite.png          # Granito indestructible (G)
-│   ├── breakable_wall.png   # Rocas destructibles (R)
-│   ├── lamp.png             # Lampara (L)
-│   └── blank.png            # Espacio vacio
+│   ├── wall.png             # Dirt (#)
+│   ├── floor.png            # Floor/platform (.)
+│   ├── granite.png          # Indestructible granite (G)
+│   ├── breakable_wall.png   # Destructible rocks (R)
+│   ├── lamp.png             # Lamp (L)
+│   └── blank.png            # Empty space
 └── sounds/
-    ├── shoot.wav            # Efecto de disparo
-    ├── explosion.wav        # Efecto de explosion
-    ├── death.wav            # Efecto de muerte
-    ├── splatter.wav         # Efecto de muerte de enemigo
-    ├── helicopter.wav       # Sonido del helicoptero (loop)
-    ├── walk1.wav            # Paso izquierdo
-    ├── walk2.wav            # Paso derecho
-    ├── win_screen.wav       # Sonido de nivel completo
-    └── splash_screen_theme.wav  # Musica del menu principal
+    ├── shoot.wav            # Shooting effect
+    ├── explosion.wav        # Explosion effect
+    ├── death.wav            # Death effect
+    ├── splatter.wav         # Enemy death effect
+    ├── helicopter.wav       # Helicopter sound (loop)
+    ├── walk1.wav            # Left footstep
+    ├── walk2.wav            # Right footstep
+    ├── win_screen.wav       # Level complete sound
+    └── splash_screen_theme.wav  # Main menu music
 ```
 
-El juego genera graficos procedurales como fallback si no encuentra las imagenes.
+The game generates procedural graphics as a fallback if images are not found.
 
-## Sistema de High Scores
+## High Score System
 
-### Persistencia
-- Los scores se guardan automaticamente en `scores.json`
-- Se mantienen los top 10 scores
-- Los top 3 se muestran en la pantalla de inicio
+### Persistence
+- Scores are automatically saved to `scores.json`
+- Top 10 scores are kept
+- Top 3 are displayed on the start screen
 
-## Leyenda del Mapa
+## Map Legend
 
-| Simbolo | Significado |
-|---------|-------------|
-| `S` | Start - Posicion inicial del jugador |
-| `#` | Tierra (solida, destructible con dinamita) |
-| `.` | Suelo/plataforma (solido, indestructible) |
-| `G` | Granito (solido, indestructible) |
-| `R` | Rocas (solido, destructible con dinamita) |
-| `V` | Enemigo - Murcielago (patrulla horizontal) |
-| `A` | Enemigo - Arana (se mueve verticalmente con hilo) |
-| `L` | Lampara (toggle modo oscuridad al tocar) |
-| `M` | Minero a rescatar (objetivo del nivel) |
-| ` ` | Espacio vacio (fondo de caverna) |
+| Symbol | Meaning |
+|--------|---------|
+| `S` | Start - Player starting position |
+| `#` | Dirt (solid, destructible with dynamite) |
+| `.` | Floor/platform (solid, indestructible) |
+| `G` | Granite (solid, indestructible) |
+| `R` | Rocks (solid, destructible with dynamite) |
+| `V` | Enemy - Bat (horizontal patrol) |
+| `A` | Enemy - Spider (moves vertically with thread) |
+| `L` | Lamp (toggles darkness mode on touch) |
+| `M` | Miner to rescue (level objective) |
+| ` ` | Empty space (cave background) |
 
-## Tips y Estrategias
+## Tips and Strategies
 
-### Conservar Energia
-- La energia se consume al volar con el propulsor
-- Se recupera automaticamente al estar parado en el suelo
-- Usa la gravedad y el descenso activo (flecha abajo) para bajar rapido sin gastar energia
-- Planifica tu ruta antes de volar
+### Conserving Energy
+- Energy is consumed when flying with the propeller
+- It recovers automatically while standing on the ground
+- Use gravity and active descent (down arrow) to descend quickly without spending energy
+- Plan your route before flying
 
-### Uso de Dinamita
-- La dinamita explota en 1.5 segundos
-- Area de efecto de 80 pixeles de radio
-- Destruye tierra (#) y rocas (R). No destruye granito (G) ni suelo (.)
-- Puede eliminar varios enemigos a la vez
-- Cuidado: la explosion tambien daña al jugador
+### Using Dynamite
+- Dynamite explodes in 1.5 seconds
+- Area of effect: 80 pixel radius
+- Destroys dirt (#) and rocks (R). Does not destroy granite (G) or floors (.)
+- Can eliminate multiple enemies at once
+- Warning: the explosion also damages the player
 
-### Combate
-- Los disparos laser tienen cooldown corto (0.2s)
-- El laser colisiona con paredes, suelos y bloques (no los destruye)
-- Dispara desde distancia segura
-- Las aranas se mueven verticalmente, los murcielagos horizontalmente
+### Combat
+- Laser shots have a short cooldown (0.2s)
+- The laser collides with walls, floors, and blocks (does not destroy them)
+- Shoot from a safe distance
+- Spiders move vertically, bats move horizontally
 
-### Puntuacion Alta
-- Rescata rapido para conservar energia (se convierte en puntos)
-- Conserva bombas para bonus adicional (50 pts cada una)
-- Destruye todos los enemigos posibles
+### High Score
+- Rescue quickly to conserve energy (it converts to points)
+- Save bombs for additional bonus (50 pts each)
+- Destroy as many enemies as possible
 
-## Editor de Niveles
+## Level Editor
 
-Ejecuta `python editor.py` para abrir el editor visual de niveles. Permite crear y modificar los niveles guardados en `screens.json`.
+Run `python editor.py` to open the visual level editor. It allows you to create and modify levels saved in `screens.json`.
 
-### Controles del Editor
+### Editor Controls
 
-| Tecla | Accion |
-|-------|--------|
-| **Flechas** | Mover cursor tile a tile |
-| **Shift+Flechas** | Mover cursor pintando con tile seleccionado |
-| **Q / A** | Saltar un viewport arriba / abajo |
-| **Z / X** | Saltar un viewport izquierda / derecha |
-| **Space / Enter** | Colocar tile seleccionado |
-| **1-9, F, G** | Seleccionar tipo de tile |
-| **Tab / Shift+Tab** | Ciclar tipo de tile |
-| **Ctrl+Right** | Agregar viewport a la derecha (+16 columnas) |
-| **Ctrl+Left** | Quitar viewport derecho (-16 columnas) |
-| **Ctrl+Down** | Agregar viewport abajo (+8 filas) |
-| **Ctrl+Up** | Quitar viewport inferior (-8 filas) |
-| **Ctrl+S** | Guardar niveles |
-| **Ctrl+N** | Nuevo nivel |
-| **Ctrl+Delete** | Eliminar nivel actual |
-| **PgUp / PgDn** | Cambiar de nivel |
-| **ESC** | Salir del editor |
+| Key | Action |
+|-----|--------|
+| **Arrows** | Move cursor tile by tile |
+| **Shift+Arrows** | Move cursor while painting with selected tile |
+| **Q / A** | Jump one viewport up / down |
+| **Z / X** | Jump one viewport left / right |
+| **Space / Enter** | Place selected tile |
+| **1-9, F, G** | Select tile type |
+| **Tab / Shift+Tab** | Cycle tile type |
+| **Ctrl+Right** | Add viewport to the right (+16 columns) |
+| **Ctrl+Left** | Remove right viewport (-16 columns) |
+| **Ctrl+Down** | Add viewport below (+8 rows) |
+| **Ctrl+Up** | Remove bottom viewport (-8 rows) |
+| **Ctrl+S** | Save levels |
+| **Ctrl+N** | New level |
+| **Ctrl+Delete** | Delete current level |
+| **PgUp / PgDn** | Switch levels |
+| **ESC** | Exit editor |
 
-### Minimapa
+### Minimap
 
-El HUD del editor muestra un minimapa con la grilla de viewports del nivel, resaltando el viewport actual. Esto permite orientarse en niveles grandes.
+The editor HUD shows a minimap with the level's viewport grid, highlighting the current viewport. This helps with orientation in large levels.
 
-## Creditos
+## Credits
 
-### Juego Original
-- **H.E.R.O.** (1984) por Activision
-- Diseñado por John Van Ryzin
-- Plataforma original: Atari 2600
+### Original Game
+- **H.E.R.O.** (1984) by Activision
+- Designed by John Van Ryzin
+- Original platform: Atari 2600
 
-### Este Remake
-- Desarrollado con Python y Pygame
-- Arquitectura modular con clases separadas
-- 5 niveles editables con editor incluido
-- HUD estilo ColecoVision
-- Emulacion de audio SID
+### This Remake
+- Developed with Python and Pygame
+- Modular architecture with separate classes
+- 5 editable levels with included editor
+- ColecoVision-style HUD
+- SID audio emulation
 
-## Tecnologia
+## Technology
 
-- **Lenguaje**: Python 3.13
+- **Language**: Python 3.13
 - **Framework**: Pygame 2.6.1
-- **Audio**: Pygame.mixer + emulacion SID (Commodore 64)
-- **Graficos**: Sprites PNG + generacion procedural (fallback)
-- **Persistencia**: JSON (scores y niveles)
-- **Input**: Teclado + Xbox Controller (con joystick gradual)
+- **Audio**: Pygame.mixer + SID emulation (Commodore 64)
+- **Graphics**: PNG sprites + procedural generation (fallback)
+- **Persistence**: JSON (scores and levels)
+- **Input**: Keyboard + Xbox Controller (with gradual joystick)
 
-## Futuras Mejoras Posibles
+## Possible Future Improvements
 
-- [ ] Mas niveles (6-20 como el original)
-- [x] Niveles de tamaño dinámico con scrolling 2D
-- [x] Editor con soporte para resize de viewports
-- [ ] Animar murcielagos (alas)
-- [ ] Tiles de fondo decorativos
-- [x] Lamparas que al tocar apagan la luz
-- [ ] Serpientes que salen desde la cueva
-- [ ] Enemigos que vibran en el lugar
-- [ ] Bloques y nivel de magma
+- [ ] More levels (6-20 like the original)
+- [x] Dynamic-sized levels with 2D scrolling
+- [x] Editor with viewport resize support
+- [ ] Animate bats (wings)
+- [ ] Decorative background tiles
+- [x] Lamps that toggle lights off when touched
+- [ ] Snakes emerging from caves
+- [ ] Enemies that vibrate in place
+- [ ] Magma blocks and level
 
-## Licencia
+## License
 
-Este es un proyecto educativo y de fan remake. H.E.R.O. es propiedad de Activision.
+This is an educational and fan remake project. H.E.R.O. is property of Activision.
