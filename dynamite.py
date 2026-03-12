@@ -95,19 +95,6 @@ class Dynamite:
                     pygame.draw.rect(screen, COLOR_RED,
                                    (int(screen_x), int(screen_y), self.width, self.height))
             else:
-                # Draw explosion con sprites animados
-                if self.explosion_sprites:
-                    elapsed = 0.5 - self.explosion_time
-                    frame_duration = 0.06  # Ciclar rapido entre frames
-                    frame_index = int(elapsed / frame_duration) % len(self.explosion_sprites)
-                    sprite = self.explosion_sprites[frame_index]
-                    sx = int(screen_x - sprite.get_width() / 2)
-                    sy = int(screen_y - sprite.get_height() / 2)
-                    screen.blit(sprite, (sx, sy))
-                else:
-                    # Fallback: circulos si no hay sprites
-                    radius = int(DYNAMITE_EXPLOSION_RADIUS * (self.explosion_time / 0.5))
-                    pygame.draw.circle(screen, COLOR_ORANGE,
-                                     (int(screen_x), int(screen_y)), radius)
-                    pygame.draw.circle(screen, COLOR_YELLOW,
-                                     (int(screen_x), int(screen_y)), int(radius * 0.6))
+                # No dibujar nada durante la explosión;
+                # el flash de pantalla en hero.py da el efecto visual
+                pass
