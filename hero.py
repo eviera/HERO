@@ -291,6 +291,22 @@ class Game:
             self.tiles['rock_damaged'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['rock_damaged'].fill((140, 130, 120))
 
+        # Toxic water tile (~) - agua tóxica verde animada (strip de frames)
+        try:
+            strip = pygame.image.load("tiles/toxic_water_strip.png").convert_alpha()
+            self.toxic_water_frames = []
+            num_frames = strip.get_width() // TILE_SIZE
+            for i in range(num_frames):
+                frame = strip.subsurface(pygame.Rect(i * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE))
+                self.toxic_water_frames.append(frame)
+        except:
+            # Fallback: un solo frame sólido
+            fallback = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            fallback.fill((30, 120, 40))
+            self.toxic_water_frames = [fallback]
+        self.tiles['toxic_water'] = self.toxic_water_frames[0]
+        self.toxic_water_scroll = 0.0
+
         # Lamp tile (L) - lampara dorada
         try:
             self.tiles['lamp'] = pygame.image.load("tiles/lamp.png").convert_alpha()
@@ -477,6 +493,9 @@ class Game:
         # Reset lampara/oscuridad
         self.dark_mode = False
         self.lamps = []
+
+        # Reset scroll de agua tóxica
+        self.toxic_water_scroll = 0.0
 
         # Create player
         self.player = Player()
@@ -905,6 +924,25 @@ class Game:
             if fs['timer'] <= 0:
                 self.floating_scores.remove(fs)
 
+        # Actualizar animación de agua tóxica (avanza en frames)
+        self.toxic_water_scroll += TOXIC_WATER_SCROLL_SPEED * dt
+
+        # Colisión jugador vs agua tóxica
+        player_rect = self.player.get_rect()
+        # Verificar tiles de agua en las esquinas del jugador (reducido para contacto real)
+        for corner_x, corner_y in [
+            (player_rect.left + 4, player_rect.bottom - 4),
+            (player_rect.right - 4, player_rect.bottom - 4),
+            (player_rect.centerx, player_rect.centery),
+        ]:
+            tile_col = int(corner_x / TILE_SIZE)
+            tile_row = int(corner_y / TILE_SIZE)
+            if (0 <= tile_row < len(self.level_map) and
+                    0 <= tile_col < len(self.level_map[tile_row]) and
+                    self.level_map[tile_row][tile_col] == '~'):
+                self.player_hit()
+                return
+
         # Check collisions
         self.check_collisions()
 
@@ -1172,6 +1210,10 @@ class Game:
                         self.game_surface.blit(self.tiles['rock_damaged'], (x, y))
                     else:
                         self.game_surface.blit(self.tiles['rock'], (x, y))
+                elif tile == '~':
+                    # Agua tóxica con onda animada por frames
+                    frame_idx = int(self.toxic_water_scroll) % len(self.toxic_water_frames)
+                    self.game_surface.blit(self.toxic_water_frames[frame_idx], (x, y))
                 # Espacios vacios: no dibujar nada, el cave_bg ya se ve
 
     def _render_game_to_screen(self):

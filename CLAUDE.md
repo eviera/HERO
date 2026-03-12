@@ -45,6 +45,7 @@ hero/
 │   ├── wall.png                # Tile de pared (#)
 │   ├── floor.png               # Tile de suelo (.)
 │   ├── breakable_wall.png      # Tile de pared rompible (W)
+│   ├── toxic_water.png         # Tile de agua tóxica (~)
 │   └── blank.png               # Espacio vacío
 ├── images/
 │   └── hero_background.png     # Imagen de fondo para splash screen
@@ -355,6 +356,7 @@ Grid de caracteres con ancho y alto dinámicos (múltiplos del viewport):
 - `"A"`: Enemigo araña (spider)
 - `"B"`: Enemigo bicho (bug)
 - `"L"`: Lámpara (toggle modo oscuridad al tocar)
+- `"~"`: Agua tóxica (mata al jugador al contacto, animada con scroll)
 - `"M"`: Minero a rescatar (objetivo)
 
 ### Carga de Niveles

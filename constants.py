@@ -62,6 +62,9 @@ SNAKE_EMERGE_SPEED = 64        # Píxeles por segundo al salir/entrar
 SNAKE_EXTENDED_TIME = 1.5      # Segundos que permanece extendida
 SNAKE_KILL_SCORE = 60          # Puntos al matar la víbora
 
+# Agua tóxica
+TOXIC_WATER_SCROLL_SPEED = 10  # Píxeles por segundo de scroll horizontal
+
 # Cave background dots (pintitas del fondo de caverna)
 CAVE_DOT_SIZE = 2  # Tamaño en pixels de las pintitas
 
@@ -104,6 +107,7 @@ TILE_TYPES = [
     ('<', 'ViboraIzq',  (0, 180, 0),       60),   # víbora que sale hacia la izquierda
     ('>', 'VibDer',     (0, 180, 0),       60),   # víbora que sale hacia la derecha
     ('L', 'Lampara',    (255, 200, 50),    0),
+    ('~', 'AguaToxica', (30, 120, 40),     0),    # mata al jugador al contacto
 ]
 
 # Lookup rápido: caracter → puntos

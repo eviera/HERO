@@ -14,7 +14,7 @@
 /--- lamp.png fondo transparente
 /--- todos los sprites en gris, como en la commodore 64 https://youtu.be/bpzN0fagzi8?t=71
 /- Queremos cortar el 'alto' de la pantalla ? digo para que pase de una seccion a otra del nivel y que solo se vea un pedazo, tal como es en el original ???
-- serpientes que salen desde la cueva
+/- serpientes que salen desde la cueva
 /- bichos que se mueven como en el lugar (izq der), rapido  >o< 
 - bloques y nivel de magma (si lo toca me quemo)
 /- niveles horizontales ?? (requeriria quizas stichear un par de niveles verticales para que no sea tan complicado de implementar en el editor)
@@ -23,6 +23,7 @@
 - tiles de fondo
 /- sonido de break walls (los dos)
 /- editor: mejorar la forma de buscar tiles, porque con los numeros del 1-9 no alcanza
+/- agua toxica
 
 
 
@@ -69,3 +70,14 @@ Quiero agregar un enemigo nuevo que en el juego original es una vibora verde que
 en un costado se vea parte de la vibora saliendo, y luego la vibora deberia crecer un tile mas, pero no se como se podria hacer. Ademas quisiera una vibora apuntando hacia la izquierda 
 (podriamos usar < como TILE_TYPE) y otra apuntando a la derecha (usando > en TILE_TYPE). Yo le pondria 60 puntos si se la mata, y de ser asi, el tile original de tierra, quedaria con el agujero
 de dode salio la vibora, vacio
+
+
+----
+
+Quiero crear un nuevo tile que sea un agua toxica color verde en tiles/toxic_water.png. La idea es que la parte de abajo sea solida y la de arriba media onda, con la idea de que si ponemos dos tiles
+juntos uno al lado de otro y mirroreamos uno de ellos, quedaria una onda completa. Es importante que la onda no sea muy pronunciada... es decir, quiero terminar formanod una onda bastante 'plana' como una ola calma.
+Entonces cuando se dibuje durante el juego quiero que las olitas vayan 'moviendose' es decir, hacer rollar el tile para que parezca que hay un movimiento de olas.
+Si el hero toca esta agua, muere.
+Agregar el tile nuevo en el editor.
+
+

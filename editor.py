@@ -114,6 +114,13 @@ class Editor:
             self.tiles['lamp'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['lamp'].fill((255, 200, 50))
 
+        # Agua tóxica
+        try:
+            self.tiles['toxic_water'] = pygame.image.load("tiles/toxic_water.png").convert_alpha()
+        except:
+            self.tiles['toxic_water'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['toxic_water'].fill((30, 120, 40))
+
         # Cargar sprites de entidades
         self.sprites = {}
         try:
@@ -310,6 +317,8 @@ class Editor:
                 elif tile == 'L':
                     self.screen.blit(self.tiles['blank'], (int(x), int(y)))
                     self.screen.blit(self.tiles['lamp'], (int(x), int(y)))
+                elif tile == '~':
+                    self.screen.blit(self.tiles['toxic_water'], (int(x), int(y)))
                 else:
                     self.screen.blit(self.tiles['blank'], (int(x), int(y)))
 
@@ -477,7 +486,7 @@ class Editor:
             }
             tile_for_tile = {
                 '#': 'wall', '.': 'floor', 'G': 'granite', 'R': 'rock',
-                'L': 'lamp'
+                'L': 'lamp', '~': 'toxic_water'
             }
 
             preview = pygame.Surface((ps, ps), pygame.SRCALPHA)
@@ -685,6 +694,9 @@ class Editor:
                     elif event.key == pygame.K_j:
                         if len(TILE_TYPES) > 12:
                             self.selected_tile = 12
+                    elif event.key == pygame.K_k:
+                        if len(TILE_TYPES) > 13:
+                            self.selected_tile = 13
 
                     # Tab para ciclar tipo de tile
                     elif event.key == pygame.K_TAB:
