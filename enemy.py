@@ -11,7 +11,8 @@ class Enemy:
         self.start_x = x
         self.start_y = y
         self.enemy_type = enemy_type
-        speed_table = {"bat": BAT_SPEED, "spider": SPIDER_SPEED, "bug": BUG_SPEED}
+        speed_table = {"bat": BAT_SPEED, "spider": SPIDER_SPEED, "bug": BUG_SPEED,
+                       "snake_left": SNAKE_EMERGE_SPEED, "snake_right": SNAKE_EMERGE_SPEED}
         self.speed = speed_table.get(enemy_type, BAT_SPEED)
         self.direction = random.choice([-1, 1])
         self.active = True
@@ -29,6 +30,18 @@ class Enemy:
         if enemy_type == "spider":
             self.spider_max_y = y + 2 * TILE_SIZE  # límite inferior
             self.direction = 1  # empieza bajando
+
+        # Víbora: sale y entra de una pared
+        if enemy_type in ("snake_left", "snake_right"):
+            self.snake_facing = -1 if enemy_type == "snake_left" else 1  # dirección de salida
+            self.snake_state = "hidden"  # hidden, emerging, extended, retracting
+            self.snake_timer = random.uniform(0.5, SNAKE_HIDDEN_TIME)  # tiempo inicial aleatorio
+            self.snake_extend = 0.0  # 0.0 = escondida, TILE_SIZE = totalmente fuera
+            self.wall_row = int(y / TILE_SIZE)
+            self.wall_col = int(x / TILE_SIZE)
+            # Sprites asignados desde Game: snake_head, snake_neck
+            self.snake_head_sprite = None
+            self.snake_neck_sprite = None
 
         # Bicho: se mueve en zona 3x3 tiles alrededor del spawn
         if enemy_type == "bug":
@@ -92,7 +105,32 @@ class Enemy:
                 self.active = False
             return
 
-        if self.enemy_type == "bug":
+        if self.enemy_type in ("snake_left", "snake_right"):
+            # Víbora: ciclo hidden → emerging → extended → retracting
+            if self.snake_state == "hidden":
+                self.snake_timer -= dt
+                if self.snake_timer <= 0:
+                    self.snake_state = "emerging"
+                    self.snake_extend = 0.0
+            elif self.snake_state == "emerging":
+                self.snake_extend += self.speed * dt
+                if self.snake_extend >= TILE_SIZE:
+                    self.snake_extend = TILE_SIZE
+                    self.snake_state = "extended"
+                    self.snake_timer = SNAKE_EXTENDED_TIME
+            elif self.snake_state == "extended":
+                self.snake_timer -= dt
+                if self.snake_timer <= 0:
+                    self.snake_state = "retracting"
+            elif self.snake_state == "retracting":
+                self.snake_extend -= self.speed * dt
+                if self.snake_extend <= 0:
+                    self.snake_extend = 0.0
+                    self.snake_state = "hidden"
+                    self.snake_timer = SNAKE_HIDDEN_TIME
+            return
+
+        elif self.enemy_type == "bug":
             # Bicho se mueve en zona 3x3 tiles, rebota contra límites y paredes
             new_x = self.x + self.bug_dx * self.speed * dt
             new_y = self.y + self.bug_dy * self.speed * dt
@@ -188,9 +226,84 @@ class Enemy:
                     self.image = self.images[self.anim_frame]
 
     def get_rect(self):
+        if self.enemy_type in ("snake_left", "snake_right") and hasattr(self, 'snake_extend'):
+            # Hitbox = solo la parte visible fuera de la pared (cuello + cabeza)
+            ext = int(self.snake_extend)
+            if ext <= 0:
+                return pygame.Rect(0, 0, 0, 0)  # No hay hitbox cuando está escondida
+            wall_x = self.wall_col * TILE_SIZE
+            wall_y = self.wall_row * TILE_SIZE
+            # Alto ajustado al cuerpo real de la víbora (~10px centrado en el tile)
+            body_h = 10
+            body_y = wall_y + (TILE_SIZE - body_h) // 2
+            if self.snake_facing < 0:  # sale a la izquierda
+                return pygame.Rect(wall_x - ext, body_y, ext, body_h)
+            else:  # sale a la derecha
+                return pygame.Rect(wall_x + TILE_SIZE, body_y, ext, body_h)
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def draw(self, screen, camera_x, camera_y, level_map=None):
+    def _draw_snake(self, screen, camera_x, camera_y, wall_tile=None):
+        """Dibuja la víbora saliendo por detrás de la pared (estilo C64).
+        La víbora se dibuja completa desplazándose, luego el tile de tierra
+        se redibuja encima para taparla parcialmente.
+        """
+        ext = int(self.snake_extend)
+        if ext <= 0:
+            return
+
+        wall_x = self.wall_col * TILE_SIZE
+        wall_y = self.wall_row * TILE_SIZE
+        wall_sx = int(wall_x - camera_x)
+        wall_sy = int(wall_y - camera_y)
+
+        if not (-50 < wall_sy < GAME_VIEWPORT_HEIGHT + 50 and
+                -80 < wall_sx < GAME_WIDTH + 80):
+            return
+
+        facing_left = (self.snake_facing < 0)
+
+        # Dibujar cuello desde el borde de la pared hasta la cabeza
+        # El cuello cubre todo el largo de extensión, la cabeza se dibuja encima
+        if ext > 0 and self.snake_neck_sprite:
+            neck_scaled = pygame.transform.scale(self.snake_neck_sprite, (ext, TILE_SIZE))
+            if facing_left:
+                screen.blit(neck_scaled, (int(wall_sx - ext), wall_sy))
+            else:
+                screen.blit(neck_scaled, (int(wall_sx + TILE_SIZE), wall_sy))
+
+        # Cabeza en la punta (encima del cuello)
+        if self.snake_head_sprite:
+            if facing_left:
+                head_x = wall_sx - ext
+            else:
+                head_x = wall_sx + TILE_SIZE + ext - TILE_SIZE
+            screen.blit(self.snake_head_sprite, (int(head_x), wall_sy))
+
+        # Redibujar el tile de tierra ENCIMA para tapar la parte que aún está adentro
+        if wall_tile:
+            screen.blit(wall_tile, (wall_sx, wall_sy))
+
+    def draw(self, screen, camera_x, camera_y, level_map=None, wall_tile=None):
+        # Víbora se dibuja con método propio
+        if self.enemy_type in ("snake_left", "snake_right"):
+            if self.exploding:
+                wall_x = self.wall_col * TILE_SIZE
+                wall_y = self.wall_row * TILE_SIZE
+                sx = int(wall_x - camera_x)
+                sy = int(wall_y - camera_y)
+                if -50 < sy < GAME_VIEWPORT_HEIGHT + 50 and -50 < sx < GAME_WIDTH + 50:
+                    progress = self.explosion_timer / self.explosion_duration
+                    radius = int(8 + progress * 10)
+                    for i in range(2):
+                        r = radius - i * 5
+                        if r > 0:
+                            color = (139, 69, 19) if i == 0 else (101, 67, 33)
+                            pygame.draw.circle(screen, color,
+                                             (sx + 16, sy + 16), r)
+            else:
+                self._draw_snake(screen, camera_x, camera_y, wall_tile)
+            return
+
         screen_x = self.x - camera_x
         screen_y = self.y - camera_y
         if -50 < screen_y < GAME_VIEWPORT_HEIGHT + 50 and -50 < screen_x < GAME_WIDTH + 50:

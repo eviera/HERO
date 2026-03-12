@@ -122,8 +122,10 @@ class Editor:
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['bug'] = pygame.image.load("sprites/bug1.png").convert_alpha()
             self.sprites['miner'] = pygame.image.load("sprites/miner.png").convert_alpha()
+            self.sprites['snake_head'] = pygame.image.load("sprites/snake_head.png").convert_alpha()
         except Exception as e:
             print(f"Error cargando sprites: {e}")
+
 
         # Estado del editor
         self.screens = load_screens()
@@ -313,7 +315,20 @@ class Editor:
 
                 # Dibujar sprites de entidades encima
                 sprite_map = {'S': 'player', 'V': 'enemy', 'A': 'spider', 'B': 'bug', 'M': 'miner'}
-                if tile in sprite_map and sprite_map[tile] in self.sprites:
+                if tile in ('<', '>'):
+                    # Víbora: cabeza asomando por detrás de la pared
+                    if 'snake_head' in self.sprites:
+                        head = self.sprites['snake_head']
+                        if tile == '>':
+                            head = pygame.transform.flip(head, True, False)
+                        peek = 14  # cuánto asoma
+                        if tile == '<':
+                            self.screen.blit(head, (int(x) - peek, int(y)))
+                        else:
+                            self.screen.blit(head, (int(x) + TILE_SIZE + peek - TILE_SIZE, int(y)))
+                    # Pared encima tapando la parte interna
+                    self.screen.blit(self.tiles['wall'], (int(x), int(y)))
+                elif tile in sprite_map and sprite_map[tile] in self.sprites:
                     self.screen.blit(self.sprites[sprite_map[tile]], (int(x), int(y)))
                 elif tile in sprite_map:
                     # Fallback: dibujar letra con color
@@ -466,7 +481,19 @@ class Editor:
             }
 
             preview = pygame.Surface((ps, ps), pygame.SRCALPHA)
-            if tc in tile_for_tile:
+            if tc in ('<', '>'):
+                # Víbora: solo la cabeza en la paleta
+                preview.fill((30, 30, 30))
+                if 'snake_head' in self.sprites:
+                    head = self.sprites['snake_head']
+                    if tc == '>':
+                        head = pygame.transform.flip(head, True, False)
+                    head_scaled = pygame.transform.scale(head, (ps, ps))
+                    # Centrar: la cabeza izq tiene contenido a la izquierda,
+                    # la derecha (flipeada) queda corrida, compensar
+                    ox = -ps // 4 if tc == '>' else 0
+                    preview.blit(head_scaled, (ox, 0))
+            elif tc in tile_for_tile:
                 preview = pygame.transform.scale(self.tiles[tile_for_tile[tc]], (ps, ps))
             elif tc in sprite_for_tile and sprite_for_tile[tc] in self.sprites:
                 preview.fill((30, 30, 30))
@@ -652,6 +679,12 @@ class Editor:
                     elif event.key == pygame.K_g:
                         if len(TILE_TYPES) > 10:
                             self.selected_tile = 10
+                    elif event.key == pygame.K_h:
+                        if len(TILE_TYPES) > 11:
+                            self.selected_tile = 11
+                    elif event.key == pygame.K_j:
+                        if len(TILE_TYPES) > 12:
+                            self.selected_tile = 12
 
                     # Tab para ciclar tipo de tile
                     elif event.key == pygame.K_TAB:

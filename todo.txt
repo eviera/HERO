@@ -64,3 +64,8 @@ Analiza el codigo y dime si es posible implementar esto.
 Ahora tenemos que cambiar el editor para poder ajustarlo a estos niveles dinamicos con viewport de 8x16, pero no se me ocurre ninguna estrategia para ir mostrado de
 viewport en viewport y como poder 'agregar' o 'quitar' estos viewports para ampliar el nivel. Se te ocurre algo que sea facil para el usuario ?
 
+--- 
+Quiero agregar un enemigo nuevo que en el juego original es una vibora verde que entra y sale de una pared. Aca lo que yo haria es usar un bloque de Tierra (el #) como dibujo inicial donde
+en un costado se vea parte de la vibora saliendo, y luego la vibora deberia crecer un tile mas, pero no se como se podria hacer. Ademas quisiera una vibora apuntando hacia la izquierda 
+(podriamos usar < como TILE_TYPE) y otra apuntando a la derecha (usando > en TILE_TYPE). Yo le pondria 60 puntos si se la mata, y de ser asi, el tile original de tierra, quedaria con el agujero
+de dode salio la vibora, vacio

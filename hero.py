@@ -62,6 +62,8 @@ def add_score(name, score):
 #   V = Enemy bat (murciélago)
 #   A = Spider (araña)
 #   B = Bug (bicho)
+#   < = Snake left (víbora que sale a la izquierda)
+#   > = Snake right (víbora que sale a la derecha)
 #   # = Pared sólida
 #   . = Suelo/plataforma
 #   (espacio) = Aire
@@ -316,6 +318,8 @@ class Game:
             self.sprites['bomb2'] = pygame.image.load("sprites/bomb2.png").convert_alpha()
             self.sprites['bomb3'] = pygame.image.load("sprites/bomb3.png").convert_alpha()
             self.sprites['miner'] = pygame.image.load("sprites/miner.png").convert_alpha()
+            self.sprites['snake_head'] = pygame.image.load("sprites/snake_head.png").convert_alpha()
+            self.sprites['snake_neck'] = pygame.image.load("sprites/snake_neck.png").convert_alpha()
             print("Sprites loaded successfully")
         except Exception as e:
             print(f"Error loading sprites: {e}")
@@ -520,6 +524,31 @@ class Game:
                         enemy.images = [self.sprites['bug1'], self.sprites['bug2']]
                         enemy.image = enemy.images[0]
                     self.enemies.append(enemy)
+                elif tile in ("<", ">"):
+                    # Víbora: reemplazar tile por tierra (#) y crear enemigo
+                    etype = "snake_left" if tile == "<" else "snake_right"
+                    enemy = Enemy(x, y, etype)
+                    speed_variation = random.uniform(1 - ENEMY_SPEED_VARIATION, 1 + ENEMY_SPEED_VARIATION)
+                    enemy.speed = SNAKE_EMERGE_SPEED * speed_variation
+                    # Asignar sprites de víbora
+                    if tile == "<":
+                        # Mira a la izquierda: cabeza tal cual
+                        if 'snake_head' in self.sprites:
+                            enemy.snake_head_sprite = self.sprites['snake_head']
+                        if 'snake_neck' in self.sprites:
+                            enemy.snake_neck_sprite = self.sprites['snake_neck']
+                    else:
+                        # Mira a la derecha: flipear cabeza
+                        if 'snake_head' in self.sprites:
+                            enemy.snake_head_sprite = pygame.transform.flip(self.sprites['snake_head'], True, False)
+                        if 'snake_neck' in self.sprites:
+                            enemy.snake_neck_sprite = self.sprites['snake_neck']
+                    self.enemies.append(enemy)
+                    # El tile se convierte en tierra (la pared de donde sale)
+                    self.level_map[row_index] = (
+                        self.level_map[row_index][:col_index] + '#' +
+                        self.level_map[row_index][col_index + 1:]
+                    )
                 elif tile == "M":
                     self.miner = Miner(x, y)
                     if 'miner' in self.sprites:
@@ -608,7 +637,7 @@ class Game:
 
         # Player vs enemies
         for enemy in self.enemies:
-            if enemy.active and player_rect.colliderect(enemy.get_rect()):
+            if enemy.active and not enemy.exploding and player_rect.colliderect(enemy.get_rect()):
                 self.player_hit()
                 return
 
@@ -630,6 +659,14 @@ class Game:
                     pts = TILE_SCORES[ENEMY_TILE_CHARS[enemy.enemy_type]]
                     self.score += pts
                     self.add_floating_score(enemy.x + 16, enemy.y, pts)
+
+                    # Víbora: al morir, el tile de pared original queda vacío
+                    if enemy.enemy_type in ("snake_left", "snake_right"):
+                        r, c = enemy.wall_row, enemy.wall_col
+                        if 0 <= r < len(self.level_map) and 0 <= c < len(self.level_map[r]):
+                            self.level_map[r] = (
+                                self.level_map[r][:c] + ' ' + self.level_map[r][c + 1:]
+                            )
 
                     # Play splatter sound
                     if 'splatter' in self.sounds:
@@ -653,6 +690,14 @@ class Game:
                             enemy.exploding = True
                             self.score += EXPLOSION_KILL_SCORE
                             self.add_floating_score(enemy.x + 16, enemy.y, EXPLOSION_KILL_SCORE)
+
+                            # Víbora: al morir, el tile de pared original queda vacío
+                            if enemy.enemy_type in ("snake_left", "snake_right"):
+                                r, c = enemy.wall_row, enemy.wall_col
+                                if 0 <= r < len(self.level_map) and 0 <= c < len(self.level_map[r]):
+                                    self.level_map[r] = (
+                                        self.level_map[r][:c] + ' ' + self.level_map[r][c + 1:]
+                                    )
 
                             # Play splatter sound
                             if 'splatter' in self.sounds:
@@ -1307,7 +1352,8 @@ class Game:
             self.miner.draw(self.game_surface, self.camera_x, self.camera_y)
 
         for enemy in self.enemies:
-            enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map)
+            enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map,
+                       wall_tile=self.tiles.get('wall'))
 
         for laser in self.lasers:
             laser.draw(self.game_surface, self.camera_x, self.camera_y)
@@ -1463,7 +1509,8 @@ class Game:
                     self.miner.draw(self.game_surface, self.camera_x, self.camera_y)
 
                 for enemy in self.enemies:
-                    enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map)
+                    enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map,
+                               wall_tile=self.tiles.get('wall'))
 
                 for laser in self.lasers:
                     laser.draw(self.game_surface, self.camera_x, self.camera_y)

@@ -56,6 +56,12 @@ BUG_SPEED = 120            # Velocidad del bicho (se mueve en zona 3x3)
 BUG_ANIM_DISTANCE = 8     # Píxeles entre cambios de sprite del bicho
 ENEMY_SPEED_VARIATION = 0.05  # ±5% variación aleatoria de velocidad por enemigo
 
+# Víbora (snake)
+SNAKE_HIDDEN_TIME = 2.0        # Segundos escondida antes de salir
+SNAKE_EMERGE_SPEED = 64        # Píxeles por segundo al salir/entrar
+SNAKE_EXTENDED_TIME = 1.5      # Segundos que permanece extendida
+SNAKE_KILL_SCORE = 60          # Puntos al matar la víbora
+
 # Cave background dots (pintitas del fondo de caverna)
 CAVE_DOT_SIZE = 2  # Tamaño en pixels de las pintitas
 
@@ -95,6 +101,8 @@ TILE_TYPES = [
     ('V', 'Murcielago', COLOR_RED,         70),   # puntos al matar con láser
     ('A', 'Arana',      COLOR_ORANGE,      50),   # puntos al matar con láser
     ('B', 'Bicho',      COLOR_GREEN,       50),   # puntos al matar con láser
+    ('<', 'ViboraIzq',  (0, 180, 0),       60),   # víbora que sale hacia la izquierda
+    ('>', 'VibDer',     (0, 180, 0),       60),   # víbora que sale hacia la derecha
     ('L', 'Lampara',    (255, 200, 50),    0),
 ]
 
@@ -108,7 +116,7 @@ EXPLOSION_KILL_SCORE = 75
 BOMB_REMAINING_SCORE = 50
 
 # Mapeo de tipo de enemigo a caracter de tile
-ENEMY_TILE_CHARS = {'bat': 'V', 'spider': 'A', 'bug': 'B'}
+ENEMY_TILE_CHARS = {'bat': 'V', 'spider': 'A', 'bug': 'B', 'snake_left': '<', 'snake_right': '>'}
 
 # Scores file
 SCORES_FILE = "scores.json"
