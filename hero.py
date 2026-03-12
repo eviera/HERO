@@ -722,6 +722,23 @@ class Game:
                                     self.score += pts
                                     self.add_floating_score(tile_x + 16, tile_y, pts)
 
+                    # Matar víboras cuya pared fue destruida
+                    for enemy in self.enemies:
+                        if (enemy.active and not enemy.exploding and
+                                enemy.enemy_type in ("snake_left", "snake_right")):
+                            r, c = enemy.wall_row, enemy.wall_col
+                            if (0 <= r < len(self.level_map) and
+                                    0 <= c < len(self.level_map[r]) and
+                                    self.level_map[r][c] == ' '):
+                                enemy.exploding = True
+                                pts = TILE_SCORES.get(ENEMY_TILE_CHARS[enemy.enemy_type], 0)
+                                self.score += pts
+                                self.add_floating_score(
+                                    enemy.wall_col * TILE_SIZE + 16,
+                                    enemy.wall_row * TILE_SIZE, pts)
+                                if 'splatter' in self.sounds:
+                                    self.sounds['splatter'].play()
+
                     # Play sound once
                     if 'explosion' in self.sounds and dynamite.explosion_time > 0.4:
                         self.sounds['explosion'].play()

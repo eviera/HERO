@@ -253,8 +253,9 @@ class Enemy:
 
         wall_x = self.wall_col * TILE_SIZE
         wall_y = self.wall_row * TILE_SIZE
-        wall_sx = int(wall_x - camera_x)
-        wall_sy = int(wall_y - camera_y)
+        # Usar int(camera) para coincidir con render_level() y evitar offset de 1px
+        wall_sx = wall_x - int(camera_x)
+        wall_sy = wall_y - int(camera_y)
 
         if not (-50 < wall_sy < GAME_VIEWPORT_HEIGHT + 50 and
                 -80 < wall_sx < GAME_WIDTH + 80):
