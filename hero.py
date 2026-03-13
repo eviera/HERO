@@ -7,6 +7,7 @@ import os
 import math
 import array
 import random
+import argparse
 
 # Import constants
 from constants import *
@@ -1616,8 +1617,27 @@ class Game:
 # Main
 ##################################################################################################
 def main():
+    parser = argparse.ArgumentParser(description="H.E.R.O. Remake")
+    parser.add_argument("--level", type=int, default=None,
+                        help="Nivel inicial (1-N) para testing")
+    args = parser.parse_args()
+
     game = Game()
     game.init()
+
+    # Si se especificó --level, arrancar directo en ese nivel
+    if args.level is not None:
+        level_idx = args.level - 1  # El usuario pasa 1-based
+        if level_idx < 0 or level_idx >= len(LEVELS):
+            print(f"Nivel inválido. Disponibles: 1-{len(LEVELS)}")
+            pygame.quit()
+            return
+        game.level_num = level_idx
+        game.score = 0
+        game.lives = 5
+        game.dynamite_count = 6
+        game.last_life_score = 0
+        game.start_level()
 
     try:
         game.loop()
