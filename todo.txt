@@ -16,14 +16,15 @@
 /- Queremos cortar el 'alto' de la pantalla ? digo para que pase de una seccion a otra del nivel y que solo se vea un pedazo, tal como es en el original ???
 /- serpientes que salen desde la cueva
 /- bichos que se mueven como en el lugar (izq der), rapido  >o< 
-- bloques y nivel de magma (si lo toca me quemo)
 /- niveles horizontales ?? (requeriria quizas stichear un par de niveles verticales para que no sea tan complicado de implementar en el editor)
 /-- cambios en el editor por niveles con viewport de 8x16
---- mejorar un poco el manejo del editor cuando se agregan o sacan viewports. que llene con vacio ?
-- tiles de fondo
+/--- mejorar un poco el manejo del editor cuando se agregan o sacan viewports. que llene con vacio ?
 /- sonido de break walls (los dos)
 /- editor: mejorar la forma de buscar tiles, porque con los numeros del 1-9 no alcanza
 /- agua toxica
+- viewport jagged ? (que no tenga que ser un cuadrilatero el mapa)
+- tiles de fondo
+- bloques y nivel de magma (si lo toca me quemo)
 
 
 
