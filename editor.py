@@ -200,24 +200,30 @@ class Editor:
     def add_viewport_cols(self):
         """Agregar un viewport (VIEWPORT_COLS columnas) a la derecha"""
         level_map = self.get_current_map()
-        extra = '#' * VIEWPORT_COLS
+        extra = ' ' * VIEWPORT_COLS
         for i in range(len(level_map)):
             level_map[i] = level_map[i] + extra
 
-    def remove_viewport_cols(self):
-        """Quitar el viewport más a la derecha (VIEWPORT_COLS columnas)"""
+    def remove_viewport_col_at(self, vx):
+        """Quitar la columna de viewports en el indice vx"""
         level_map = self.get_current_map()
         w, _ = self.get_level_dims()
         if w <= VIEWPORT_COLS:
-            return False  # No quitar si solo queda 1 viewport de ancho
+            return False
+
+        start_c = vx * VIEWPORT_COLS
+        end_c = start_c + VIEWPORT_COLS
+        for i in range(len(level_map)):
+            level_map[i] = level_map[i][:start_c] + level_map[i][end_c:]
 
         new_w = w - VIEWPORT_COLS
-        for i in range(len(level_map)):
-            level_map[i] = level_map[i][:new_w]
-
         # Ajustar cursor y cámara si quedan fuera
         if self.cursor_col >= new_w:
             self.cursor_col = new_w - 1
+        elif self.cursor_col >= start_c and self.cursor_col < end_c:
+            self.cursor_col = max(0, start_c - 1)
+        elif self.cursor_col >= end_c:
+            self.cursor_col -= VIEWPORT_COLS
         max_cam_x = (new_w - VIEWPORT_COLS) * TILE_SIZE
         if self.camera_x > max_cam_x:
             self.camera_x = max_cam_x
@@ -229,21 +235,27 @@ class Editor:
         level_map = self.get_current_map()
         w, _ = self.get_level_dims()
         for _ in range(VIEWPORT_ROWS):
-            level_map.append('#' * w)
+            level_map.append(' ' * w)
 
-    def remove_viewport_rows(self):
-        """Quitar el viewport más abajo (VIEWPORT_ROWS filas)"""
+    def remove_viewport_row_at(self, vy):
+        """Quitar la fila de viewports en el indice vy"""
         level_map = self.get_current_map()
         _, h = self.get_level_dims()
         if h <= VIEWPORT_ROWS:
-            return False  # No quitar si solo queda 1 viewport de alto
+            return False
+
+        start_r = vy * VIEWPORT_ROWS
+        end_r = start_r + VIEWPORT_ROWS
+        del level_map[start_r:end_r]
 
         new_h = h - VIEWPORT_ROWS
-        del level_map[new_h:]
-
         # Ajustar cursor y cámara si quedan fuera
         if self.cursor_row >= new_h:
             self.cursor_row = new_h - 1
+        elif self.cursor_row >= start_r and self.cursor_row < end_r:
+            self.cursor_row = max(0, start_r - 1)
+        elif self.cursor_row >= end_r:
+            self.cursor_row -= VIEWPORT_ROWS
         max_cam_y = (new_h - VIEWPORT_ROWS) * TILE_SIZE
         if self.camera_y > max_cam_y:
             self.camera_y = max_cam_y
@@ -542,7 +554,7 @@ class Editor:
         )
         self.screen.blit(hint2, (8, hud_y + 130))
         hint3 = self.small_font.render(
-            "^Arrows:+/- viewports ^N:Nuevo ^Del:Borrar",
+            "^Down/Right:+VP Del:-VP ^N:Nuevo ^Del:Borrar",
             True, COLOR_GRAY
         )
         self.screen.blit(hint3, (8, hud_y + 140))
@@ -550,7 +562,7 @@ class Editor:
         # Indicador de guardado
         if self.saved_indicator > 0:
             save_text = self.font.render("Guardado!", True, COLOR_GREEN)
-            self.screen.blit(save_text, (GAME_WIDTH - 130, hud_y + 46))
+            self.screen.blit(save_text, (GAME_WIDTH - save_text.get_width() - 8, self.editor_h - save_text.get_height() - 4))
 
         # Dialogo de confirmacion para quitar viewport
         if self.confirm_shrink:
@@ -558,17 +570,23 @@ class Editor:
             overlay.fill((0, 0, 0, 180))
             self.screen.blit(overlay, (0, 0))
 
-            if self.confirm_shrink == 'cols':
-                msg = "Quitar columna de viewports?"
+            shrink = self.confirm_shrink
+            if shrink['type'] == 'both':
+                msg = "Eliminar viewport: que eje?"
+                hint = "C:Columna  F:Fila  Otro:Cancelar"
+            elif shrink['type'] == 'cols':
+                msg = f"Eliminar columna de viewports {shrink['col'] + 1}?"
+                hint = "Y:Confirmar  Otro:Cancelar"
             else:
-                msg = "Quitar fila de viewports?"
+                msg = f"Eliminar fila de viewports {shrink['row'] + 1}?"
+                hint = "Y:Confirmar  Otro:Cancelar"
             msg_text = self.font.render(msg, True, COLOR_YELLOW)
             msg_rect = msg_text.get_rect(center=(GAME_WIDTH // 2, self.editor_h // 2 - 20))
             self.screen.blit(msg_text, msg_rect)
 
-            warn_text = self.small_font.render("Hay contenido! Y:Confirmar N:Cancelar", True, COLOR_RED)
-            warn_rect = warn_text.get_rect(center=(GAME_WIDTH // 2, self.editor_h // 2 + 10))
-            self.screen.blit(warn_text, warn_rect)
+            hint_text = self.small_font.render(hint, True, COLOR_RED)
+            hint_rect = hint_text.get_rect(center=(GAME_WIDTH // 2, self.editor_h // 2 + 10))
+            self.screen.blit(hint_text, hint_rect)
 
     def run(self):
         """Loop principal del editor"""
@@ -592,11 +610,22 @@ class Editor:
 
                     # Dialogo de confirmacion activo
                     if self.confirm_shrink:
-                        if event.key == pygame.K_y:
-                            if self.confirm_shrink == 'cols':
-                                self.remove_viewport_cols()
+                        shrink = self.confirm_shrink
+                        if shrink['type'] == 'both':
+                            # Elegir entre columna o fila
+                            if event.key == pygame.K_c:
+                                self.remove_viewport_col_at(shrink['col'])
+                                self.confirm_shrink = None
+                            elif event.key == pygame.K_f:
+                                self.remove_viewport_row_at(shrink['row'])
+                                self.confirm_shrink = None
                             else:
-                                self.remove_viewport_rows()
+                                self.confirm_shrink = None
+                        elif event.key == pygame.K_y:
+                            if shrink['type'] == 'cols':
+                                self.remove_viewport_col_at(shrink['col'])
+                            else:
+                                self.remove_viewport_row_at(shrink['row'])
                             self.confirm_shrink = None
                         else:
                             self.confirm_shrink = None
@@ -610,16 +639,7 @@ class Editor:
 
                     # Movimiento del cursor
                     elif event.key == pygame.K_UP:
-                        if ctrl:
-                            # Ctrl+Up: quitar fila de viewports
-                            if h > VIEWPORT_ROWS:
-                                # Verificar contenido en las filas a eliminar
-                                start_r = h - VIEWPORT_ROWS
-                                if self._has_content_in_region(start_r, h, 0, w):
-                                    self.confirm_shrink = 'rows'
-                                else:
-                                    self.remove_viewport_rows()
-                        else:
+                        if not ctrl:
                             self.cursor_row = max(0, self.cursor_row - 1)
                             if shift:
                                 self.set_tile(self.cursor_row, self.cursor_col,
@@ -634,15 +654,7 @@ class Editor:
                                 self.set_tile(self.cursor_row, self.cursor_col,
                                               TILE_TYPES[self.selected_tile][0])
                     elif event.key == pygame.K_LEFT:
-                        if ctrl:
-                            # Ctrl+Left: quitar columna de viewports
-                            if w > VIEWPORT_COLS:
-                                start_c = w - VIEWPORT_COLS
-                                if self._has_content_in_region(0, h, start_c, w):
-                                    self.confirm_shrink = 'cols'
-                                else:
-                                    self.remove_viewport_cols()
-                        else:
+                        if not ctrl:
                             self.cursor_col = max(0, self.cursor_col - 1)
                             if shift:
                                 self.set_tile(self.cursor_row, self.cursor_col,
@@ -720,6 +732,21 @@ class Editor:
                     # Nuevo nivel (Ctrl+N)
                     elif event.key == pygame.K_n and ctrl:
                         self.new_level()
+
+                    # Eliminar viewport bajo el cursor (Del sin ctrl)
+                    elif event.key == pygame.K_DELETE and not ctrl:
+                        vp_cols, vp_rows = self.get_viewport_grid()
+                        cur_vx = self.cursor_col // VIEWPORT_COLS
+                        cur_vy = self.cursor_row // VIEWPORT_ROWS
+                        can_del_col = vp_cols > 1
+                        can_del_row = vp_rows > 1
+                        if can_del_col and can_del_row:
+                            # Ambas opciones: preguntar cual
+                            self.confirm_shrink = {'type': 'both', 'col': cur_vx, 'row': cur_vy}
+                        elif can_del_col:
+                            self.confirm_shrink = {'type': 'cols', 'col': cur_vx}
+                        elif can_del_row:
+                            self.confirm_shrink = {'type': 'rows', 'row': cur_vy}
 
                     # Eliminar nivel (Ctrl+Delete)
                     elif event.key == pygame.K_DELETE and ctrl:
