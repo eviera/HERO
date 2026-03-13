@@ -41,6 +41,8 @@ MAX_ENERGY = 2550  # Suficiente para jugar un nivel
 DYNAMITE_FUSE_TIME = 1.5  # Tiempo antes de explotar (desde que se suelta)
 DYNAMITE_EXPLOSION_RADIUS = 80
 DYNAMITE_QUANTITY = 5
+INITIAL_LIVES = 3
+MAX_LIVES = 3
 DEAD_ZONE = 0.15
 
 # Rocas - destrucción con láser

@@ -146,7 +146,7 @@ class Game:
         self.state = STATE_SPLASH
         self.score = 0
         self.level_num = 0
-        self.lives = 5
+        self.lives = INITIAL_LIVES
         self.dynamite_count = DYNAMITE_QUANTITY
         self.energy = MAX_ENERGY
 
@@ -589,14 +589,18 @@ class Game:
                         self.level_map[row_index][col_index + 1:]
                     )
 
-        # Reset camera to player (en coordenadas de juego, ambos ejes, clampeado)
+        # Reset camera al viewport del jugador (snap instantáneo, usando centro del sprite)
+        player_cx = int(self.player.x + self.player.width / 2)
+        player_cy = int(self.player.y + self.player.height / 2)
+        viewport_col = player_cx // GAME_WIDTH
+        viewport_row = player_cy // GAME_VIEWPORT_HEIGHT
         player_tile_y = int(self.player.y / TILE_SIZE)
         current_band_w = band_width(self.level_map, player_tile_y)
         level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
         max_cam_x = max(0, current_band_w * TILE_SIZE - GAME_WIDTH)
         max_cam_y = max(0, level_h * TILE_SIZE - GAME_VIEWPORT_HEIGHT)
-        self.camera_x = max(0, min(self.player.x - GAME_WIDTH / 2, max_cam_x))
-        self.camera_y = max(0, min(self.player.y - GAME_VIEWPORT_HEIGHT / 2, max_cam_y))
+        self.camera_x = max(0, min(viewport_col * GAME_WIDTH, max_cam_x))
+        self.camera_y = max(0, min(viewport_row * GAME_VIEWPORT_HEIGHT, max_cam_y))
 
     def shoot_laser(self):
         """Player shoots laser"""
@@ -635,27 +639,28 @@ class Game:
             self.dynamite_count -= 1
 
     def update_camera(self):
-        """Update camera to follow player (en coordenadas de juego, ambos ejes)"""
-        # Usar ancho de la banda actual del jugador para clamp horizontal
-        player_tile_y = int(self.player.y / TILE_SIZE)
-        current_band_w = band_width(self.level_map, player_tile_y)
+        """Update camera - snap instantáneo a viewport (estilo juego original)"""
         level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
 
-        # Eje horizontal
-        target_x = self.player.x - GAME_WIDTH / 2
-        self.camera_x += (target_x - self.camera_x) * 0.1
+        # Determinar en qué viewport está el jugador (snap instantáneo, usando centro del sprite)
+        player_cx = int(self.player.x + self.player.width / 2)
+        player_cy = int(self.player.y + self.player.height / 2)
+        viewport_col = player_cx // GAME_WIDTH
+        viewport_row = player_cy // GAME_VIEWPORT_HEIGHT
+
+        # Eje horizontal - snap al viewport, clampeado al ancho de la banda
+        player_tile_y = int(self.player.y / TILE_SIZE)
+        current_band_w = band_width(self.level_map, player_tile_y)
         max_cam_x = current_band_w * TILE_SIZE - GAME_WIDTH
         if max_cam_x > 0:
-            self.camera_x = max(0, min(self.camera_x, max_cam_x))
+            self.camera_x = max(0, min(viewport_col * GAME_WIDTH, max_cam_x))
         else:
             self.camera_x = 0
 
-        # Eje vertical
-        target_y = self.player.y - GAME_VIEWPORT_HEIGHT / 2
-        self.camera_y += (target_y - self.camera_y) * 0.1
+        # Eje vertical - snap al viewport, clampeado a la altura del nivel
         max_cam_y = level_h * TILE_SIZE - GAME_VIEWPORT_HEIGHT
         if max_cam_y > 0:
-            self.camera_y = max(0, min(self.camera_y, max_cam_y))
+            self.camera_y = max(0, min(viewport_row * GAME_VIEWPORT_HEIGHT, max_cam_y))
         else:
             self.camera_y = 0
 
@@ -854,6 +859,9 @@ class Game:
 
     def next_level(self):
         """Advance to next level"""
+        # Vida extra al pasar de nivel (sin superar el máximo)
+        if self.lives < MAX_LIVES:
+            self.lives += 1
         self.level_num += 1
         if self.level_num >= len(LEVELS):
             # Won game!
@@ -984,7 +992,8 @@ class Game:
 
         # Check for extra life
         if self.score >= self.last_life_score + 20000:
-            self.lives += 1
+            if self.lives < MAX_LIVES:
+                self.lives += 1
             self.last_life_score = self.score
 
     def update_level_complete(self, dt):
@@ -1502,7 +1511,7 @@ class Game:
                         if event.key == pygame.K_SPACE:
                             self.level_num = 0
                             self.score = 0
-                            self.lives = 5
+                            self.lives = INITIAL_LIVES
                             self.dynamite_count = 6
                             self.last_life_score = 0
                             self.start_level()
@@ -1538,7 +1547,7 @@ class Game:
                         if event.button == 0:  # A
                             self.level_num = 0
                             self.score = 0
-                            self.lives = 5
+                            self.lives = INITIAL_LIVES
                             self.dynamite_count = 6
                             self.last_life_score = 0
                             self.start_level()
@@ -1649,7 +1658,7 @@ def main():
             return
         game.level_num = level_idx
         game.score = 0
-        game.lives = 5
+        game.lives = INITIAL_LIVES
         game.dynamite_count = 6
         game.last_life_score = 0
         game.start_level()
