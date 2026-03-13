@@ -326,6 +326,14 @@ class Game:
                              (TILE_SIZE // 2, TILE_SIZE // 2), TILE_SIZE // 3)
             pygame.draw.circle(self.tiles['lamp'], (255, 240, 100),
                              (TILE_SIZE // 2, TILE_SIZE // 2 - 2), TILE_SIZE // 5)
+        # Calcular bounding box de pixeles no transparentes para colision precisa
+        lamp_mask = pygame.mask.from_surface(self.tiles['lamp'])
+        bounding = lamp_mask.get_bounding_rects()
+        if bounding:
+            # Unir todos los rects del mask en uno solo
+            self.lamp_hit_rect = bounding[0].unionall(bounding[1:]) if len(bounding) > 1 else bounding[0]
+        else:
+            self.lamp_hit_rect = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
 
         # Load sprites
         try:
@@ -967,9 +975,10 @@ class Game:
         self.check_collisions()
 
         # Colision jugador-lampara (toggle oscuridad, deteccion por flanco)
+        # Usa bounding box de pixeles visibles del sprite, no el tile completo
         player_rect = self.player.get_rect()
         for lamp in self.lamps:
-            lamp_rect = pygame.Rect(lamp['x'], lamp['y'], TILE_SIZE, TILE_SIZE)
+            lamp_rect = self.lamp_hit_rect.move(lamp['x'], lamp['y'])
             currently_inside = player_rect.colliderect(lamp_rect)
             if currently_inside and not lamp.get('player_inside', False):
                 self.dark_mode = not self.dark_mode
