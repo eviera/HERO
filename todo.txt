@@ -26,6 +26,8 @@
 - tiles de fondo
 - bloques y nivel de magma (si lo toca me quemo)
 /- el hitbox de la luz tendria que ser mas chico
+- animacion de la helice en vuelo
+- inercia al subir ?
 
 
 AI prompts

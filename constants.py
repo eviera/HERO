@@ -23,21 +23,21 @@ HUD_HEIGHT = 80  # ColecoVision-style HUD height
 SCREEN_HEIGHT = VIEWPORT_HEIGHT + HUD_HEIGHT                # 464
 
 # Game constants - FÍSICAS CORRECTAS
-GRAVITY = 400  # Gravedad constante (reducida para caída más suave)
-PROPULSOR_POWER = 800  # Poder del propulsor (aumentado para facilitar el ascenso)
+GRAVITY = 275  # Gravedad constante
+PROPULSOR_POWER = 600  # Poder del propulsor
 PLAYER_SPEED_X = 150  # Velocidad horizontal
 WALK_STEP_DISTANCE = 16  # Pixeles entre pasos
 PLAYER_FOOT_INSET = 8    # Margen interior del hitbox de colision (hitbox = 16px centrado)
 MAX_FALL_SPEED = 400  # Velocidad máxima de caída
-DIVE_POWER = 600      # Poder de descenso activo (helice invertida)
-LASER_SPEED = 500
+DIVE_POWER = 400      # Poder de descenso activo (helice invertida)
+LASER_SPEED = 600
 LASER_COOLDOWN = 0.12         # Segundos entre disparos (~8 disparos/seg)
 LASER_WIDTH = 10  # Ancho del láser en pixels
 LASER_HEIGHT = 2  # Alto del láser en pixels
 ENERGY_DRAIN_IDLE = 15        # Energía por segundo estando quieto
 ENERGY_DRAIN_WALKING = 40     # Energía por segundo caminando
-ENERGY_DRAIN_FLYING = 200     # Energía por segundo volando
-MAX_ENERGY = 2550  # Suficiente para jugar un nivel
+ENERGY_DRAIN_FLYING = 150     # Energía por segundo volando
+MAX_ENERGY = 3000  # Suficiente para jugar un nivel
 DYNAMITE_FUSE_TIME = 1.5  # Tiempo antes de explotar (desde que se suelta)
 DYNAMITE_EXPLOSION_RADIUS = 80
 DYNAMITE_QUANTITY = 5
