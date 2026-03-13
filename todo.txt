@@ -25,7 +25,7 @@
 /- viewport jagged ? (que no tenga que ser un cuadrilatero el mapa)
 - tiles de fondo
 - bloques y nivel de magma (si lo toca me quemo)
-- el hitbox de la luz tendria que ser mas chico
+/- el hitbox de la luz tendria que ser mas chico
 
 
 AI prompts

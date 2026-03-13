@@ -357,6 +357,42 @@ class Game:
         except Exception as e:
             print(f"Error loading sprites: {e}")
 
+        # Precomputar masks de sprites para colisiones pixel-perfect
+        self.masks = {}
+        # Sprites que necesitan versión flipped (solo player, sprite base mira a la izquierda)
+        player_mask_keys = ['player', 'player_fly', 'player_shooting', 'player_walk1', 'player_walk2']
+        for key in player_mask_keys:
+            if key in self.sprites:
+                self.masks[key] = pygame.mask.from_surface(self.sprites[key])
+                self.masks[key + '_flip'] = pygame.mask.from_surface(
+                    pygame.transform.flip(self.sprites[key], True, False))
+        # Sprites sin flip
+        for key in ['bat1', 'bat2', 'spider', 'miner']:
+            if key in self.sprites:
+                self.masks[key] = pygame.mask.from_surface(self.sprites[key])
+        # Bug: precomputar masks para las 4 rotaciones (0, 90, -90, 180)
+        for bug_key in ['bug1', 'bug2']:
+            if bug_key in self.sprites:
+                for angle in [0, 90, -90, 180]:
+                    rotated = pygame.transform.rotate(self.sprites[bug_key], angle)
+                    self.masks[f'{bug_key}_rot{angle}'] = pygame.mask.from_surface(rotated)
+
+        # Mask del láser (rect sólido pequeño, precomputado)
+        laser_surf = pygame.Surface((LASER_WIDTH, LASER_HEIGHT), pygame.SRCALPHA)
+        laser_surf.fill((255, 255, 255))
+        self.laser_mask = pygame.mask.from_surface(laser_surf)
+
+        # Precomputar hit rect de agua tóxica (bounding box de píxeles visibles)
+        if self.toxic_water_frames:
+            tw_mask = pygame.mask.from_surface(self.toxic_water_frames[0])
+            tw_bounding = tw_mask.get_bounding_rects()
+            if tw_bounding:
+                self.toxic_water_hit_rect = tw_bounding[0].unionall(tw_bounding[1:]) if len(tw_bounding) > 1 else tw_bounding[0]
+            else:
+                self.toxic_water_hit_rect = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
+        else:
+            self.toxic_water_hit_rect = pygame.Rect(0, 0, TILE_SIZE, TILE_SIZE)
+
         # Crear mini-iconos para el HUD (ColecoVision style)
         if 'player_fly' in self.sprites:
             self.hud_player_icon = pygame.transform.scale(self.sprites['player_fly'], (16, 16))
@@ -672,51 +708,103 @@ class Game:
         else:
             self.camera_y = 0
 
+    def mask_collide(self, x1, y1, mask1, x2, y2, mask2):
+        """Colision pixel-perfect entre dos masks. Retorna punto de overlap o None."""
+        if mask1 is None or mask2 is None:
+            return None
+        offset = (int(x2 - x1), int(y2 - y1))
+        return mask1.overlap(mask2, offset)
+
     def check_collisions(self):
         """Check all collisions"""
         if not self.player:
             return
 
         player_rect = self.player.get_rect()
+        player_mask = self.player.get_mask(self.masks)
 
-        # Player vs enemies
+        # Player vs enemies (pixel-perfect con masks, fallback a rect para snake)
         for enemy in self.enemies:
-            if enemy.active and not enemy.exploding and player_rect.colliderect(enemy.get_rect()):
-                self.player_hit()
-                return
+            if not enemy.active or enemy.exploding:
+                continue
+            enemy_mask = enemy.get_mask(self.masks)
+            if enemy_mask and player_mask:
+                # Colisión pixel-perfect
+                if self.mask_collide(enemy.x, enemy.y, enemy_mask,
+                                     self.player.x, self.player.y, player_mask):
+                    self.player_hit()
+                    return
+            else:
+                # Snake y otros sin mask: verificar overlap del rect del enemigo
+                # contra la mask del player (respeta transparencia del player)
+                enemy_rect = enemy.get_rect()
+                if enemy_rect.width > 0 and enemy_rect.height > 0 and player_mask:
+                    # Offset del player relativo al rect del enemigo
+                    ox = int(self.player.x - enemy_rect.x)
+                    oy = int(self.player.y - enemy_rect.y)
+                    # Verificar si algún pixel visible del player cae dentro del rect
+                    if player_mask.overlap_area(
+                            pygame.mask.Mask((enemy_rect.width, enemy_rect.height), fill=True),
+                            (-ox, -oy)) > 0:
+                        self.player_hit()
+                        return
+                elif player_rect.colliderect(enemy_rect):
+                    self.player_hit()
+                    return
 
-        # Player vs miner
+        # Player vs miner (pixel-perfect)
         if self.miner and not self.miner.rescued:
-            if player_rect.colliderect(self.miner.get_rect()):
+            miner_mask = self.miner.get_mask(self.masks)
+            if miner_mask and player_mask:
+                if self.mask_collide(self.miner.x, self.miner.y, miner_mask,
+                                     self.player.x, self.player.y, player_mask):
+                    self.rescue_miner()
+                    return
+            elif player_rect.colliderect(self.miner.get_rect()):
                 self.rescue_miner()
                 return
 
-        # Lasers vs enemies
+        # Lasers vs enemies (pixel-perfect con mask del enemigo, fallback rect para snake)
         for laser in self.lasers[:]:
             if not laser.active:
                 continue
             laser_rect = laser.get_rect()
             for enemy in self.enemies:
-                if enemy.active and not enemy.exploding and laser_rect.colliderect(enemy.get_rect()):
-                    enemy.exploding = True
-                    laser.active = False
-                    pts = TILE_SCORES[ENEMY_TILE_CHARS[enemy.enemy_type]]
-                    self.score += pts
-                    self.add_floating_score(enemy.x + 16, enemy.y, pts)
+                if not enemy.active or enemy.exploding:
+                    continue
+                enemy_mask = enemy.get_mask(self.masks)
+                hit = False
+                if enemy_mask:
+                    # Colisión pixel-perfect
+                    if self.mask_collide(enemy.x, enemy.y, enemy_mask,
+                                         laser.x, laser.y, self.laser_mask):
+                        hit = True
+                else:
+                    # Fallback a rect (snake y otros sin mask)
+                    if laser_rect.colliderect(enemy.get_rect()):
+                        hit = True
+                if not hit:
+                    continue
 
-                    # Víbora: al morir, el tile de pared original queda vacío
-                    if enemy.enemy_type in ("snake_left", "snake_right"):
-                        r, c = enemy.wall_row, enemy.wall_col
-                        if 0 <= r < len(self.level_map) and 0 <= c < len(self.level_map[r]):
-                            self.level_map[r] = (
-                                self.level_map[r][:c] + ' ' + self.level_map[r][c + 1:]
-                            )
+                enemy.exploding = True
+                laser.active = False
+                pts = TILE_SCORES[ENEMY_TILE_CHARS[enemy.enemy_type]]
+                self.score += pts
+                self.add_floating_score(enemy.x + 16, enemy.y, pts)
 
-                    # Play splatter sound
-                    if 'splatter' in self.sounds:
-                        self.sounds['splatter'].play()
+                # Víbora: al morir, el tile de pared original queda vacío
+                if enemy.enemy_type in ("snake_left", "snake_right"):
+                    r, c = enemy.wall_row, enemy.wall_col
+                    if 0 <= r < len(self.level_map) and 0 <= c < len(self.level_map[r]):
+                        self.level_map[r] = (
+                            self.level_map[r][:c] + ' ' + self.level_map[r][c + 1:]
+                        )
 
-                    break
+                # Play splatter sound
+                if 'splatter' in self.sounds:
+                    self.sounds['splatter'].play()
+
+                break
 
         # Dynamite explosions
         for dynamite in self.dynamites[:]:
@@ -955,21 +1043,26 @@ class Game:
         # Actualizar animación de agua tóxica (avanza en frames)
         self.toxic_water_scroll += TOXIC_WATER_SCROLL_SPEED * dt
 
-        # Colisión jugador vs agua tóxica
+        # Colisión jugador vs agua tóxica (usa bounding box de píxeles visibles)
         player_rect = self.player.get_rect()
-        # Verificar tiles de agua en las esquinas del jugador (reducido para contacto real)
-        for corner_x, corner_y in [
-            (player_rect.left + 4, player_rect.bottom - 4),
-            (player_rect.right - 4, player_rect.bottom - 4),
-            (player_rect.centerx, player_rect.centery),
-        ]:
-            tile_col = int(corner_x / TILE_SIZE)
-            tile_row = int(corner_y / TILE_SIZE)
-            if (0 <= tile_row < len(self.level_map) and
-                    0 <= tile_col < len(self.level_map[tile_row]) and
-                    self.level_map[tile_row][tile_col] == '~'):
-                self.player_hit()
-                return
+        player_mask = self.player.get_mask(self.masks)
+        # Verificar tiles de agua cercanos al jugador
+        p_tile_left = max(0, int(self.player.x / TILE_SIZE))
+        p_tile_right = int((self.player.x + self.player.width) / TILE_SIZE)
+        p_tile_top = max(0, int(self.player.y / TILE_SIZE))
+        p_tile_bottom = min(int((self.player.y + self.player.height) / TILE_SIZE),
+                            len(self.level_map) - 1 if self.level_map else 0)
+        for tile_row in range(p_tile_top, p_tile_bottom + 1):
+            for tile_col in range(p_tile_left, p_tile_right + 1):
+                if (0 <= tile_row < len(self.level_map) and
+                        0 <= tile_col < len(self.level_map[tile_row]) and
+                        self.level_map[tile_row][tile_col] == '~'):
+                    # Usar hit rect del agua (bounding box de píxeles visibles del tile)
+                    water_rect = self.toxic_water_hit_rect.move(
+                        tile_col * TILE_SIZE, tile_row * TILE_SIZE)
+                    if player_rect.colliderect(water_rect):
+                        self.player_hit()
+                        return
 
         # Check collisions
         self.check_collisions()

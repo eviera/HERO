@@ -224,6 +224,28 @@ class Enemy:
                     self.anim_frame = 1 - self.anim_frame
                     self.image = self.images[self.anim_frame]
 
+    def get_mask(self, masks):
+        """Retorna la mask del sprite actual"""
+        if self.enemy_type == "bat":
+            key = 'bat' + str(self.anim_frame + 1)
+            # El sprite del bat no se flipea en draw(), usar mask directa
+            return masks.get(key)
+        elif self.enemy_type == "spider":
+            return masks.get('spider')
+        elif self.enemy_type == "bug":
+            key = 'bug' + str(self.anim_frame + 1)
+            # Determinar ángulo de rotación según dirección (misma lógica que draw)
+            angle = 0
+            if self.bug_dx == 1:
+                angle = -90
+            elif self.bug_dx == -1:
+                angle = 90
+            elif self.bug_dy == 1:
+                angle = 180
+            return masks.get(f'{key}_rot{angle}')
+        # snake y otros: no usan mask (colisión por rect)
+        return None
+
     def get_rect(self):
         if self.enemy_type in ("snake_left", "snake_right") and hasattr(self, 'snake_extend'):
             # Hitbox = solo la parte visible fuera de la pared (cuello + cabeza)

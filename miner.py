@@ -16,6 +16,10 @@ class Miner:
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
+    def get_mask(self, masks):
+        """Retorna la mask del sprite del minero"""
+        return masks.get('miner')
+
     def draw(self, screen, camera_x, camera_y):
         screen_x = self.x - camera_x
         screen_y = self.y - camera_y

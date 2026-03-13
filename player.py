@@ -173,6 +173,21 @@ class Player:
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
+    def get_mask(self, masks):
+        """Retorna la mask del sprite actual según prioridad de dibujo"""
+        if self.shooting_timer > 0 and self.image_shooting:
+            key = 'player_shooting'
+        elif not self.is_grounded and self.image_fly:
+            key = 'player_fly'
+        elif self.is_walking and self.walk_frames:
+            key = 'player_walk' + str(self.walk_frame_index + 1)
+        else:
+            key = 'player'
+        # Versión flipped si mira a la derecha (sprite base mira a la izquierda)
+        if self.facing_right:
+            return masks.get(key + '_flip')
+        return masks.get(key)
+
     def draw(self, screen, camera_x, camera_y):
         screen_x = self.x - camera_x
         screen_y = self.y - camera_y
