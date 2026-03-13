@@ -17,9 +17,10 @@ class Laser:
     def update(self, dt, level_map):
         self.x += self.direction * LASER_SPEED * dt
 
-        # Check bounds (dimensiones dinamicas del mapa)
-        level_w = len(level_map[0]) if level_map and level_map[0] else DEFAULT_LEVEL_WIDTH
-        if self.x < 0 or self.x > level_w * TILE_SIZE:
+        # Check bounds (ancho por fila del mapa jagged)
+        laser_tile_row = int(self.y / TILE_SIZE)
+        current_row_w = row_width(level_map, laser_tile_row)
+        if current_row_w == 0 or self.x < 0 or self.x > current_row_w * TILE_SIZE:
             self.active = False
             return
 
@@ -35,7 +36,7 @@ class Laser:
             tile_x = int(corner_x / TILE_SIZE)
             tile_y = int(corner_y / TILE_SIZE)
 
-            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
+            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[tile_y]):
                 tile = level_map[tile_y][tile_x]
                 # Colisiona con paredes, pisos y bloques destructibles
                 if tile in ('#', '.', 'G', 'R'):

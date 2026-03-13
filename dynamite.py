@@ -20,7 +20,6 @@ class Dynamite:
     def check_collision(self, x, y, level_map):
         """Check collision with tiles"""
         level_h = len(level_map) if level_map else 0
-        level_w = len(level_map[0]) if level_map and level_map[0] else 0
         # Check bottom corners
         corners = [
             (x + 2, y + self.height - 1),
@@ -33,7 +32,7 @@ class Dynamite:
 
             if tile_y < 0 or tile_y >= level_h:
                 return True
-            if tile_x < 0 or tile_x >= level_w:
+            if tile_x < 0 or tile_x >= len(level_map[tile_y]):
                 return True
 
             tile = level_map[tile_y][tile_x]

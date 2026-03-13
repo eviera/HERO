@@ -30,32 +30,37 @@ def save_screens(screens):
         return False
 
 def normalize_map(level_map):
-    """Normalizar mapa a múltiplos del viewport (VIEWPORT_COLS x VIEWPORT_ROWS)"""
+    """Normalizar mapa por banda de viewport (cada banda tiene su propio ancho)"""
     if not level_map:
         return ['#' * VIEWPORT_COLS] * VIEWPORT_ROWS
 
     map_height = len(level_map)
-    map_width = max(len(row) for row in level_map) if level_map else VIEWPORT_COLS
 
-    # Redondear al múltiplo de viewport más cercano
-    target_w = max(VIEWPORT_COLS, ((map_width + VIEWPORT_COLS - 1) // VIEWPORT_COLS) * VIEWPORT_COLS)
+    # Normalizar altura total a múltiplo de VIEWPORT_ROWS
     target_h = max(VIEWPORT_ROWS, ((map_height + VIEWPORT_ROWS - 1) // VIEWPORT_ROWS) * VIEWPORT_ROWS)
+    while len(level_map) < target_h:
+        level_map.append('#' * VIEWPORT_COLS)
 
+    # Normalizar por banda: cada grupo de VIEWPORT_ROWS filas tiene su propio ancho
     result = []
-    for row in level_map:
-        if len(row) < target_w:
-            row = row + '#' * (target_w - len(row))
-        elif len(row) > target_w:
-            row = row[:target_w]
-        result.append(row)
-    while len(result) < target_h:
-        result.append('#' * target_w)
+    for band_start in range(0, target_h, VIEWPORT_ROWS):
+        band_end = min(band_start + VIEWPORT_ROWS, len(level_map))
+        band_rows = level_map[band_start:band_end]
+        band_w = max(len(r) for r in band_rows) if band_rows else VIEWPORT_COLS
+        target_band_w = max(VIEWPORT_COLS, ((band_w + VIEWPORT_COLS - 1) // VIEWPORT_COLS) * VIEWPORT_COLS)
+        for row in band_rows:
+            if len(row) < target_band_w:
+                row = row + '#' * (target_band_w - len(row))
+            result.append(row[:target_band_w])
+        # Completar filas faltantes de la banda
+        while len(result) < band_start + VIEWPORT_ROWS:
+            result.append('#' * target_band_w)
     return result[:target_h]
 
 def get_map_dims(level_map):
-    """Obtener dimensiones del mapa en tiles"""
+    """Obtener dimensiones del mapa en tiles (ancho = máximo entre filas)"""
     h = len(level_map) if level_map else VIEWPORT_ROWS
-    w = len(level_map[0]) if level_map else VIEWPORT_COLS
+    w = max(len(row) for row in level_map) if level_map else VIEWPORT_COLS
     return w, h
 
 class Editor:
@@ -186,9 +191,24 @@ class Editor:
         return get_map_dims(self.get_current_map())
 
     def get_viewport_grid(self):
-        """Cantidad de viewports en cada eje"""
-        w, h = self.get_level_dims()
-        return w // VIEWPORT_COLS, h // VIEWPORT_ROWS
+        """Lista de viewport-cols por cada banda de viewport-rows"""
+        level_map = self.get_current_map()
+        h = len(level_map) if level_map else VIEWPORT_ROWS
+        num_bands = h // VIEWPORT_ROWS
+        band_vp_cols = []
+        for band in range(num_bands):
+            band_start = band * VIEWPORT_ROWS
+            w = len(level_map[band_start]) if band_start < len(level_map) else VIEWPORT_COLS
+            band_vp_cols.append(w // VIEWPORT_COLS)
+        return band_vp_cols
+
+
+    def _clamp_cursor_col(self):
+        """Clampear cursor_col al ancho de la banda actual"""
+        level_map = self.get_current_map()
+        band_start = (self.cursor_row // VIEWPORT_ROWS) * VIEWPORT_ROWS
+        band_w = len(level_map[band_start]) if band_start < len(level_map) else VIEWPORT_COLS
+        self.cursor_col = max(0, min(band_w - 1, self.cursor_col))
 
     def set_tile(self, row, col, char):
         """Colocar un tile en la posicion dada"""
@@ -198,33 +218,40 @@ class Editor:
             level_map[row] = row_str[:col] + char + row_str[col + 1:]
 
     def add_viewport_cols(self):
-        """Agregar un viewport (VIEWPORT_COLS columnas) a la derecha"""
+        """Agregar un viewport (VIEWPORT_COLS columnas) a la derecha de la banda actual"""
         level_map = self.get_current_map()
+        band_start = (self.cursor_row // VIEWPORT_ROWS) * VIEWPORT_ROWS
+        band_end = min(band_start + VIEWPORT_ROWS, len(level_map))
         extra = ' ' * VIEWPORT_COLS
-        for i in range(len(level_map)):
+        for i in range(band_start, band_end):
             level_map[i] = level_map[i] + extra
 
     def remove_viewport_col_at(self, vx):
-        """Quitar la columna de viewports en el indice vx"""
+        """Quitar la columna de viewports en el indice vx (solo banda actual)"""
         level_map = self.get_current_map()
-        w, _ = self.get_level_dims()
-        if w <= VIEWPORT_COLS:
+        band_start = (self.cursor_row // VIEWPORT_ROWS) * VIEWPORT_ROWS
+        band_end = min(band_start + VIEWPORT_ROWS, len(level_map))
+        band_w = len(level_map[band_start]) if band_start < len(level_map) else VIEWPORT_COLS
+        if band_w <= VIEWPORT_COLS:
             return False
 
         start_c = vx * VIEWPORT_COLS
         end_c = start_c + VIEWPORT_COLS
-        for i in range(len(level_map)):
+        if end_c > band_w:
+            return False
+
+        for i in range(band_start, band_end):
             level_map[i] = level_map[i][:start_c] + level_map[i][end_c:]
 
-        new_w = w - VIEWPORT_COLS
+        new_band_w = band_w - VIEWPORT_COLS
         # Ajustar cursor y cámara si quedan fuera
-        if self.cursor_col >= new_w:
-            self.cursor_col = new_w - 1
+        if self.cursor_col >= new_band_w:
+            self.cursor_col = new_band_w - 1
         elif self.cursor_col >= start_c and self.cursor_col < end_c:
             self.cursor_col = max(0, start_c - 1)
         elif self.cursor_col >= end_c:
             self.cursor_col -= VIEWPORT_COLS
-        max_cam_x = (new_w - VIEWPORT_COLS) * TILE_SIZE
+        max_cam_x = max(0, (new_band_w - VIEWPORT_COLS) * TILE_SIZE)
         if self.camera_x > max_cam_x:
             self.camera_x = max_cam_x
             self.target_camera_x = max_cam_x
@@ -233,7 +260,9 @@ class Editor:
     def add_viewport_rows(self):
         """Agregar un viewport (VIEWPORT_ROWS filas) abajo"""
         level_map = self.get_current_map()
-        w, _ = self.get_level_dims()
+        # Usar ancho de la última banda existente como default
+        last_band_start = max(0, len(level_map) - VIEWPORT_ROWS)
+        w = len(level_map[last_band_start]) if level_map else VIEWPORT_COLS
         for _ in range(VIEWPORT_ROWS):
             level_map.append(' ' * w)
 
@@ -272,12 +301,17 @@ class Editor:
         return False
 
     def update_camera(self):
-        """Cámara fija por bloques de viewport en ambos ejes"""
-        w, h = self.get_level_dims()
+        """Cámara fija por bloques de viewport en ambos ejes (ancho por banda)"""
+        level_map = self.get_current_map()
+        _, h = self.get_level_dims()
+
+        # Ancho de la banda actual del cursor
+        band_start = (self.cursor_row // VIEWPORT_ROWS) * VIEWPORT_ROWS
+        band_w = len(level_map[band_start]) if band_start < len(level_map) else VIEWPORT_COLS
 
         # Bloque horizontal
         block_x = VIEWPORT_COLS * TILE_SIZE
-        max_cam_x = max(0, (w - VIEWPORT_COLS) * TILE_SIZE)
+        max_cam_x = max(0, (band_w - VIEWPORT_COLS) * TILE_SIZE)
         cursor_block_x = self.cursor_col // VIEWPORT_COLS
         target_x = min(max_cam_x, cursor_block_x * block_x)
 
@@ -312,7 +346,18 @@ class Editor:
             row = level_map[row_index]
             for col_index in range(start_col, end_col):
                 if col_index >= len(row):
-                    break
+                    # Espacio fuera de la banda: mostrar como pared
+                    x = col_index * TILE_SIZE - cam_x
+                    y = row_index * TILE_SIZE - cam_y
+                    self.screen.blit(self.tiles['wall'], (int(x), int(y)))
+                    # Marcar con X que es fuera de banda
+                    pygame.draw.line(self.screen, (80, 30, 30),
+                                     (int(x), int(y)), (int(x + TILE_SIZE), int(y + TILE_SIZE)), 1)
+                    pygame.draw.line(self.screen, (80, 30, 30),
+                                     (int(x + TILE_SIZE), int(y)), (int(x), int(y + TILE_SIZE)), 1)
+                    pygame.draw.rect(self.screen, (40, 40, 40),
+                                     (int(x), int(y), TILE_SIZE, TILE_SIZE), 1)
+                    continue
                 tile = row[col_index]
                 x = col_index * TILE_SIZE - cam_x
                 y = row_index * TILE_SIZE - cam_y
@@ -364,12 +409,21 @@ class Editor:
                                  (int(x), int(y), TILE_SIZE, TILE_SIZE), 1)
 
         # Separadores de viewport (lineas mas visibles entre bloques)
-        for vx in range(1, w // VIEWPORT_COLS):
-            px = vx * VIEWPORT_COLS * TILE_SIZE - cam_x
-            if 0 <= px <= GAME_WIDTH:
-                pygame.draw.line(self.screen, (80, 80, 120),
-                                 (int(px), 0), (int(px), vh), 2)
-        for vy in range(1, h // VIEWPORT_ROWS):
+        # Verticales: por banda, cada una con su propio ancho
+        band_cols = self.get_viewport_grid()
+        for band_idx, num_vp_cols in enumerate(band_cols):
+            band_top = band_idx * VIEWPORT_ROWS * TILE_SIZE - cam_y
+            band_bottom = (band_idx + 1) * VIEWPORT_ROWS * TILE_SIZE - cam_y
+            for vx in range(1, num_vp_cols):
+                px = vx * VIEWPORT_COLS * TILE_SIZE - cam_x
+                if 0 <= px <= GAME_WIDTH:
+                    top_y = max(0, int(band_top))
+                    bot_y = min(vh, int(band_bottom))
+                    if top_y < bot_y:
+                        pygame.draw.line(self.screen, (80, 80, 120),
+                                         (int(px), top_y), (int(px), bot_y), 2)
+        # Horizontales
+        for vy in range(1, len(band_cols)):
             py = vy * VIEWPORT_ROWS * TILE_SIZE - cam_y
             if 0 <= py <= vh:
                 pygame.draw.line(self.screen, (80, 80, 120),
@@ -382,19 +436,22 @@ class Editor:
                          (int(cx), int(cy), TILE_SIZE, TILE_SIZE), 3)
 
     def render_minimap(self, mx, my, max_w, max_h):
-        """Renderizar minimapa en la posicion dada"""
-        vp_cols, vp_rows = self.get_viewport_grid()
-        if vp_cols == 0 or vp_rows == 0:
+        """Renderizar minimapa jagged en la posicion dada"""
+        band_cols = self.get_viewport_grid()  # lista de vp_cols por banda
+        num_bands = len(band_cols)
+        if num_bands == 0:
             return
 
+        max_vp_cols = max(band_cols) if band_cols else 1
+
         # Escala para que quepa en el espacio disponible
-        cell_w = min(max_w // vp_cols, 16)
-        cell_h = min(max_h // vp_rows, 12)
+        cell_w = min(max_w // max_vp_cols, 16)
+        cell_h = min(max_h // num_bands, 12)
         cell_w = max(cell_w, 6)
         cell_h = max(cell_h, 6)
 
-        total_w = vp_cols * cell_w
-        total_h = vp_rows * cell_h
+        total_w = max_vp_cols * cell_w
+        total_h = num_bands * cell_h
 
         # Viewport actual (basado en la cámara)
         cur_vx = int(self.camera_x) // (VIEWPORT_COLS * TILE_SIZE)
@@ -404,8 +461,8 @@ class Editor:
         pygame.draw.rect(self.screen, (15, 15, 30),
                          (mx - 1, my - 1, total_w + 2, total_h + 2))
 
-        for vy in range(vp_rows):
-            for vx in range(vp_cols):
+        for vy in range(num_bands):
+            for vx in range(band_cols[vy]):
                 rx = mx + vx * cell_w
                 ry = my + vy * cell_h
 
@@ -422,8 +479,9 @@ class Editor:
                 pygame.draw.rect(self.screen, border,
                                  (rx, ry, cell_w - 1, cell_h - 1), 1)
 
-        # Etiqueta de dimensiones debajo
-        dim_text = self.small_font.render(f"{vp_cols}x{vp_rows}", True, COLOR_GRAY)
+        # Etiqueta de dimensiones debajo (forma jagged)
+        cols_str = ",".join(str(c) for c in band_cols)
+        dim_text = self.small_font.render(f"{cols_str}x{num_bands}", True, COLOR_GRAY)
         self.screen.blit(dim_text, (mx, my + total_h + 2))
 
     def render_hud(self):
@@ -434,19 +492,22 @@ class Editor:
         self.screen.blit(hud_bg, (0, hud_y))
 
         w, h = self.get_level_dims()
-        vp_cols, vp_rows = self.get_viewport_grid()
+        band_cols = self.get_viewport_grid()
+        num_bands = len(band_cols)
 
         # --- Zona de texto (arriba) ---
-        # Linea 1: Nivel + dimensiones
+        # Linea 1: Nivel + dimensiones (forma jagged)
+        cols_str = ",".join(str(c) for c in band_cols)
         level_text = self.font.render(
-            f"Nivel {self.current_level + 1}/{len(self.screens)}  {w}x{h}t ({vp_cols}x{vp_rows}vp)",
+            f"Nivel {self.current_level + 1}/{len(self.screens)}  ({cols_str}x{num_bands}vp)",
             True, COLOR_WHITE
         )
         self.screen.blit(level_text, (8, hud_y + 4))
 
         # Linea 2: Posicion del cursor + tile actual
         current_map = self.get_current_map()
-        cursor_char = current_map[self.cursor_row][self.cursor_col]
+        row_data = current_map[self.cursor_row] if self.cursor_row < len(current_map) else ''
+        cursor_char = row_data[self.cursor_col] if self.cursor_col < len(row_data) else '#'
         cursor_name = next((n for c, n, *_ in TILE_TYPES if c == cursor_char), '?')
 
         # Viewport actual del cursor
@@ -618,6 +679,7 @@ class Editor:
                                 self.confirm_shrink = None
                             elif event.key == pygame.K_f:
                                 self.remove_viewport_row_at(shrink['row'])
+                                self._clamp_cursor_col()
                                 self.confirm_shrink = None
                             else:
                                 self.confirm_shrink = None
@@ -626,6 +688,7 @@ class Editor:
                                 self.remove_viewport_col_at(shrink['col'])
                             else:
                                 self.remove_viewport_row_at(shrink['row'])
+                            self._clamp_cursor_col()
                             self.confirm_shrink = None
                         else:
                             self.confirm_shrink = None
@@ -637,10 +700,12 @@ class Editor:
                     if event.key == pygame.K_ESCAPE:
                         running = False
 
-                    # Movimiento del cursor
+                    # Movimiento del cursor (con clamp por banda)
                     elif event.key == pygame.K_UP:
                         if not ctrl:
                             self.cursor_row = max(0, self.cursor_row - 1)
+                            # Clamp col al ancho de la nueva banda
+                            self._clamp_cursor_col()
                             if shift:
                                 self.set_tile(self.cursor_row, self.cursor_col,
                                               TILE_TYPES[self.selected_tile][0])
@@ -650,6 +715,8 @@ class Editor:
                             self.add_viewport_rows()
                         else:
                             self.cursor_row = min(h - 1, self.cursor_row + 1)
+                            # Clamp col al ancho de la nueva banda
+                            self._clamp_cursor_col()
                             if shift:
                                 self.set_tile(self.cursor_row, self.cursor_col,
                                               TILE_TYPES[self.selected_tile][0])
@@ -664,7 +731,11 @@ class Editor:
                             # Ctrl+Right: agregar columna de viewports
                             self.add_viewport_cols()
                         else:
-                            self.cursor_col = min(w - 1, self.cursor_col + 1)
+                            # Clamp al ancho de la banda actual
+                            level_map = self.get_current_map()
+                            band_start = (self.cursor_row // VIEWPORT_ROWS) * VIEWPORT_ROWS
+                            band_w = len(level_map[band_start]) if band_start < len(level_map) else VIEWPORT_COLS
+                            self.cursor_col = min(band_w - 1, self.cursor_col + 1)
                             if shift:
                                 self.set_tile(self.cursor_row, self.cursor_col,
                                               TILE_TYPES[self.selected_tile][0])
@@ -735,11 +806,13 @@ class Editor:
 
                     # Eliminar viewport bajo el cursor (Del sin ctrl)
                     elif event.key == pygame.K_DELETE and not ctrl:
-                        vp_cols, vp_rows = self.get_viewport_grid()
+                        band_cols = self.get_viewport_grid()
+                        cur_band = self.cursor_row // VIEWPORT_ROWS
                         cur_vx = self.cursor_col // VIEWPORT_COLS
-                        cur_vy = self.cursor_row // VIEWPORT_ROWS
-                        can_del_col = vp_cols > 1
-                        can_del_row = vp_rows > 1
+                        cur_vy = cur_band
+                        band_vp_cols = band_cols[cur_band] if cur_band < len(band_cols) else 1
+                        can_del_col = band_vp_cols > 1
+                        can_del_row = len(band_cols) > 1
                         if can_del_col and can_del_row:
                             # Ambas opciones: preguntar cual
                             self.confirm_shrink = {'type': 'both', 'col': cur_vx, 'row': cur_vy}
@@ -791,6 +864,7 @@ class Editor:
                             self.cursor_row = (current_block - 1) * VIEWPORT_ROWS
                         else:
                             self.cursor_row = 0
+                        self._clamp_cursor_col()
 
                     elif event.key == pygame.K_a:
                         current_block = self.cursor_row // VIEWPORT_ROWS
@@ -799,6 +873,7 @@ class Editor:
                             self.cursor_row = (current_block + 1) * VIEWPORT_ROWS
                         else:
                             self.cursor_row = h - 1
+                        self._clamp_cursor_col()
 
                     elif event.key == pygame.K_z:
                         current_block = self.cursor_col // VIEWPORT_COLS
@@ -808,12 +883,15 @@ class Editor:
                             self.cursor_col = 0
 
                     elif event.key == pygame.K_x:
+                        level_map = self.get_current_map()
+                        band_start = (self.cursor_row // VIEWPORT_ROWS) * VIEWPORT_ROWS
+                        band_w = len(level_map[band_start]) if band_start < len(level_map) else VIEWPORT_COLS
                         current_block = self.cursor_col // VIEWPORT_COLS
-                        max_block = (w // VIEWPORT_COLS) - 1
+                        max_block = (band_w // VIEWPORT_COLS) - 1
                         if current_block < max_block:
                             self.cursor_col = (current_block + 1) * VIEWPORT_COLS
                         else:
-                            self.cursor_col = w - 1
+                            self.cursor_col = band_w - 1
 
             # Cámara por bloques de viewport con animación
             self.update_camera()

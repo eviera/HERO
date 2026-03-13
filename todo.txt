@@ -22,10 +22,10 @@
 /- sonido de break walls (los dos)
 /- editor: mejorar la forma de buscar tiles, porque con los numeros del 1-9 no alcanza
 /- agua toxica
-- viewport jagged ? (que no tenga que ser un cuadrilatero el mapa)
+/- viewport jagged ? (que no tenga que ser un cuadrilatero el mapa)
 - tiles de fondo
 - bloques y nivel de magma (si lo toca me quemo)
-
+- el hitbox de la luz tendria que ser mas chico
 
 
 AI prompts
@@ -82,3 +82,16 @@ Si el hero toca esta agua, muere.
 Agregar el tile nuevo en el editor.
 
 
+----
+Quiero que elabores un plan para poder hacer que el mapa total del juego no tenga que ser un cuadrilatero.
+Mi idea es que por ejemplo en el mapa, en el primer tercio pueda haber 2 viewport horizonales, en el segundo solo 1, y en el tercer tercio, 4 quedando algo asi:
+XX
+X
+XXXX
+Es decir, que el usuario que crea niveles, pueda decidir mediante el editor, cuantas columnas quiere en cada fila, y no que obligatoriamente todas las filas
+tengan la misma cantidad de columnas
+Esto permitira generar niveles mas 'laberinticos'
+El hero no puede pasar a un viewport que no exista. Es responsabilidad de quien arma el nivel de asegurar que este correctamente limitado por tiles de tierra o piedra, pero el hero no deberia morirse,
+simplemente, no poder avanzar a un viewport que no existe
+Ahora en el editor, si apreto por ejemplo ctrl+right, solo agregaria un viewport a la derecha del actual, y no toda la columna.
+Piensa todos los cambios que habria que hacer tanto en el juego como en el editor, y hazlos

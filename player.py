@@ -40,7 +40,6 @@ class Player:
 
     def update(self, dt, keys, joy_axis_x, joy_axis_y, level_map, game):
         """Update player with CORRECT HERO physics"""
-        level_w = len(level_map[0]) if level_map else DEFAULT_LEVEL_WIDTH
         level_h = len(level_map) if level_map else DEFAULT_LEVEL_HEIGHT
 
         # Actualizar timer de disparo
@@ -117,8 +116,9 @@ class Player:
         else:
             self.vel_y = 0
 
-        # Keep in level bounds (dimensiones dinamicas del mapa)
-        self.x = max(0, min(self.x, level_w * TILE_SIZE - self.width))
+        # Keep in level bounds (ancho por banda, alto total)
+        current_band_w = band_width(level_map, int(self.y / TILE_SIZE))
+        self.x = max(0, min(self.x, current_band_w * TILE_SIZE - self.width))
         self.y = max(0, min(self.y, level_h * TILE_SIZE - self.height))
 
         # Energia: se consume siempre, ritmo segun estado
@@ -148,7 +148,6 @@ class Player:
     def check_collision(self, x, y, level_map):
         """Check collision with tiles (hitbox estrecho centrado en el cuerpo)"""
         level_h = len(level_map) if level_map else 0
-        level_w = len(level_map[0]) if level_map and level_map[0] else 0
         corners = [
             (x + PLAYER_FOOT_INSET, y + 2),
             (x + self.width - PLAYER_FOOT_INSET - 1, y + 2),
@@ -162,7 +161,7 @@ class Player:
 
             if tile_y < 0 or tile_y >= level_h:
                 return True
-            if tile_x < 0 or tile_x >= level_w:
+            if tile_x < 0 or tile_x >= len(level_map[tile_y]):
                 return True
 
             tile = level_map[tile_y][tile_x]

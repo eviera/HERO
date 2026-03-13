@@ -133,3 +133,26 @@ SID_INTENSITY = 'light'  # 'light', 'medium', o 'heavy'
 SID_BITDEPTH = 8         # bits (1-8)
 SID_LOWPASS_CUTOFF = 3500  # Hz
 SID_DISTORTION = 0.2     # 0.0 - 1.0
+
+# Helpers para mapas jagged (bandas de viewport con ancho independiente)
+
+def band_width(level_map, tile_row):
+    """Ancho en tiles de la banda de viewport que contiene tile_row"""
+    if not level_map:
+        return DEFAULT_LEVEL_WIDTH
+    if tile_row < 0:
+        return len(level_map[0])
+    band_start = (tile_row // VIEWPORT_ROWS) * VIEWPORT_ROWS
+    if band_start < len(level_map):
+        return len(level_map[band_start])
+    return VIEWPORT_COLS
+
+def row_width(level_map, tile_row):
+    """Ancho en tiles de una fila específica"""
+    if not level_map or tile_row < 0 or tile_row >= len(level_map):
+        return 0
+    return len(level_map[tile_row])
+
+def max_level_width(level_map):
+    """Ancho máximo entre todas las filas del mapa"""
+    return max(len(row) for row in level_map) if level_map else 0

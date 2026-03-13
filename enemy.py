@@ -58,7 +58,6 @@ class Enemy:
     def check_collision(self, x, y, level_map):
         """Check collision with tiles using all 4 corners (margen de 1px)"""
         level_h = len(level_map) if level_map else 0
-        level_w = len(level_map[0]) if level_map and level_map[0] else 0
         corners = [
             (x + 1, y + 1),
             (x + self.width - 2, y + 1),
@@ -72,7 +71,7 @@ class Enemy:
 
             if tile_y < 0 or tile_y >= level_h:
                 return True
-            if tile_x < 0 or tile_x >= level_w:
+            if tile_x < 0 or tile_x >= len(level_map[tile_y]):
                 return True
 
             tile = level_map[tile_y][tile_x]
@@ -87,7 +86,7 @@ class Enemy:
         start_tile_y = int(self.start_y / TILE_SIZE)
 
         for tile_y in range(start_tile_y - 1, -1, -1):
-            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[0]):
+            if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[tile_y]):
                 tile = level_map[tile_y][tile_x]
                 if tile in ('#', 'G', '.', 'R'):
                     # El fondo del tile sólido

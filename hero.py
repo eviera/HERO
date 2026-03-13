@@ -78,23 +78,31 @@ def load_levels_from_file():
                 levels = []
                 for s in screens:
                     level_map = s["map"]
-                    # Determinar dimensiones del mapa
+                    # Determinar altura del mapa
                     map_height = len(level_map)
-                    map_width = max(len(row) for row in level_map) if level_map else VIEWPORT_COLS
 
                     # Redondear hacia arriba al múltiplo del viewport más cercano
-                    target_w = max(VIEWPORT_COLS, ((map_width + VIEWPORT_COLS - 1) // VIEWPORT_COLS) * VIEWPORT_COLS)
                     target_h = max(VIEWPORT_ROWS, ((map_height + VIEWPORT_ROWS - 1) // VIEWPORT_ROWS) * VIEWPORT_ROWS)
 
-                    # Normalizar filas al ancho objetivo
+                    # Normalizar altura total a múltiplo de VIEWPORT_ROWS
+                    while len(level_map) < target_h:
+                        level_map.append('#' * VIEWPORT_COLS)
+
+                    # Normalizar por banda: cada grupo de VIEWPORT_ROWS filas
+                    # tiene su propio ancho (múltiplo de VIEWPORT_COLS)
                     normalized = []
-                    for row in level_map:
-                        if len(row) < target_w:
-                            row = row + '#' * (target_w - len(row))
-                        normalized.append(row[:target_w])
-                    # Completar filas faltantes
-                    while len(normalized) < target_h:
-                        normalized.append('#' * target_w)
+                    for band_start in range(0, target_h, VIEWPORT_ROWS):
+                        band_end = min(band_start + VIEWPORT_ROWS, len(level_map))
+                        band_rows = level_map[band_start:band_end]
+                        band_w = max(len(r) for r in band_rows) if band_rows else VIEWPORT_COLS
+                        target_band_w = max(VIEWPORT_COLS, ((band_w + VIEWPORT_COLS - 1) // VIEWPORT_COLS) * VIEWPORT_COLS)
+                        for row in band_rows:
+                            if len(row) < target_band_w:
+                                row = row + '#' * (target_band_w - len(row))
+                            normalized.append(row[:target_band_w])
+                        # Completar filas faltantes de la banda
+                        while len(normalized) < band_start + VIEWPORT_ROWS:
+                            normalized.append('#' * target_band_w)
                     levels.append(normalized[:target_h])
                 return levels
         except Exception as e:
@@ -436,7 +444,7 @@ class Game:
 
     def _generate_cave_background(self):
         """Genera superficie de fondo con pintitas simulando textura de caverna"""
-        level_w = len(self.level_map[0]) if self.level_map else DEFAULT_LEVEL_WIDTH
+        level_w = max_level_width(self.level_map) if self.level_map else DEFAULT_LEVEL_WIDTH
         level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
         width = level_w * TILE_SIZE
         height = level_h * TILE_SIZE
@@ -582,9 +590,10 @@ class Game:
                     )
 
         # Reset camera to player (en coordenadas de juego, ambos ejes, clampeado)
-        level_w = len(self.level_map[0]) if self.level_map else DEFAULT_LEVEL_WIDTH
+        player_tile_y = int(self.player.y / TILE_SIZE)
+        current_band_w = band_width(self.level_map, player_tile_y)
         level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
-        max_cam_x = max(0, level_w * TILE_SIZE - GAME_WIDTH)
+        max_cam_x = max(0, current_band_w * TILE_SIZE - GAME_WIDTH)
         max_cam_y = max(0, level_h * TILE_SIZE - GAME_VIEWPORT_HEIGHT)
         self.camera_x = max(0, min(self.player.x - GAME_WIDTH / 2, max_cam_x))
         self.camera_y = max(0, min(self.player.y - GAME_VIEWPORT_HEIGHT / 2, max_cam_y))
@@ -627,13 +636,15 @@ class Game:
 
     def update_camera(self):
         """Update camera to follow player (en coordenadas de juego, ambos ejes)"""
-        level_w = len(self.level_map[0]) if self.level_map else DEFAULT_LEVEL_WIDTH
+        # Usar ancho de la banda actual del jugador para clamp horizontal
+        player_tile_y = int(self.player.y / TILE_SIZE)
+        current_band_w = band_width(self.level_map, player_tile_y)
         level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
 
         # Eje horizontal
         target_x = self.player.x - GAME_WIDTH / 2
         self.camera_x += (target_x - self.camera_x) * 0.1
-        max_cam_x = level_w * TILE_SIZE - GAME_WIDTH
+        max_cam_x = current_band_w * TILE_SIZE - GAME_WIDTH
         if max_cam_x > 0:
             self.camera_x = max(0, min(self.camera_x, max_cam_x))
         else:
@@ -1167,7 +1178,7 @@ class Game:
 
     def render_level(self):
         """Render visible part of level (en game_surface, sin escalar)"""
-        level_w = len(self.level_map[0]) if self.level_map else DEFAULT_LEVEL_WIDTH
+        level_w = max_level_width(self.level_map) if self.level_map else DEFAULT_LEVEL_WIDTH
         level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
         # Usar offset entero consistente para fondo y tiles
         cam_x = int(self.camera_x)
@@ -1193,7 +1204,11 @@ class Game:
             row = self.level_map[row_index]
             for col_index in range(start_col, end_col):
                 if col_index >= len(row):
-                    break
+                    # Espacio fuera de la banda: renderizar como pared sólida
+                    x = col_index * TILE_SIZE - cam_x
+                    y = row_index * TILE_SIZE - cam_y
+                    self.game_surface.blit(self.tiles['wall'], (x, y))
+                    continue
                 tile = row[col_index]
                 x = col_index * TILE_SIZE - cam_x
                 y = row_index * TILE_SIZE - cam_y
