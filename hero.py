@@ -19,6 +19,7 @@ from enemy import Enemy
 from miner import Miner
 from player import Player
 from audio_effects import apply_sid_to_sound
+from palette import get_depth_palette, get_edge_color, build_tinted_floors, draw_tile_edges
 
 ##################################################################################################
 # Utility Functions
@@ -71,12 +72,17 @@ def add_score(name, score):
 
 def load_levels_from_file():
     """Cargar niveles desde screens.json (tamaño dinámico, múltiplos del viewport)"""
+    global LEVEL_PALETTES, LEVEL_EDGE_COLORS
     if os.path.exists(SCREENS_FILE):
         try:
             with open(SCREENS_FILE, 'r', encoding='utf-8') as f:
                 screens = json.load(f)
                 levels = []
+                LEVEL_PALETTES = []
+                LEVEL_EDGE_COLORS = []
                 for s in screens:
+                    LEVEL_PALETTES.append(get_depth_palette(s))
+                    LEVEL_EDGE_COLORS.append(get_edge_color(s))
                     level_map = s["map"]
                     # Determinar altura del mapa
                     map_height = len(level_map)
@@ -109,7 +115,22 @@ def load_levels_from_file():
             print(f"Error cargando niveles: {e}")
     return []
 
+LEVEL_PALETTES = []  # Paletas de profundidad por nivel
+LEVEL_EDGE_COLORS = []  # Color de borde por nivel
 LEVELS = load_levels_from_file()
+
+def get_level_palette(level_num):
+    """Obtener paleta de profundidad para un nivel"""
+    if level_num < 0 or level_num >= len(LEVEL_PALETTES):
+        return []
+    return LEVEL_PALETTES[level_num]
+
+def get_level_edge_color(level_num):
+    """Obtener color de borde para un nivel"""
+    from palette import DEFAULT_EDGE_COLOR
+    if level_num < 0 or level_num >= len(LEVEL_EDGE_COLORS):
+        return list(DEFAULT_EDGE_COLOR)
+    return LEVEL_EDGE_COLORS[level_num]
 
 def generate_level(level_num):
     """Return a level loaded from screens.json"""
@@ -531,6 +552,11 @@ class Game:
 
         # Generate level
         self.level_map = generate_level(self.level_num)
+
+        # Construir tiles de suelo tintados por fila del viewport (se repiten en cada viewport)
+        self.depth_palette = get_level_palette(self.level_num)
+        self.edge_color = get_level_edge_color(self.level_num)
+        self.tinted_floors = build_tinted_floors(self.tiles['floor'], self.depth_palette)
 
         # Generar fondo de caverna con pintitas
         self._generate_cave_background()
@@ -1327,7 +1353,10 @@ class Game:
                 if tile == '#':
                     self.game_surface.blit(self.tiles['wall'], (x, y))
                 elif tile == '.':
-                    self.game_surface.blit(self.tiles['floor'], (x, y))
+                    local_row = row_index % VIEWPORT_ROWS
+                    self.game_surface.blit(self.tinted_floors[local_row], (x, y))
+                    # Bordes decorativos donde el suelo toca el vacío
+                    draw_tile_edges(self.game_surface, x, y, row_index, col_index, self.level_map, self.edge_color)
                 elif tile == 'G':
                     self.game_surface.blit(self.tiles['granite'], (x, y))
                 elif tile == 'R':

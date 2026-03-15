@@ -28,6 +28,7 @@
 /- el hitbox de la luz tendria que ser mas chico
 - animacion de la helice en vuelo
 - inercia al subir ?
+/- escalar el editor al doble
 
 
 AI prompts

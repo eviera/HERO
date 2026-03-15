@@ -1,31 +1,52 @@
 [
   {
     "name": "Level 1 - Tutorial: Rescate con dinamita",
+    "depth_palette": [
+      {
+        "wall": [
+          45,
+          60,
+          185
+        ]
+      },
+      {
+        "wall": [
+          30,
+          60,
+          95
+        ]
+      }
+    ],
+    "edge_color": [
+      255,
+      255,
+      195
+    ],
     "map": [
-      "GGGGGGGGGGGGGGGG",
-      "G  S           G",
-      "G....     B    G",
-      "G              G",
-      "G      V    R  G",
-      "G           R  G",
-      "G  ####>   RR  G",
-      "G  .##...G.....G",
-      "G              G",
-      "G  L           G",
-      "G   V          G",
-      "G              G",
-      "G     G~~~~~~G G",
-      "G     ###....G G",
-      "G        A     G",
-      "G              G",
-      "G              G",
-      "G              G",
-      "G              G",
-      "GB   L         G",
-      "G              G",
-      "G      ###     G",
-      "G      #M#     G",
-      "G..............G"
+      "GGGGGGGGGGGGGGG.",
+      "G  S           .",
+      "G....     B    .",
+      "G              .",
+      "G      V    R  .",
+      "G           R  .",
+      "G  ####>   RR  .",
+      "G  .##...G......",
+      "G              #",
+      "G  L           #",
+      "G   V          #",
+      "G              #",
+      "G     G~~~~~~G #",
+      "G     ###....G #",
+      "G        A     #",
+      "G              #",
+      "G              #",
+      "G              #",
+      "G              #",
+      "GB   L         #",
+      "G              #",
+      "G      ###     #",
+      "G      #M#     #",
+      "G..............#"
     ]
   },
   {

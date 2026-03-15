@@ -6,6 +6,8 @@ import pygame
 import json
 import os
 from constants import *
+from palette import (get_depth_palette, get_edge_color, build_tinted_floors,
+                     draw_tile_edges, DEFAULT_EDGE_COLOR, NEUTRAL_TINT)
 
 # TILE_TYPES importado desde constants.py
 
@@ -72,7 +74,9 @@ class Editor:
         editor_hud_h = 150
         self.editor_viewport_h = editor_viewport_h
         self.editor_h = editor_viewport_h + editor_hud_h
-        self.screen = pygame.display.set_mode((editor_w, self.editor_h))
+        self.editor_scale = 2
+        self.screen = pygame.Surface((editor_w, self.editor_h))
+        self.display = pygame.display.set_mode((editor_w * self.editor_scale, self.editor_h * self.editor_scale))
         pygame.display.set_caption("H.E.R.O. Level Editor")
         self.clock = pygame.time.Clock()
 
@@ -153,6 +157,13 @@ class Editor:
         self.saved_indicator = 0  # Timer para mensaje "Guardado!"
         self.confirm_shrink = None  # Pendiente de confirmacion: 'cols' o 'rows'
 
+        # Modo paleta
+        self.palette_mode = False
+        self.palette_editing = 0       # 0=Color1, 1=Color2, 2=Edge
+        self.palette_channel = 0       # 0=R, 1=G, 2=B
+        self._tinted_floors_cache = None
+        self._tinted_floors_level = -1
+
         # Normalizar todas las pantallas cargadas
         for screen in self.screens:
             screen["map"] = normalize_map(screen["map"])
@@ -185,6 +196,50 @@ class Editor:
 
     def get_current_map(self):
         return self.screens[self.current_level]["map"]
+
+    def get_current_palette(self):
+        """Obtener paleta de profundidad del nivel actual"""
+        return self.screens[self.current_level].get("depth_palette", [])
+
+    def get_current_edge_color(self):
+        """Obtener color de borde del nivel actual"""
+        return self.screens[self.current_level].get("edge_color", list(DEFAULT_EDGE_COLOR))
+
+    def _ensure_palette_entry(self, entry_index):
+        """Asegurar que depth_palette tenga entrada para el índice dado"""
+        screen = self.screens[self.current_level]
+        if "depth_palette" not in screen:
+            screen["depth_palette"] = []
+        palette = screen["depth_palette"]
+        while len(palette) <= entry_index:
+            palette.append({"wall": list(NEUTRAL_TINT)})
+        return palette[entry_index]
+
+    def _get_editing_color(self):
+        """Obtener la lista de color que se está editando (mutable, para modificar in-place)"""
+        screen = self.screens[self.current_level]
+        if self.palette_editing == 2:
+            # Edge color
+            if "edge_color" not in screen:
+                screen["edge_color"] = list(DEFAULT_EDGE_COLOR)
+            return screen["edge_color"]
+        else:
+            # Color1 (idx 0) o Color2 (idx 1)
+            entry = self._ensure_palette_entry(self.palette_editing)
+            return entry.get("wall", None) or entry.setdefault("wall", list(NEUTRAL_TINT))
+
+    def get_tinted_floors(self):
+        """Obtener tiles de suelo tintados con caché"""
+        if self._tinted_floors_cache is not None and self._tinted_floors_level == self.current_level:
+            return self._tinted_floors_cache
+        palette = self.get_current_palette()
+        self._tinted_floors_cache = build_tinted_floors(self.tiles['floor'], palette)
+        self._tinted_floors_level = self.current_level
+        return self._tinted_floors_cache
+
+    def invalidate_tinted_cache(self):
+        """Forzar reconstrucción de tiles tintados"""
+        self._tinted_floors_cache = None
 
     def get_level_dims(self):
         """Dimensiones del nivel actual en tiles"""
@@ -225,6 +280,7 @@ class Editor:
         extra = ' ' * VIEWPORT_COLS
         for i in range(band_start, band_end):
             level_map[i] = level_map[i] + extra
+        self.invalidate_tinted_cache()
 
     def remove_viewport_col_at(self, vx):
         """Quitar la columna de viewports en el indice vx (solo banda actual)"""
@@ -265,6 +321,7 @@ class Editor:
         w = len(level_map[last_band_start]) if level_map else VIEWPORT_COLS
         for _ in range(VIEWPORT_ROWS):
             level_map.append(' ' * w)
+        self.invalidate_tinted_cache()
 
     def remove_viewport_row_at(self, vy):
         """Quitar la fila de viewports en el indice vy"""
@@ -334,6 +391,9 @@ class Editor:
         vh = self.editor_viewport_h
         cam_x = self.camera_x
         cam_y = self.camera_y
+        palette = self.get_current_palette()
+        edge_color = self.get_current_edge_color()
+        tinted_floors = self.get_tinted_floors()
 
         start_row = max(0, int(cam_y / TILE_SIZE) - 1)
         end_row = min(h, int((cam_y + vh) / TILE_SIZE) + 2)
@@ -344,6 +404,7 @@ class Editor:
             if row_index >= len(level_map):
                 break
             row = level_map[row_index]
+            local_row = row_index % VIEWPORT_ROWS
             for col_index in range(start_col, end_col):
                 if col_index >= len(row):
                     # Espacio fuera de la banda: mostrar como pared
@@ -366,7 +427,9 @@ class Editor:
                 if tile == '#':
                     self.screen.blit(self.tiles['wall'], (int(x), int(y)))
                 elif tile == '.':
-                    self.screen.blit(self.tiles['floor'], (int(x), int(y)))
+                    self.screen.blit(tinted_floors[local_row], (int(x), int(y)))
+                    # Bordes decorativos
+                    draw_tile_edges(self.screen, int(x), int(y), row_index, col_index, level_map, edge_color)
                 elif tile == 'G':
                     self.screen.blit(self.tiles['granite'], (int(x), int(y)))
                 elif tile == 'R':
@@ -615,7 +678,7 @@ class Editor:
         )
         self.screen.blit(hint2, (8, hud_y + 130))
         hint3 = self.small_font.render(
-            "^Down/Right:+VP Del:-VP ^N:Nuevo ^Del:Borrar",
+            "^Down/Right:+VP Del:-VP ^N:Nuevo ^Del:Borrar P:Paleta",
             True, COLOR_GRAY
         )
         self.screen.blit(hint3, (8, hud_y + 140))
@@ -648,6 +711,55 @@ class Editor:
             hint_text = self.small_font.render(hint, True, COLOR_RED)
             hint_rect = hint_text.get_rect(center=(GAME_WIDTH // 2, self.editor_h // 2 + 10))
             self.screen.blit(hint_text, hint_rect)
+
+    def render_palette_overlay(self):
+        """Renderizar overlay del modo paleta"""
+        if not self.palette_mode:
+            return
+
+        palette = self.get_current_palette()
+        edge_col = self.get_current_edge_color()
+
+        # Panel semi-transparente en la parte superior
+        overlay = pygame.Surface((GAME_WIDTH, 56), pygame.SRCALPHA)
+        overlay.fill((0, 0, 40, 200))
+        self.screen.blit(overlay, (0, 0))
+
+        # Los 3 colores editables con sus labels
+        items = [
+            ("Color1 (F0-4)", palette[0].get("wall", NEUTRAL_TINT) if len(palette) > 0 else list(NEUTRAL_TINT)),
+            ("Color2 (F5-7)", palette[1].get("wall", NEUTRAL_TINT) if len(palette) > 1 else list(NEUTRAL_TINT)),
+            ("Edge",          edge_col),
+        ]
+
+        wy = 4
+        for i, (label, color) in enumerate(items):
+            px = 8 + i * 170
+            is_selected = (i == self.palette_editing)
+            # Cuadrado de preview
+            pygame.draw.rect(self.screen, tuple(color), (px, wy, 16, 16))
+            border = COLOR_YELLOW if is_selected else (60, 60, 60)
+            pygame.draw.rect(self.screen, border, (px - 1, wy - 1, 18, 18), 2)
+            # Label
+            lbl = self.small_font.render(label, True, COLOR_YELLOW if is_selected else COLOR_GRAY)
+            self.screen.blit(lbl, (px + 20, wy + 4))
+
+        # Valores RGB del color activo
+        active_color = items[self.palette_editing][1]
+        channel_names = ["R", "G", "B"]
+        info_y = 24
+        for i in range(3):
+            cx = 8 + i * 80
+            ch_color = COLOR_YELLOW if i == self.palette_channel else COLOR_GRAY
+            val_text = self.font.render(f"{channel_names[i]}:{active_color[i]:3d}", True, ch_color)
+            self.screen.blit(val_text, (cx, info_y))
+
+        # Controles hint
+        hint = self.small_font.render(
+            "Tab:Cambiar 1/2/3:RGB L/R:+-15(Sh:5) Esc:Salir",
+            True, COLOR_GRAY
+        )
+        self.screen.blit(hint, (8, 42))
 
     def run(self):
         """Loop principal del editor"""
@@ -692,6 +804,33 @@ class Editor:
                             self.confirm_shrink = None
                         else:
                             self.confirm_shrink = None
+                        continue
+
+                    # Toggle modo paleta con P
+                    if event.key == pygame.K_p and not ctrl:
+                        self.palette_mode = not self.palette_mode
+                        continue
+
+                    # Controles del modo paleta
+                    if self.palette_mode:
+                        if event.key == pygame.K_ESCAPE:
+                            self.palette_mode = False
+                        elif event.key == pygame.K_TAB:
+                            # Ciclar entre Color1, Color2, Edge
+                            self.palette_editing = (self.palette_editing + 1) % 3
+                        elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+                            # Seleccionar canal R/G/B
+                            self.palette_channel = event.key - pygame.K_1
+                        elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                            # Ajustar color: RIGHT +, LEFT -
+                            color = self._get_editing_color()
+                            if color is not None:
+                                step = 15 if not shift else 5
+                                if event.key == pygame.K_RIGHT:
+                                    color[self.palette_channel] = min(255, color[self.palette_channel] + step)
+                                else:
+                                    color[self.palette_channel] = max(0, color[self.palette_channel] - step)
+                                self.invalidate_tinted_cache()
                         continue
 
                     # Dimensiones actuales del nivel
@@ -910,6 +1049,8 @@ class Editor:
             self.screen.fill(COLOR_BLACK)
             self.render_grid()
             self.render_hud()
+            self.render_palette_overlay()
+            pygame.transform.scale(self.screen, self.display.get_size(), self.display)
             pygame.display.flip()
 
         pygame.quit()
