@@ -29,6 +29,7 @@
 - animacion de la helice en vuelo
 - inercia al subir ?
 /- escalar el editor al doble
+- los colores de los puntitos del fondo deberian matchear los colores del nivel
 
 
 AI prompts

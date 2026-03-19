@@ -20,7 +20,8 @@ from miner import Miner
 from player import Player
 from audio_effects import apply_sid_to_sound
 from palette import (get_depth_palette, get_edge_color, build_tinted_floors,
-                      draw_tile_edges, generate_edge_overlay)
+                      draw_tile_edges, generate_edge_overlay,
+                      generate_floor_texture)
 
 ##################################################################################################
 # Utility Functions
@@ -185,6 +186,7 @@ class Game:
         # Cave background
         self.cave_bg = None
         self.edge_overlay = None
+        self.floor_texture = None
 
         # Camera (ambos ejes para niveles de tamaño dinámico)
         self.camera_x = 0
@@ -546,6 +548,11 @@ class Game:
         self.edge_overlay = generate_edge_overlay(
             self.level_map, self.edge_color, seed=self.level_num)
 
+    def _generate_floor_texture(self):
+        """Genera overlay pre-computado con textura porosa en tiles de suelo"""
+        self.floor_texture = generate_floor_texture(
+            self.level_map, seed=self.level_num + 1000)
+
     def start_level(self):
         """Start a new level"""
         self.state = STATE_PLAYING
@@ -568,8 +575,9 @@ class Game:
         # Generar fondo de caverna con pintitas
         self._generate_cave_background()
 
-        # Generar overlay de musgo/raíces en bordes (pre-computado, se blitea por viewport)
+        # Generar overlays pre-computados (se blitean por viewport)
         self._generate_edge_overlay()
+        self._generate_floor_texture()
 
         # Clear entities
         self.enemies = []
@@ -1390,7 +1398,12 @@ class Game:
                     self.game_surface.blit(self.toxic_water_frames[frame_idx], (x, y))
                 # Espacios vacios: no dibujar nada, el cave_bg ya se ve
 
-        # Overlay de musgo/raíces (una sola blit del viewport visible)
+        # Overlay de textura porosa del suelo
+        if self.floor_texture:
+            src_rect = pygame.Rect(cam_x, cam_y, GAME_WIDTH, GAME_VIEWPORT_HEIGHT)
+            self.game_surface.blit(self.floor_texture, (0, 0), src_rect)
+
+        # Overlay de musgo/raíces
         if self.edge_overlay:
             src_rect = pygame.Rect(cam_x, cam_y, GAME_WIDTH, GAME_VIEWPORT_HEIGHT)
             self.game_surface.blit(self.edge_overlay, (0, 0), src_rect)

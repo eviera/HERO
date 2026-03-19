@@ -18,6 +18,15 @@ MOSS_BASE_H = 2        # Grosor base del borde sólido (horizontal)
 MOSS_MAX_DOWN = 7      # Largo máximo de stalactitas (cuelgan del techo)
 MOSS_MAX_UP = 6        # Largo máximo de stalagmitas (crecen del suelo)
 
+# Parámetros de textura porosa del suelo
+FLOOR_STREAKS = (5, 9)       # Rango de franjas por tile
+FLOOR_STREAK_W = (6, 18)     # Ancho de franjas en px
+FLOOR_STREAK_H = (1, 3)      # Alto de franjas en px
+FLOOR_BLOBS = (3, 7)         # Rango de manchas por tile
+FLOOR_BLOB_W = (3, 10)       # Ancho de manchas en px
+FLOOR_BLOB_H = (2, 5)        # Alto de manchas en px
+FLOOR_DOTS = (15, 25)        # Rango de poros por tile
+
 # Tinte neutro (sin cambio de color)
 NEUTRAL_TINT = [255, 255, 255]
 
@@ -335,3 +344,84 @@ def _draw_moss_right(overlay, x0, y, sw, sh, cr, cg, cb, rng):
                 _clamp_color(cr + rng.randint(-8, 8)),
                 _clamp_color(cg + rng.randint(-8, 8)),
                 _clamp_color(cb + rng.randint(-8, 8)), a))
+
+
+# ---------------------------------------------------------------------------
+# Textura porosa del suelo (hoyos oscuros sobre tiles de suelo '.')
+# Se pre-genera una vez al cargar el nivel y se blitea por viewport
+# ---------------------------------------------------------------------------
+
+# Colores oscuros para los hoyos/poros
+_HOLE_COLORS = [
+    (0, 0, 0),
+    (10, 8, 3),
+    (20, 15, 8),
+    (5, 3, 1),
+]
+
+
+def generate_floor_texture(level_map, seed=42):
+    """Genera overlay SRCALPHA con hoyos oscuros sobre tiles de suelo (.).
+    Se llama una vez al inicio del nivel."""
+    level_h = len(level_map)
+    level_w = max(len(row) for row in level_map)
+    width = level_w * TILE_SIZE
+    height = level_h * TILE_SIZE
+    overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+    rng = random.Random(seed)
+
+    for row in range(level_h):
+        for col in range(len(level_map[row])):
+            if level_map[row][col] != '.':
+                continue
+            px = col * TILE_SIZE
+            py = row * TILE_SIZE
+
+            # Franjas horizontales oscuras
+            num_streaks = rng.randint(*FLOOR_STREAKS)
+            for _ in range(num_streaks):
+                sy = py + rng.randint(0, TILE_SIZE - 1)
+                sx = px + rng.randint(-6, TILE_SIZE - 1)
+                streak_w = rng.randint(*FLOOR_STREAK_W)
+                streak_h = rng.randint(*FLOOR_STREAK_H)
+                color = rng.choice(_HOLE_COLORS)
+                for dx in range(streak_w):
+                    for dy in range(streak_h):
+                        if rng.random() < 0.15:
+                            continue
+                        bx = sx + dx
+                        by = sy + dy
+                        if 0 <= bx < width and 0 <= by < height:
+                            overlay.set_at((bx, by), (*color, 230))
+
+            # Manchas irregulares
+            num_blobs = rng.randint(*FLOOR_BLOBS)
+            for _ in range(num_blobs):
+                bx = px + rng.randint(0, TILE_SIZE - 1)
+                by = py + rng.randint(0, TILE_SIZE - 1)
+                blob_w = rng.randint(*FLOOR_BLOB_W)
+                blob_h = rng.randint(*FLOOR_BLOB_H)
+                color = rng.choice(_HOLE_COLORS)
+                for dx in range(blob_w):
+                    for dy in range(blob_h):
+                        if rng.random() < 0.25:
+                            continue
+                        px2 = bx + dx
+                        py2 = by + dy
+                        if 0 <= px2 < width and 0 <= py2 < height:
+                            overlay.set_at((px2, py2), (*color, 220))
+
+            # Poros pequeños
+            num_dots = rng.randint(*FLOOR_DOTS)
+            for _ in range(num_dots):
+                dx = px + rng.randint(0, TILE_SIZE - 1)
+                dy = py + rng.randint(0, TILE_SIZE - 1)
+                if 0 <= dx < width and 0 <= dy < height:
+                    color = rng.choice(_HOLE_COLORS)
+                    overlay.set_at((dx, dy), (*color, 200))
+                    if rng.random() < 0.5:
+                        dx2 = dx + rng.choice([-1, 0, 1])
+                        if 0 <= dx2 < width:
+                            overlay.set_at((dx2, dy), (*color, 180))
+
+    return overlay
