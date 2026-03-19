@@ -391,7 +391,8 @@ def generate_floor_texture(level_map, seed=42):
                             continue
                         bx = sx + dx
                         by = sy + dy
-                        if 0 <= bx < width and 0 <= by < height:
+                        # Clampar al tile actual para no escapar
+                        if px <= bx < px + TILE_SIZE and py <= by < py + TILE_SIZE:
                             overlay.set_at((bx, by), (*color, 230))
 
             # Manchas irregulares
@@ -408,7 +409,8 @@ def generate_floor_texture(level_map, seed=42):
                             continue
                         px2 = bx + dx
                         py2 = by + dy
-                        if 0 <= px2 < width and 0 <= py2 < height:
+                        # Clampar al tile actual para no escapar
+                        if px <= px2 < px + TILE_SIZE and py <= py2 < py + TILE_SIZE:
                             overlay.set_at((px2, py2), (*color, 220))
 
             # Poros pequeños

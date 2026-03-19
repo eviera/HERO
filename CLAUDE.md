@@ -492,12 +492,75 @@ Estilo ColecoVision TMS9918A. Posición: parte inferior de la pantalla (HUD_HEIG
 - **screen** (768x464): game_surface se escala x1.5 (→768x384) + HUD (80px) se dibuja directo
 - **display_surface** (fullscreen): screen se escala manteniendo aspect ratio al monitor
 - **splash_surface** (512x480): Splash se renderiza al tamaño original, se escala con aspect ratio al screen
-- Orden en game_surface: Fondo caverna → Tiles → Lámparas → Entidades → Dark overlay → Floating scores
+- Orden en game_surface: Fondo caverna → Tiles → Floor texture overlay → Edge/moss overlay → Lámparas → Entidades → Dark overlay → Floating scores
 - Orden en screen: game_surface escalado → HUD → Overlays (quit confirm, level complete fase 2)
 - Coordenadas de juego: (0,0) esquina superior izquierda del nivel, tiles 32x32
 - **Cámara 2D suave**: Sigue al jugador en ambos ejes con lerp 0.1 (usa camera_x y camera_y)
 - **Todas las entidades reciben camera_x y camera_y** en sus métodos draw() para offset de renderizado
 - Solo se renderizan tiles visibles en el viewport (culling en ambos ejes para eficiencia)
+
+## Sistema de Texturas del Suelo y Musgo (palette.py)
+
+Ambos sistemas viven en **palette.py** y generan superficies SRCALPHA del tamaño completo del nivel, que se pre-computan una vez al cargar el nivel (`start_level()`) y se blitean por viewport en `render_level()`. Se regeneran cuando la dinamita destruye tiles (para reflejar el nuevo mapa).
+
+### Textura Porosa del Suelo (floor_texture)
+
+**Función:** `generate_floor_texture(level_map, seed)` → superficie SRCALPHA
+
+Genera un overlay con "hoyos" oscuros sobre cada tile de suelo (`.`) para darle un aspecto cavernoso y poroso. Solo afecta tiles de suelo, nunca paredes ni espacios vacíos.
+
+**Capas de detalle por tile (3 tipos):**
+1. **Franjas horizontales** (`FLOOR_STREAKS`): Líneas oscuras alargadas (5-9 por tile, ancho 6-18px, alto 1-3px). Simulan grietas o vetas en la roca.
+2. **Manchas irregulares** (`FLOOR_BLOBS`): Parches más grandes y cuadrados (3-7 por tile, ancho 3-10px, alto 2-5px). Dan textura irregular.
+3. **Poros pequeños** (`FLOOR_DOTS`): Puntos individuales de 1-2px (15-25 por tile). Detalle fino granular.
+
+**Colores:** Tonos oscuros casi negros definidos en `_HOLE_COLORS` (negro puro, marrón muy oscuro). Se aplican con alta opacidad (200-230 alpha) para simular profundidad.
+
+**Constantes en palette.py:**
+```python
+FLOOR_STREAKS = (5, 9)       # Cantidad de franjas por tile
+FLOOR_STREAK_W = (6, 18)     # Ancho de franjas en px
+FLOOR_STREAK_H = (1, 3)      # Alto de franjas en px
+FLOOR_BLOBS = (3, 7)         # Cantidad de manchas por tile
+FLOOR_BLOB_W = (3, 10)       # Ancho de manchas en px
+FLOOR_BLOB_H = (2, 5)        # Alto de manchas en px
+FLOOR_DOTS = (15, 25)        # Cantidad de poros por tile
+```
+
+**Importante:** Todos los píxeles se clampean a los límites del tile individual (`px <= bx < px + TILE_SIZE`) para que la textura no se escape a tiles adyacentes.
+
+### Overlay de Musgo/Raíces (edge_overlay)
+
+**Función:** `generate_edge_overlay(level_map, edge_color, seed)` → superficie SRCALPHA
+
+Genera vegetación decorativa en los bordes expuestos de tiles de suelo (`.`). Solo crece donde un tile sólido tiene un vecino vacío (aire).
+
+**Tipos de crecimiento:**
+- **Stalactitas** (`_draw_moss_down`): Cuelgan de la cara inferior del suelo hacia abajo. Largo máximo: `MOSS_MAX_DOWN` (14px). Aparecen cuando el tile de abajo es vacío.
+- **Stalagmitas** (`_draw_moss_up`): Crecen desde la cara superior del suelo hacia arriba. Largo máximo: `MOSS_MAX_UP` (12px). Aparecen cuando el tile de arriba es vacío.
+
+**Anatomía de cada borde:**
+1. **Banda base**: Línea sólida de `MOSS_BASE_H` (2px) de grosor pegada al borde del tile. Tiene huecos aleatorios (15% de probabilidad) para no ser uniforme.
+2. **Dentado irregular**: Generado por `_jagged_heights()` — alturas variables con clusters (grupos de alturas similares), gaps (zonas bajas), y picos largos ocasionales (6% de probabilidad). Da aspecto orgánico.
+3. **Tendriles finos**: 1-3 hilos extra que se extienden más allá del dentado principal, con alpha decreciente para efecto de desvanecimiento.
+
+**Color:** Configurable por nivel via `edge_color` en screens.json. Default: verde musgo `[80, 180, 60]`. Se aplica variación aleatoria de ±8 por canal RGB a cada píxel para dar textura. El alpha decrece hacia las puntas (240→80) para un efecto de transparencia gradual.
+
+**Constantes en palette.py:**
+```python
+MOSS_BASE_H = 2        # Grosor base del borde sólido
+MOSS_MAX_DOWN = 14     # Largo máximo de stalactitas
+MOSS_MAX_UP = 12       # Largo máximo de stalagmitas
+```
+
+### Pipeline de Renderizado de Suelo
+
+El suelo (`.`) se renderiza en 3 capas superpuestas:
+1. **Tile base tintado** (`tinted_floors`): Tile floor.png tintado según la profundidad (fila del viewport). Construido por `build_tinted_floors()`.
+2. **Floor texture overlay** (`floor_texture`): Hoyos oscuros porosos encima del tile. Se blitea después de todos los tiles.
+3. **Edge/moss overlay** (`edge_overlay`): Musgo/raíces en bordes expuestos. Se blitea último.
+
+Las 3 capas se generan en `start_level()` y se regeneran tras destrucción con dinamita (llamando `_generate_edge_overlay()` y `_generate_floor_texture()`).
 
 ## Cómo Modificar el Juego
 

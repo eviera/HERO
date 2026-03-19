@@ -24,7 +24,7 @@
 /- agua toxica
 /- viewport jagged ? (que no tenga que ser un cuadrilatero el mapa)
 /- tiles de fondo
--- habria que mejorar que los 'agujeros' no se salgan del tile de la tierra
+/-- habria que mejorar que los 'agujeros' no se salgan del tile de la tierra
 -- que los tiles de tierra expuestos queden medios jagged y no tan rectos
 -- tiles de piedras que no sean tan cuadrados, sino mas bien piedras apiladas
 - bloques y nivel de magma (si lo toca me quemo)
