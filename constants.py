@@ -23,7 +23,7 @@ HUD_HEIGHT = 80  # ColecoVision-style HUD height
 SCREEN_HEIGHT = VIEWPORT_HEIGHT + HUD_HEIGHT                # 464
 
 # Game constants - FÍSICAS CORRECTAS
-GRAVITY = 275  # Gravedad constante
+GRAVITY = 200  # Gravedad constante (reducida para caída más suave)
 PROPULSOR_POWER = 600  # Poder del propulsor
 PLAYER_SPEED_X = 150  # Velocidad horizontal
 WALK_STEP_DISTANCE = 16  # Pixeles entre pasos
