@@ -577,25 +577,21 @@ class Editor:
         cur_vx = self.cursor_col // VIEWPORT_COLS + 1
         cur_vy = self.cursor_row // VIEWPORT_ROWS + 1
 
-        pos_text = self.font.render(
-            f"F:{self.cursor_row:02d} C:{self.cursor_col:02d} VP:{cur_vx},{cur_vy}  [{cursor_char}]{cursor_name}",
-            True, COLOR_WHITE
-        )
+        pos_str = f"F:{self.cursor_row:02d} C:{self.cursor_col:02d} VP:{cur_vx},{cur_vy}  "
+        pos_text = self.font.render(pos_str, True, COLOR_WHITE)
         self.screen.blit(pos_text, (8, hud_y + 18))
-
-        # Linea 3: Tile seleccionado
-        char, name, color, _score = TILE_TYPES[self.selected_tile]
-        tile_text = self.font.render(f"[{char}] {name}", True, COLOR_YELLOW)
-        self.screen.blit(tile_text, (8, hud_y + 32))
+        tile_cursor_text = self.font.render(f"[{cursor_char}]{cursor_name}", True, (0, 255, 0))
+        self.screen.blit(tile_cursor_text, (8 + pos_text.get_width(), hud_y + 18))
 
         # --- Minimapa (esquina superior derecha del HUD) ---
         minimap_x = GAME_WIDTH - 100
         minimap_y = hud_y + 4
         self.render_minimap(minimap_x, minimap_y, 90, 36)
 
-        # --- Separador ---
-        pygame.draw.line(self.screen, (60, 60, 80),
-                         (8, hud_y + 46), (GAME_WIDTH - 8, hud_y + 46))
+        # Tile seleccionado (debajo del separador)
+        char, name, color, _score = TILE_TYPES[self.selected_tile]
+        tile_text = self.font.render(f"[{char}] {name}", True, COLOR_YELLOW)
+        self.screen.blit(tile_text, (8, hud_y + 32))
 
         # --- Zona de paleta (abajo) ---
         KEY_LABELS = "123456789" + "FGHJKL"
