@@ -19,7 +19,8 @@ from enemy import Enemy
 from miner import Miner
 from player import Player
 from audio_effects import apply_sid_to_sound
-from palette import get_depth_palette, get_edge_color, build_tinted_floors, draw_tile_edges
+from palette import (get_depth_palette, get_edge_color, build_tinted_floors,
+                      draw_tile_edges, generate_edge_overlay)
 
 ##################################################################################################
 # Utility Functions
@@ -183,6 +184,7 @@ class Game:
 
         # Cave background
         self.cave_bg = None
+        self.edge_overlay = None
 
         # Camera (ambos ejes para niveles de tamaño dinámico)
         self.camera_x = 0
@@ -539,6 +541,11 @@ class Game:
                 pygame.draw.rect(self.cave_bg, color,
                                  (dx, dy, CAVE_DOT_SIZE, CAVE_DOT_SIZE))
 
+    def _generate_edge_overlay(self):
+        """Genera overlay pre-computado con musgo/raíces en bordes expuestos"""
+        self.edge_overlay = generate_edge_overlay(
+            self.level_map, self.edge_color, seed=self.level_num)
+
     def start_level(self):
         """Start a new level"""
         self.state = STATE_PLAYING
@@ -560,6 +567,9 @@ class Game:
 
         # Generar fondo de caverna con pintitas
         self._generate_cave_background()
+
+        # Generar overlay de musgo/raíces en bordes (pre-computado, se blitea por viewport)
+        self._generate_edge_overlay()
 
         # Clear entities
         self.enemies = []
@@ -825,6 +835,7 @@ class Game:
                         self.level_map[r] = (
                             self.level_map[r][:c] + ' ' + self.level_map[r][c + 1:]
                         )
+                        self._generate_edge_overlay()
 
                 # Play splatter sound
                 if 'splatter' in self.sounds:
@@ -862,6 +873,7 @@ class Game:
                                 self.sounds['splatter'].play()
 
                     # Destroy blocks and walls
+                    tiles_changed = False
                     for row_index in range(len(self.level_map)):
                         for col_index in range(len(self.level_map[row_index])):
                             tile = self.level_map[row_index][col_index]
@@ -879,6 +891,7 @@ class Game:
                                     pts = TILE_SCORES.get(tile, 0)
                                     self.score += pts
                                     self.add_floating_score(tile_x + 16, tile_y, pts)
+                                    tiles_changed = True
 
                     # Matar víboras cuya pared fue destruida
                     for enemy in self.enemies:
@@ -896,6 +909,11 @@ class Game:
                                     enemy.wall_row * TILE_SIZE, pts)
                                 if 'splatter' in self.sounds:
                                     self.sounds['splatter'].play()
+                                tiles_changed = True
+
+                    # Regenerar overlay de musgo solo si tiles cambiaron
+                    if tiles_changed:
+                        self._generate_edge_overlay()
 
                     # Play sound once
                     if 'explosion' in self.sounds and dynamite.explosion_time > 0.4:
@@ -1049,6 +1067,8 @@ class Game:
                     self.add_floating_score(tile_x + 16, tile_y, TILE_SCORES['R'])
                     if 'rock_break' in self.sounds:
                         self.sounds['rock_break'].play()
+                    # Regenerar overlay de musgo (tile cambió)
+                    self._generate_edge_overlay()
                 laser.hit_rock_pos = None
             if not laser.active:
                 self.lasers.remove(laser)
@@ -1355,8 +1375,6 @@ class Game:
                 elif tile == '.':
                     local_row = row_index % VIEWPORT_ROWS
                     self.game_surface.blit(self.tinted_floors[local_row], (x, y))
-                    # Bordes decorativos donde el suelo toca el vacío
-                    draw_tile_edges(self.game_surface, x, y, row_index, col_index, self.level_map, self.edge_color)
                 elif tile == 'G':
                     self.game_surface.blit(self.tiles['granite'], (x, y))
                 elif tile == 'R':
@@ -1371,6 +1389,11 @@ class Game:
                     frame_idx = int(self.toxic_water_scroll) % len(self.toxic_water_frames)
                     self.game_surface.blit(self.toxic_water_frames[frame_idx], (x, y))
                 # Espacios vacios: no dibujar nada, el cave_bg ya se ve
+
+        # Overlay de musgo/raíces (una sola blit del viewport visible)
+        if self.edge_overlay:
+            src_rect = pygame.Rect(cam_x, cam_y, GAME_WIDTH, GAME_VIEWPORT_HEIGHT)
+            self.game_surface.blit(self.edge_overlay, (0, 0), src_rect)
 
     def _render_game_to_screen(self):
         """Escala game_surface (512x256) a la zona de juego del screen (768x384)"""

@@ -98,3 +98,15 @@ El hero no puede pasar a un viewport que no exista. Es responsabilidad de quien 
 simplemente, no poder avanzar a un viewport que no existe
 Ahora en el editor, si apreto por ejemplo ctrl+right, solo agregaria un viewport a la derecha del actual, y no toda la columna.
 Piensa todos los cambios que habria que hacer tanto en el juego como en el editor, y hazlos
+
+----
+
+Quiero mejorar las texturas del edge. En estos momentos es solo una linea de color alrededor de la tierra (#) pero quiero que se vea mas parecido a como se muestra en la imagen.
+En la imagen, el edge es de color gris claro y se muestra como un musgo colgando  del techo y creciendo del piso, hasta parece 'arraigado' en las capas de tierra.
+Quiero que encuentres la mejor solucion para replicar esto. Podria ser tanto como tener unos tiles nuevos, como hacerlo dibujando. Quiero que te acerques lo mas posible
+a como se ve en la imagen. Ah, y tambien quiero que sea rapido de dibujar. Es decir, si tenemos que computar el musgo y dibujarlo en cada frame va a ser lentisimo
+Tiene que ser algo eficiente. Piensa la mejor manera de hacerlo. Para que tengas una idea, vamos a hacer lo mismo luego con la tierra para que tenga una textura similar
+a como se ve en la imagen (como porosa, con patrones repetibles, pero no por tile, sino por conjuntos de tiles), y vamos a usar la misma tecnica que descubras ahora.
+Si tienes que hacer tests para ver como se ve, hazlos.
+
+
