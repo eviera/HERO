@@ -589,7 +589,7 @@ class Editor:
         self.render_minimap(minimap_x, minimap_y, 90, 36)
 
         # Tile seleccionado (debajo del separador)
-        char, name, color, _score = TILE_TYPES[self.selected_tile]
+        char, name, color, _score, _solid = TILE_TYPES[self.selected_tile]
         tile_text = self.font.render(f"[{char}] {name}", True, COLOR_YELLOW)
         self.screen.blit(tile_text, (8, hud_y + 32))
 
@@ -605,7 +605,7 @@ class Editor:
         palette_x = (GAME_WIDTH - total_row_width) // 2
         palette_y = hud_y + 52
 
-        for i, (tc, tn, tcolor, _tscore) in enumerate(TILE_TYPES):
+        for i, (tc, tn, tcolor, _tscore, _tsolid) in enumerate(TILE_TYPES):
             row = i // tiles_per_row
             col = i % tiles_per_row
             px = palette_x + col * tile_spacing

@@ -30,7 +30,7 @@
 - bloques y nivel de magma (si lo toca me quemo)
 /- el hitbox de la luz tendria que ser mas chico
 - animacion de la helice en vuelo
-- inercia al subir ?
+/- inercia al subir 
 /- escalar el editor al doble
 /- los colores de los puntitos del fondo deberian matchear los colores del nivel
 /- el bug verde podria ser mas bien un bicho que vuela como en la commodore
