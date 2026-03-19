@@ -5,10 +5,7 @@
 
 import pygame
 import random
-from constants import VIEWPORT_ROWS, TILE_SIZE
-
-# Tiles sólidos (para detección de bordes)
-SOLID_TILES = {'#', '.', 'G', 'R'}
+from constants import VIEWPORT_ROWS, TILE_SIZE, SOLID_TILES
 
 # Grosor del borde decorativo en píxeles (legacy, usado por draw_tile_edges)
 EDGE_THICKNESS = 3

@@ -36,7 +36,7 @@ class Dynamite:
                 return True
 
             tile = level_map[tile_y][tile_x]
-            if tile in ('#', 'G', '.', 'R'):
+            if tile in SOLID_TILES:
                 return True
 
         return False

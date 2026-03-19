@@ -94,26 +94,29 @@ COLOR_ORANGE = (255, 165, 0)
 COLOR_GRAY = (128, 128, 128)
 COLOR_MAGENTA = (255, 0, 255)
 
-# Tile types (caracter, nombre, color_fallback, puntos al destruir/matar/rescatar)
+# Tile types (caracter, nombre, color_fallback, puntos, sólido)
 TILE_TYPES = [
-    (' ', 'Aire',       COLOR_BLACK,       0),
-    ('#', 'Tierra',     COLOR_GRAY,        20),   # destructible con dinamita
-    ('.', 'Suelo',      (100, 70, 50),     0),    # indestructible
-    ('G', 'Granito',    (60, 60, 65),      0),    # indestructible
-    ('R', 'Rocas',      (180, 170, 160),   25),   # destructible con dinamita/láser
-    ('S', 'Start',      COLOR_BLUE,        0),
-    ('M', 'Minero',     COLOR_GREEN,       1000), # puntos al rescatar
-    ('V', 'Murcielago', COLOR_RED,         70),   # puntos al matar con láser
-    ('A', 'Arana',      COLOR_ORANGE,      50),   # puntos al matar con láser
-    ('B', 'Bicho',      COLOR_GREEN,       50),   # puntos al matar con láser
-    ('<', 'ViboraIzq',  (0, 180, 0),       60),   # víbora que sale hacia la izquierda
-    ('>', 'VibDer',     (0, 180, 0),       60),   # víbora que sale hacia la derecha
-    ('L', 'Lampara',    (255, 200, 50),    0),
-    ('~', 'AguaToxica', (30, 120, 40),     0),    # mata al jugador al contacto
+    (' ', 'Aire',       COLOR_BLACK,       0,    False),
+    ('#', 'Tierra',     COLOR_GRAY,        20,   True),   # destructible con dinamita
+    ('.', 'Suelo',      (100, 70, 50),     0,    True),   # indestructible
+    ('G', 'Granito',    (60, 60, 65),      0,    True),   # indestructible
+    ('R', 'Rocas',      (180, 170, 160),   25,   True),   # destructible con dinamita/láser
+    ('S', 'Start',      COLOR_BLUE,        0,    False),
+    ('M', 'Minero',     COLOR_GREEN,       1000, False),  # puntos al rescatar
+    ('V', 'Murcielago', COLOR_RED,         70,   False),  # puntos al matar con láser
+    ('A', 'Arana',      COLOR_ORANGE,      50,   False),  # puntos al matar con láser
+    ('B', 'Bicho',      COLOR_GREEN,       50,   False),  # puntos al matar con láser
+    ('<', 'ViboraIzq',  (0, 180, 0),       60,   False),  # víbora que sale hacia la izquierda
+    ('>', 'VibDer',     (0, 180, 0),       60,   False),  # víbora que sale hacia la derecha
+    ('L', 'Lampara',    (255, 200, 50),    0,    False),
+    ('~', 'AguaToxica', (30, 120, 40),     0,    False),  # mata al jugador al contacto
 ]
 
 # Lookup rápido: caracter → puntos
 TILE_SCORES = {t[0]: t[3] for t in TILE_TYPES}
+
+# Tiles sólidos (para colisiones y detección de bordes)
+SOLID_TILES = {t[0] for t in TILE_TYPES if t[4]}
 
 # Puntuación por matar enemigos con explosión (mayor que con láser)
 EXPLOSION_KILL_SCORE = 75

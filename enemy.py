@@ -93,7 +93,7 @@ class Enemy:
                 return True
 
             tile = level_map[tile_y][tile_x]
-            if tile in ('#', 'G', '.', 'R'):
+            if tile in SOLID_TILES:
                 return True
 
         return False
@@ -106,7 +106,7 @@ class Enemy:
         for tile_y in range(start_tile_y - 1, -1, -1):
             if 0 <= tile_y < len(level_map) and 0 <= tile_x < len(level_map[tile_y]):
                 tile = level_map[tile_y][tile_x]
-                if tile in ('#', 'G', '.', 'R'):
+                if tile in SOLID_TILES:
                     # El fondo del tile sólido
                     return (tile_y + 1) * TILE_SIZE
         return None
