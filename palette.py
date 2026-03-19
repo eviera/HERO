@@ -15,8 +15,8 @@ EDGE_THICKNESS = 3
 
 # Parámetros del overlay de musgo/raices
 MOSS_BASE_H = 2        # Grosor base del borde sólido (horizontal)
-MOSS_MAX_DOWN = 7      # Largo máximo de stalactitas (cuelgan del techo)
-MOSS_MAX_UP = 6        # Largo máximo de stalagmitas (crecen del suelo)
+MOSS_MAX_DOWN = 14     # Largo máximo de stalactitas (cuelgan del techo)
+MOSS_MAX_UP = 12       # Largo máximo de stalagmitas (crecen del suelo)
 
 # Parámetros de textura porosa del suelo
 FLOOR_STREAKS = (5, 9)       # Rango de franjas por tile
@@ -234,14 +234,14 @@ def _draw_moss_down(overlay, x, y0, sw, sh, cr, cg, cb, rng):
         tx_off = rng.randint(0, TILE_SIZE - 1)
         tx = x + tx_off
         base = heights[tx_off] if tx_off < len(heights) else 3
-        tlen = rng.randint(2, 5)
+        tlen = rng.randint(3, 12)
         for dy in range(tlen):
             by = y0 + base_h + base + dy
             if by >= sh:
                 break
             tx2 = tx + rng.randint(-1, 1)
             if 0 <= tx2 < sw:
-                a = max(40, 180 - dy * 25)
+                a = max(40, 180 - dy * 12)
                 overlay.set_at((tx2, by), (cr, cg, cb, a))
 
 
@@ -277,14 +277,14 @@ def _draw_moss_up(overlay, x, y0, sw, sh, cr, cg, cb, rng):
         tx_off = rng.randint(0, TILE_SIZE - 1)
         tx = x + tx_off
         base = heights[tx_off] if tx_off < len(heights) else 3
-        tlen = rng.randint(2, 4)
+        tlen = rng.randint(3, 10)
         for dy in range(tlen):
             by = y0 - base_h - 1 - base - dy
             if by < 0:
                 break
             tx2 = tx + rng.randint(-1, 1)
             if 0 <= tx2 < sw:
-                a = max(40, 180 - dy * 30)
+                a = max(40, 180 - dy * 14)
                 overlay.set_at((tx2, by), (cr, cg, cb, a))
 
 
