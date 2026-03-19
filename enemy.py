@@ -16,8 +16,23 @@ class Enemy:
         self.speed = speed_table.get(enemy_type, BAT_SPEED)
         self.direction = random.choice([-1, 1])
         self.active = True
-        self.width = 32
-        self.height = 32
+        if enemy_type == "bat":
+            self.width = 22
+            self.height = 22
+            # Centrar el murciélago dentro del tile
+            self.x = x + (TILE_SIZE - 22) // 2
+            self.y = y + (TILE_SIZE - 22) // 2
+        elif enemy_type == "spider":
+            self.width = 22
+            self.height = 22
+            # Centrar la araña dentro del tile
+            self.x = x + (TILE_SIZE - 22) // 2
+            self.y = y + (TILE_SIZE - 22) // 2
+            self.start_x = self.x
+            self.start_y = self.y
+        else:
+            self.width = 32
+            self.height = 32
         self.image = None
         self.images = None  # Lista de sprites para animación [bat1, bat2]
         self.distance_traveled = 0  # Distancia recorrida para alternar sprites
@@ -339,6 +354,8 @@ class Enemy:
                 progress = self.explosion_timer / self.explosion_duration
                 radius = int(8 + progress * 10)
 
+                cx = int(screen_x + self.width // 2)
+                cy = int(screen_y + self.height // 2)
                 for i in range(2):
                     r = radius - i * 5
                     if r > 0:
@@ -346,8 +363,7 @@ class Enemy:
                             color = (139, 69, 19)  # Marrón medio
                         else:
                             color = (101, 67, 33)  # Marrón oscuro
-                        pygame.draw.circle(screen, color,
-                                         (int(screen_x + 16), int(screen_y + 16)), r)
+                        pygame.draw.circle(screen, color, (cx, cy), r)
             else:
                 # Dibujar hilo de araña antes del sprite
                 if self.enemy_type == "spider" and level_map is not None:
@@ -364,4 +380,5 @@ class Enemy:
                     screen.blit(self.image, (int(screen_x), int(screen_y)))
                 else:
                     pygame.draw.circle(screen, COLOR_RED,
-                                     (int(screen_x + 16), int(screen_y + 16)), 12)
+                                     (int(screen_x + self.width // 2), int(screen_y + self.height // 2)),
+                                     self.width // 2 - 4)
