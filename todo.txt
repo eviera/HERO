@@ -23,13 +23,14 @@
 /- editor: mejorar la forma de buscar tiles, porque con los numeros del 1-9 no alcanza
 /- agua toxica
 /- viewport jagged ? (que no tenga que ser un cuadrilatero el mapa)
-- tiles de fondo
+/- tiles de fondo
+-- habria que mejorar que los 'agujeros' no se salgan del tile de la tierra
 - bloques y nivel de magma (si lo toca me quemo)
 /- el hitbox de la luz tendria que ser mas chico
 - animacion de la helice en vuelo
 - inercia al subir ?
 /- escalar el editor al doble
-- los colores de los puntitos del fondo deberian matchear los colores del nivel
+/- los colores de los puntitos del fondo deberian matchear los colores del nivel
 
 
 AI prompts

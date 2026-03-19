@@ -520,14 +520,20 @@ class Game:
         self.cave_bg = pygame.Surface((width, height))
         self.cave_bg.fill(COLOR_BLACK)
 
-        # Colores en escalas de marron (textura de roca/caverna)
+        # Derivar colores de puntitos del color 1 del nivel (depth_palette entrada 0)
+        # Se usan variantes oscuras (~15-25% del color original)
+        if self.depth_palette and len(self.depth_palette) > 0:
+            wc = self.depth_palette[0].get("wall", [255, 255, 255])
+            base_r, base_g, base_b = wc[0], wc[1], wc[2]
+        else:
+            base_r, base_g, base_b = 180, 120, 60  # Fallback marron
         dot_colors = [
-            (45, 30, 15),
-            (55, 35, 18),
-            (40, 25, 12),
-            (50, 32, 20),
-            (35, 22, 10),
-            (60, 40, 22),
+            (max(0, base_r * 18 // 100), max(0, base_g * 18 // 100), max(0, base_b * 18 // 100)),
+            (max(0, base_r * 22 // 100), max(0, base_g * 22 // 100), max(0, base_b * 22 // 100)),
+            (max(0, base_r * 15 // 100), max(0, base_g * 15 // 100), max(0, base_b * 15 // 100)),
+            (max(0, base_r * 20 // 100), max(0, base_g * 20 // 100), max(0, base_b * 20 // 100)),
+            (max(0, base_r * 13 // 100), max(0, base_g * 13 // 100), max(0, base_b * 13 // 100)),
+            (max(0, base_r * 25 // 100), max(0, base_g * 25 // 100), max(0, base_b * 25 // 100)),
         ]
 
         # Densidad baja: ~0.1% del area total
@@ -714,9 +720,10 @@ class Game:
     def drop_dynamite(self):
         """Player drops dynamite"""
         if self.dynamite_count > 0:
-            # Coloca la bomba enfrente del héroe según su dirección
-            offset_x = 24 if self.player.facing_right else -8
-            dynamite = Dynamite(self.player.x + offset_x, self.player.y + 16)
+            # Coloca la bomba centrada horizontalmente sobre el héroe, a la altura del suelo
+            dyn_x = self.player.x + self.player.width / 2 - 4  # centrar dinamita (width=8) en el héroe (width=32)
+            dyn_y = self.player.y + self.player.height - 16  # base de dinamita alineada con pies del héroe
+            dynamite = Dynamite(dyn_x, dyn_y)
             if 'bomb1' in self.sprites:
                 dynamite.explosion_sprites = [
                     self.sprites['bomb1'],
@@ -1609,11 +1616,11 @@ class Game:
         for laser in self.lasers:
             laser.draw(self.game_surface, self.camera_x, self.camera_y)
 
-        for dynamite in self.dynamites:
-            dynamite.draw(self.game_surface, self.camera_x, self.camera_y)
-
         if self.player:
             self.player.draw(self.game_surface, self.camera_x, self.camera_y)
+
+        for dynamite in self.dynamites:
+            dynamite.draw(self.game_surface, self.camera_x, self.camera_y)
 
         # Oscuridad con spotlight
         self._render_dark_mode_overlay()
@@ -1766,11 +1773,11 @@ class Game:
                 for laser in self.lasers:
                     laser.draw(self.game_surface, self.camera_x, self.camera_y)
 
-                for dynamite in self.dynamites:
-                    dynamite.draw(self.game_surface, self.camera_x, self.camera_y)
-
                 if self.player:
                     self.player.draw(self.game_surface, self.camera_x, self.camera_y)
+
+                for dynamite in self.dynamites:
+                    dynamite.draw(self.game_surface, self.camera_x, self.camera_y)
 
                 # Oscuridad estilo C64
                 self._render_dark_mode_overlay()
