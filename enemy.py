@@ -51,9 +51,12 @@ class Enemy:
             self.bug_zone_max_x = (spawn_col + 2) * TILE_SIZE - self.width
             self.bug_zone_min_y = (spawn_row - 1) * TILE_SIZE
             self.bug_zone_max_y = (spawn_row + 2) * TILE_SIZE - self.height
-            # Dirección inicial aleatoria (cardinal)
-            dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-            self.bug_dx, self.bug_dy = random.choice(dirs)
+            # Dirección inicial aleatoria (incluye diagonales)
+            angle = random.uniform(0, 2 * 3.14159)
+            import math
+            self.bug_dx = math.cos(angle)
+            self.bug_dy = math.sin(angle)
+            self.bug_change_timer = 0.0  # temporizador para cambios erráticos
 
     def check_collision(self, x, y, level_map):
         """Check collision with tiles using all 4 corners (margen de 1px)"""
@@ -130,7 +133,16 @@ class Enemy:
             return
 
         elif self.enemy_type == "bug":
-            # Bicho se mueve en zona 3x3 tiles, rebota contra límites y paredes
+            import math
+            # Movimiento errático: cambiar dirección aleatoriamente cada cierto tiempo
+            self.bug_change_timer -= dt
+            if self.bug_change_timer <= 0:
+                # Nueva dirección aleatoria (cualquier ángulo, incluye diagonales)
+                angle = random.uniform(0, 2 * math.pi)
+                self.bug_dx = math.cos(angle)
+                self.bug_dy = math.sin(angle)
+                self.bug_change_timer = random.uniform(0.3, 1.0)
+
             new_x = self.x + self.bug_dx * self.speed * dt
             new_y = self.y + self.bug_dy * self.speed * dt
 
@@ -144,7 +156,7 @@ class Enemy:
             elif new_x > self.bug_zone_max_x:
                 new_x = self.bug_zone_max_x
                 bounced = True
-            elif self.bug_dx != 0 and self.check_collision(new_x, self.y, level_map):
+            elif self.check_collision(new_x, self.y, level_map):
                 new_x = self.x
                 bounced = True
 
@@ -155,7 +167,7 @@ class Enemy:
             elif new_y > self.bug_zone_max_y:
                 new_y = self.bug_zone_max_y
                 bounced = True
-            elif self.bug_dy != 0 and self.check_collision(self.x, new_y, level_map):
+            elif self.check_collision(self.x, new_y, level_map):
                 new_y = self.y
                 bounced = True
 
@@ -163,18 +175,18 @@ class Enemy:
             self.y = new_y
 
             if bounced:
-                # Elegir nueva dirección aleatoria (distinta a la actual)
-                dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-                current = (self.bug_dx, self.bug_dy)
-                options = [d for d in dirs if d != current]
-                self.bug_dx, self.bug_dy = random.choice(options)
+                # Rebotar: nueva dirección aleatoria
+                angle = random.uniform(0, 2 * math.pi)
+                self.bug_dx = math.cos(angle)
+                self.bug_dy = math.sin(angle)
+                self.bug_change_timer = random.uniform(0.3, 1.0)
 
-            # Animación de patas
+            # Animación de alas (cicla entre 4 frames)
             if self.images:
                 self.distance_traveled += self.speed * dt
                 if self.distance_traveled >= BUG_ANIM_DISTANCE:
                     self.distance_traveled -= BUG_ANIM_DISTANCE
-                    self.anim_frame = 1 - self.anim_frame
+                    self.anim_frame = (self.anim_frame + 1) % len(self.images)
                     self.image = self.images[self.anim_frame]
 
         elif self.enemy_type == "spider":
@@ -234,15 +246,8 @@ class Enemy:
             return masks.get('spider')
         elif self.enemy_type == "bug":
             key = 'bug' + str(self.anim_frame + 1)
-            # Determinar ángulo de rotación según dirección (misma lógica que draw)
-            angle = 0
-            if self.bug_dx == 1:
-                angle = -90
-            elif self.bug_dx == -1:
-                angle = 90
-            elif self.bug_dy == 1:
-                angle = 180
-            return masks.get(f'{key}_rot{angle}')
+            # Bicho volante no rota, usa mask directa
+            return masks.get(key)
         # snake y otros: no usan mask (colisión por rect)
         return None
 
@@ -356,20 +361,7 @@ class Enemy:
                                        (center_x, int(thread_bottom)), 1)
 
                 if self.image:
-                    if self.enemy_type == "bug":
-                        # Rotar sprite según dirección de movimiento
-                        # Sprite base mira arriba (0, -1)
-                        angle = 0
-                        if self.bug_dx == 1:    # derecha
-                            angle = -90
-                        elif self.bug_dx == -1:  # izquierda
-                            angle = 90
-                        elif self.bug_dy == 1:   # abajo
-                            angle = 180
-                        rotated = pygame.transform.rotate(self.image, angle)
-                        screen.blit(rotated, (int(screen_x), int(screen_y)))
-                    else:
-                        screen.blit(self.image, (int(screen_x), int(screen_y)))
+                    screen.blit(self.image, (int(screen_x), int(screen_y)))
                 else:
                     pygame.draw.circle(screen, COLOR_RED,
                                      (int(screen_x + 16), int(screen_y + 16)), 12)

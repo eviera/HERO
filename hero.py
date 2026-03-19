@@ -372,6 +372,8 @@ class Game:
             self.sprites['spider'] = pygame.image.load("sprites/spider.png").convert_alpha()
             self.sprites['bug1'] = pygame.image.load("sprites/bug1.png").convert_alpha()
             self.sprites['bug2'] = pygame.image.load("sprites/bug2.png").convert_alpha()
+            self.sprites['bug3'] = pygame.image.load("sprites/bug3.png").convert_alpha()
+            self.sprites['bug4'] = pygame.image.load("sprites/bug4.png").convert_alpha()
             self.sprites['bomb1'] = pygame.image.load("sprites/bomb1.png").convert_alpha()
             self.sprites['bomb2'] = pygame.image.load("sprites/bomb2.png").convert_alpha()
             self.sprites['bomb3'] = pygame.image.load("sprites/bomb3.png").convert_alpha()
@@ -395,12 +397,10 @@ class Game:
         for key in ['bat1', 'bat2', 'spider', 'miner']:
             if key in self.sprites:
                 self.masks[key] = pygame.mask.from_surface(self.sprites[key])
-        # Bug: precomputar masks para las 4 rotaciones (0, 90, -90, 180)
-        for bug_key in ['bug1', 'bug2']:
+        # Bug: mask directa (bicho volante no rota, hitbox = parte coloreada)
+        for bug_key in ['bug1', 'bug2', 'bug3', 'bug4']:
             if bug_key in self.sprites:
-                for angle in [0, 90, -90, 180]:
-                    rotated = pygame.transform.rotate(self.sprites[bug_key], angle)
-                    self.masks[f'{bug_key}_rot{angle}'] = pygame.mask.from_surface(rotated)
+                self.masks[bug_key] = pygame.mask.from_surface(self.sprites[bug_key])
 
         # Mask del láser (rect sólido pequeño, precomputado)
         laser_surf = pygame.Surface((LASER_WIDTH, LASER_HEIGHT), pygame.SRCALPHA)
@@ -643,7 +643,8 @@ class Game:
                     speed_variation = random.uniform(1 - ENEMY_SPEED_VARIATION, 1 + ENEMY_SPEED_VARIATION)
                     enemy.speed = BUG_SPEED * speed_variation
                     if 'bug1' in self.sprites:
-                        enemy.images = [self.sprites['bug1'], self.sprites['bug2']]
+                        enemy.images = [self.sprites['bug1'], self.sprites['bug2'],
+                                        self.sprites['bug3'], self.sprites['bug4']]
                         enemy.image = enemy.images[0]
                     self.enemies.append(enemy)
                 elif tile in ("<", ">"):
@@ -863,12 +864,7 @@ class Game:
             if dynamite.exploded:
                 explosion_rect = dynamite.get_explosion_rect()
                 if explosion_rect:
-                    # Check if player is in blast radius
-                    if player_rect.colliderect(explosion_rect):
-                        self.player_hit()
-                        return
-
-                    # Destroy enemies
+                    # Destroy enemies (antes de check player para que siempre se procesen)
                     for enemy in self.enemies:
                         if enemy.active and not enemy.exploding and explosion_rect.colliderect(enemy.get_rect()):
                             enemy.exploding = True
@@ -933,6 +929,11 @@ class Game:
                     # Play sound once
                     if 'explosion' in self.sounds and dynamite.explosion_time > 0.4:
                         self.sounds['explosion'].play()
+
+                    # Check if player is in blast radius (al final para no saltear enemigos/bloques)
+                    if player_rect.colliderect(explosion_rect):
+                        self.player_hit()
+                        return
 
     def player_hit(self):
         """Player takes damage"""
