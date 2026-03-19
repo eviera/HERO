@@ -24,7 +24,10 @@ SCREEN_HEIGHT = VIEWPORT_HEIGHT + HUD_HEIGHT                # 464
 
 # Game constants - FÍSICAS CORRECTAS
 GRAVITY = 200  # Gravedad constante (reducida para caída más suave)
-PROPULSOR_POWER = 600  # Poder del propulsor
+PROPULSOR_POWER = 600  # Poder del propulsor (potencia máxima)
+PROPULSOR_WARMUP_TIME = 0.5  # Segundos hasta poder ascender a velocidad completa
+PROPULSOR_MAX_ASCENT_INITIAL = 0  # Velocidad máxima de ascenso al arrancar (casi nada)
+PROPULSOR_MAX_ASCENT_FULL = 400  # Velocidad máxima de ascenso a potencia completa
 PLAYER_SPEED_X = 150  # Velocidad horizontal
 WALK_STEP_DISTANCE = 16  # Pixeles entre pasos
 PLAYER_FOOT_INSET = 8    # Margen interior del hitbox de colision (hitbox = 16px centrado)

@@ -23,6 +23,7 @@ class Player:
         self.walk_distance = 0   # Distancia acumulada para alternar pasos
         self.walk_frame_index = 0  # Frame actual (0 o 1)
         self.is_walking = False  # Caminando sobre superficie
+        self.propulsor_active_time = 0  # Tiempo acumulado usando propulsor (para warmup)
 
     def init(self, level_map):
         """Initialize player position from map"""
@@ -75,19 +76,30 @@ class Player:
             # Grounded and not jumping - zero velocity to prevent accumulation
             self.vel_y = 0
 
-        # Propulsor - gradual con joystick, fijo con teclado
+        # Propulsor - con warmup: arranca en hover y sube a potencia completa
         # Solo funciona si hay energia
         self.using_propulsor = False
         if game.energy > 0:
+            propulsor_input = 0  # 0 = no input, >0 = intensidad (0..1)
             if keys[pygame.K_UP]:
-                # Teclado: potencia completa
-                self.using_propulsor = True
-                self.vel_y -= PROPULSOR_POWER * dt
+                propulsor_input = 1.0
             elif joy_axis_y < -DEAD_ZONE:
-                # Joystick arriba: potencia gradual segun inclinacion
-                intensity = abs(joy_axis_y)  # 0.15 a 1.0
+                propulsor_input = abs(joy_axis_y)  # 0.15 a 1.0
+
+            if propulsor_input > 0:
                 self.using_propulsor = True
-                self.vel_y -= PROPULSOR_POWER * intensity * dt
+                self.propulsor_active_time += dt
+                # Propulsor siempre empuja a potencia completa
+                self.vel_y -= PROPULSOR_POWER * propulsor_input * dt
+                # Pero limitamos cuanto puede subir segun el warmup
+                warmup_t = min(self.propulsor_active_time / PROPULSOR_WARMUP_TIME, 1.0)
+                max_ascent = PROPULSOR_MAX_ASCENT_INITIAL + (PROPULSOR_MAX_ASCENT_FULL - PROPULSOR_MAX_ASCENT_INITIAL) * warmup_t
+                # Clampar velocidad de ascenso (vel_y negativo = subiendo)
+                if self.vel_y < -max_ascent:
+                    self.vel_y = -max_ascent
+            else:
+                # Reset warmup cuando suelta el propulsor
+                self.propulsor_active_time = 0
 
         # Descenso activo - helice invertida para bajar mas rapido
         if keys[pygame.K_DOWN]:
