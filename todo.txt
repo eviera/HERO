@@ -35,6 +35,7 @@
 /- los colores de los puntitos del fondo deberian matchear los colores del nivel
 /- el bug verde podria ser mas bien un bicho que vuela como en la commodore
 - animacion de muerte del hero
+/- cuando hay una explosion se redibuja las texturas de moss
 
 
 AI prompts

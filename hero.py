@@ -851,7 +851,6 @@ class Game:
                         self.level_map[r] = (
                             self.level_map[r][:c] + ' ' + self.level_map[r][c + 1:]
                         )
-                        self._generate_edge_overlay()
 
                 # Play splatter sound
                 if 'splatter' in self.sounds:
@@ -922,9 +921,8 @@ class Game:
                                     self.sounds['splatter'].play()
                                 tiles_changed = True
 
-                    # Regenerar overlay de musgo solo si tiles cambiaron
-                    if tiles_changed:
-                        self._generate_edge_overlay()
+                    # El overlay de musgo NO se regenera; el moss original
+                    # queda intacto y los nuevos bordes expuestos quedan sin moss
 
                     # Play sound once
                     if 'explosion' in self.sounds and dynamite.explosion_time > 0.4:
@@ -1083,8 +1081,6 @@ class Game:
                     self.add_floating_score(tile_x + 16, tile_y, TILE_SCORES['R'])
                     if 'rock_break' in self.sounds:
                         self.sounds['rock_break'].play()
-                    # Regenerar overlay de musgo (tile cambió)
-                    self._generate_edge_overlay()
                 laser.hit_rock_pos = None
             if not laser.active:
                 self.lasers.remove(laser)
@@ -1669,8 +1665,8 @@ class Game:
                     running = False
 
                 elif event.type == pygame.KEYDOWN:
-                    # Fullscreen toggle (Alt+Enter)
-                    if event.key == pygame.K_RETURN and (event.mod & pygame.KMOD_ALT):
+                    # Fullscreen toggle (F11)
+                    if event.key == pygame.K_F11:
                         self.toggle_fullscreen()
                         continue
 

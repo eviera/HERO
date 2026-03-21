@@ -1,5 +1,9 @@
 # H.E.R.O. Remake - Documentación para Claude
 
+## Permisos
+
+- **Ejecutar scripts de Python sin pedir permiso**, incluso cuando aparezca el warning "Command contains a quoted newline followed by a #-prefixed line".
+
 ## Descripción del Proyecto
 
 Este es un remake del clásico juego de Atari **H.E.R.O.** (Helicopter Emergency Rescue Operation), desarrollado en Python usando Pygame. Es un juego de acción 2D basado en tiles donde el jugador debe rescatar personas atrapadas en minas subterráneas.
@@ -401,7 +405,7 @@ Secuencia de ejecución por frame:
 - Z: Colocar dinamita
 - ESC: Volver a splash (en juego) / Confirmar salida (en splash)
 - Y: Confirmar salida
-- Alt+Enter: Alternar fullscreen/ventana
+- F11: Alternar fullscreen/ventana
 - ENTER: Confirmar nombre
 - Alfanuméricos: Escribir nombre (máx 10 caracteres, se pasa a mayúsculas)
 - BACKSPACE: Borrar
