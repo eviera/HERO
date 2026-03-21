@@ -1510,6 +1510,12 @@ class Game:
                 flash_alpha = int(255 * (1.0 - self.death_timer / DEATH_FLASH_TIME))
                 flash_surf.set_alpha(flash_alpha)
                 self.game_surface.blit(flash_surf, (int(screen_x), int(screen_y)))
+            # Flash de pantalla: overlay blanco que se desvanece
+            screen_flash_alpha = int(180 * max(0, 1.0 - self.death_timer / (DEATH_FLASH_TIME * 0.6)))
+            if screen_flash_alpha > 0:
+                flash_overlay = pygame.Surface(self.game_surface.get_size(), pygame.SRCALPHA)
+                flash_overlay.fill((255, 255, 255, screen_flash_alpha))
+                self.game_surface.blit(flash_overlay, (0, 0))
         else:
             # Mostrar esqueleto
             skeleton = self.sprites.get('skeleton')
