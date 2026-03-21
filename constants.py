@@ -85,6 +85,12 @@ STATE_PLAYING = "playing"
 STATE_GAME_OVER = "game_over"
 STATE_ENTERING_NAME = "entering_name"
 STATE_LEVEL_COMPLETE = "level_complete"
+STATE_DYING = "dying"
+
+# Animación de muerte
+DEATH_FLASH_TIME = 0.35       # Segundos de flash blanco inicial (más dramático)
+DEATH_SKELETON_TIME = 1.0     # Segundos mostrando el esqueleto
+DEATH_ANIM_TIME = DEATH_FLASH_TIME + DEATH_SKELETON_TIME  # Total
 
 # Colors
 COLOR_BLACK = (0, 0, 0)

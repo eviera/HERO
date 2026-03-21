@@ -25,17 +25,17 @@
 /- viewport jagged ? (que no tenga que ser un cuadrilatero el mapa)
 /- tiles de fondo
 /-- habria que mejorar que los 'agujeros' no se salgan del tile de la tierra
--- que los tiles de tierra expuestos queden medios jagged y no tan rectos
--- tiles de piedras que no sean tan cuadrados, sino mas bien piedras apiladas
-- bloques y nivel de magma (si lo toca me quemo)
+/-- tiles de piedras que no sean tan cuadrados, sino mas bien piedras apiladas
 /- el hitbox de la luz tendria que ser mas chico
-- animacion de la helice en vuelo
 /- inercia al subir 
 /- escalar el editor al doble
 /- los colores de los puntitos del fondo deberian matchear los colores del nivel
 /- el bug verde podria ser mas bien un bicho que vuela como en la commodore
-- animacion de muerte del hero
 /- cuando hay una explosion se redibuja las texturas de moss
+- bloques y nivel de magma (si lo toca me quemo)
+- animacion de muerte del hero
+- animacion de la helice en vuelo
+- que los tiles de tierra expuestos queden medios jagged y no tan rectos
 
 
 AI prompts

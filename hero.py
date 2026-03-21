@@ -380,6 +380,8 @@ class Game:
             self.sprites['miner'] = pygame.image.load("sprites/miner.png").convert_alpha()
             self.sprites['snake_head'] = pygame.image.load("sprites/snake_head.png").convert_alpha()
             self.sprites['snake_neck'] = pygame.image.load("sprites/snake_neck.png").convert_alpha()
+            # Generar sprite de esqueleto a partir del sprite del player
+            self.sprites['skeleton'] = self._generate_skeleton_sprite(self.sprites['player'])
             print("Sprites loaded successfully")
         except Exception as e:
             print(f"Error loading sprites: {e}")
@@ -510,6 +512,35 @@ class Game:
         self.render_h = int(SCREEN_HEIGHT * self.render_scale)
         self.render_x = (display_w - self.render_w) // 2
         self.render_y = (display_h - self.render_h) // 2
+
+    def _generate_skeleton_sprite(self, player_sprite):
+        """Genera sprite de esqueleto a partir del sprite del jugador.
+        Toma la silueta y la recolorea con tonos hueso/blanco."""
+        w, h = player_sprite.get_size()
+        skeleton = pygame.Surface((w, h), pygame.SRCALPHA)
+
+        # Colores hueso para el esqueleto
+        bone_light = (230, 220, 200)   # Hueso claro
+        bone_dark = (180, 170, 150)    # Hueso oscuro
+        bone_shadow = (120, 110, 95)   # Sombra
+
+        for x in range(w):
+            for y in range(h):
+                r, g, b, a = player_sprite.get_at((x, y))
+                if a < 30:
+                    continue
+                # Calcular luminosidad del pixel original
+                lum = (r * 0.299 + g * 0.587 + b * 0.114) / 255.0
+                # Mapear a tonos hueso según luminosidad
+                if lum > 0.6:
+                    color = bone_light
+                elif lum > 0.3:
+                    color = bone_dark
+                else:
+                    color = bone_shadow
+                skeleton.set_at((x, y), (*color, a))
+
+        return skeleton
 
     def _generate_cave_background(self):
         """Genera superficie de fondo con pintitas simulando textura de caverna"""
@@ -934,7 +965,7 @@ class Game:
                         return
 
     def player_hit(self):
-        """Player takes damage"""
+        """Player takes damage - inicia animación de muerte"""
         self.lives -= 1
 
         # Stop helicopter sound
@@ -946,10 +977,27 @@ class Game:
         if 'death' in self.sounds:
             self.sounds['death'].play()
 
-        if self.lives <= 0:
-            self.state = STATE_ENTERING_NAME
+        # Iniciar animación de muerte
+        self.state = STATE_DYING
+        self.death_timer = 0
+        self.death_flash_done = False
+        # Guardar posición, orientación y sprite actual del player para la animación
+        self.death_x = self.player.x
+        self.death_y = self.player.y
+        self.death_facing_right = self.player.facing_right
+        # Capturar el sprite que tenía al morir para usar como silueta del flash
+        p = self.player
+        if p.shooting_timer > 0 and p.image_shooting:
+            death_sprite = p.image_shooting
+        elif not p.is_grounded and p.image_fly:
+            death_sprite = p.image_fly
+        elif p.is_walking and p.walk_frames:
+            death_sprite = p.walk_frames[p.walk_frame_index]
         else:
-            self.start_level()
+            death_sprite = p.image
+        if self.death_facing_right and death_sprite:
+            death_sprite = pygame.transform.flip(death_sprite, True, False)
+        self.death_sprite = death_sprite
 
     def rescue_miner(self):
         """Rescue miner and complete level - inicia animacion ColecoVision"""
@@ -1022,6 +1070,21 @@ class Game:
             self.state = STATE_ENTERING_NAME
         else:
             self.start_level()
+
+    def update_dying(self, dt):
+        """Actualiza animación de muerte del jugador"""
+        self.death_timer += dt
+
+        # Fase 1: flash blanco breve
+        if self.death_timer >= DEATH_FLASH_TIME and not self.death_flash_done:
+            self.death_flash_done = True
+
+        # Fase 2: después del tiempo total, reiniciar o game over
+        if self.death_timer >= DEATH_ANIM_TIME:
+            if self.lives <= 0:
+                self.state = STATE_ENTERING_NAME
+            else:
+                self.start_level()
 
     def update_playing(self, dt):
         """Update game during play"""
@@ -1417,6 +1480,52 @@ class Game:
         pygame.transform.scale(self.game_surface, (SCREEN_WIDTH, VIEWPORT_HEIGHT), self._scaled_game)
         self.screen.blit(self._scaled_game, (0, 0))
 
+    def render_dying(self):
+        """Renderiza la animación de muerte: nivel + esqueleto en lugar del player"""
+        self.game_surface.fill(COLOR_BLACK)
+        self.render_level()
+        self.render_lamps()
+
+        # Dibujar entidades (sin el player)
+        if self.miner and not self.miner.rescued:
+            self.miner.draw(self.game_surface, self.camera_x, self.camera_y)
+
+        for enemy in self.enemies:
+            enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map,
+                       wall_tile=self.tiles.get('wall'))
+
+        for dynamite in self.dynamites:
+            dynamite.draw(self.game_surface, self.camera_x, self.camera_y)
+
+        # Dibujar esqueleto o flash en la posición del player
+        screen_x = self.death_x - self.camera_x
+        screen_y = self.death_y - self.camera_y
+
+        if not self.death_flash_done:
+            # Flash blanco: silueta del sprite original en blanco (respeta transparencia)
+            if self.death_sprite:
+                flash_surf = self.death_sprite.copy()
+                # Poner RGB a blanco sin tocar el canal alpha
+                flash_surf.fill((255, 255, 255), special_flags=pygame.BLEND_RGB_MAX)
+                flash_alpha = int(255 * (1.0 - self.death_timer / DEATH_FLASH_TIME))
+                flash_surf.set_alpha(flash_alpha)
+                self.game_surface.blit(flash_surf, (int(screen_x), int(screen_y)))
+        else:
+            # Mostrar esqueleto
+            skeleton = self.sprites.get('skeleton')
+            if skeleton:
+                img = skeleton
+                if self.death_facing_right:
+                    img = pygame.transform.flip(skeleton, True, False)
+                self.game_surface.blit(img, (int(screen_x), int(screen_y)))
+
+        # Oscuridad estilo C64
+        self._render_dark_mode_overlay()
+
+        self.render_floating_scores()
+        self._render_game_to_screen()
+        self.render_hud()
+
     def render_hud(self):
         """Render HUD - ColecoVision style"""
         hud_y = VIEWPORT_HEIGHT
@@ -1732,6 +1841,8 @@ class Game:
             # Update
             if self.state == STATE_PLAYING:
                 self.update_playing(dt)
+            elif self.state == STATE_DYING:
+                self.update_dying(dt)
             elif self.state == STATE_LEVEL_COMPLETE:
                 self.update_level_complete(dt)
 
@@ -1782,6 +1893,9 @@ class Game:
                 self.render_floating_scores()
                 self._render_game_to_screen()
                 self.render_hud()
+
+            elif self.state == STATE_DYING:
+                self.render_dying()
 
             elif self.state == STATE_LEVEL_COMPLETE:
                 self.render_level_complete()
