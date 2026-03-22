@@ -24,6 +24,13 @@ class Player:
         self.walk_frame_index = 0  # Frame actual (0 o 1)
         self.is_walking = False  # Caminando sobre superficie
         self.propulsor_active_time = 0  # Tiempo acumulado usando propulsor (para warmup)
+        # Animación de hélice
+        self.propeller_timer = 0.0
+        self.propeller_frame = 0
+        self._prop_bodies = {}       # sprite_key -> Surface (cuerpo sin palas)
+        self._prop_bodies_flip = {}  # sprite_key -> Surface (cuerpo flippeado)
+        self._prop_frames = {}       # sprite_key -> [frame0, frame1, frame2, frame3]
+        self._prop_frames_flip = {}  # sprite_key -> [frame0_flip, ...]
 
     def init(self, level_map):
         """Initialize player position from map"""
@@ -157,6 +164,13 @@ class Player:
             self.walk_distance = 0
             self.walk_frame_index = 0
 
+        # Animación de hélice: gira lento en tierra, rápido en el aire
+        prop_speed = PROPELLER_FAST_SPEED if (self.using_propulsor or not self.is_grounded) else PROPELLER_SLOW_SPEED
+        self.propeller_timer += prop_speed * dt
+        while self.propeller_timer >= 1.0:
+            self.propeller_timer -= 1.0
+            self.propeller_frame = (self.propeller_frame + 1) % PROPELLER_NUM_FRAMES
+
     def check_collision(self, x, y, level_map):
         """Check collision with tiles (hitbox estrecho centrado en el cuerpo)"""
         level_h = len(level_map) if level_map else 0
@@ -204,20 +218,39 @@ class Player:
         screen_x = self.x - camera_x
         screen_y = self.y - camera_y
         if self.image:
-            # Prioridad de sprites: disparo > vuelo > caminata > idle
+            # Determinar sprite_key según prioridad: disparo > vuelo > caminata > idle
             if self.shooting_timer > 0 and self.image_shooting:
-                base_img = self.image_shooting
+                sprite_key = 'player_shooting'
             elif not self.is_grounded and self.image_fly:
-                base_img = self.image_fly
+                sprite_key = 'player_fly'
             elif self.is_walking and self.walk_frames:
-                base_img = self.walk_frames[self.walk_frame_index]
+                sprite_key = 'player_walk' + str(self.walk_frame_index + 1)
             else:
-                base_img = self.image
-            # Voltear sprite según orientación (invertido)
-            img = base_img
-            if self.facing_right:
-                img = pygame.transform.flip(base_img, True, False)
-            screen.blit(img, (int(screen_x), int(screen_y)))
+                sprite_key = 'player'
+
+            pos = (int(screen_x), int(screen_y))
+
+            # Composición cuerpo + hélice animada (2 blits, sin transforms en runtime)
+            if sprite_key in self._prop_bodies:
+                if self.facing_right:
+                    screen.blit(self._prop_bodies_flip[sprite_key], pos)
+                    screen.blit(self._prop_frames_flip[sprite_key][self.propeller_frame], pos)
+                else:
+                    screen.blit(self._prop_bodies[sprite_key], pos)
+                    screen.blit(self._prop_frames[sprite_key][self.propeller_frame], pos)
+            else:
+                # Fallback: sprite original sin animación de hélice
+                if sprite_key == 'player_shooting':
+                    base_img = self.image_shooting
+                elif sprite_key == 'player_fly':
+                    base_img = self.image_fly
+                elif sprite_key.startswith('player_walk'):
+                    base_img = self.walk_frames[self.walk_frame_index]
+                else:
+                    base_img = self.image
+                if self.facing_right:
+                    base_img = pygame.transform.flip(base_img, True, False)
+                screen.blit(base_img, pos)
         else:
             # Draw simple helicopter
             pygame.draw.rect(screen, COLOR_BLUE,

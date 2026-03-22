@@ -18,7 +18,10 @@ from dynamite import Dynamite
 from enemy import Enemy
 from miner import Miner
 from player import Player
-from audio_effects import apply_sid_to_sound
+try:
+    from audio_effects import apply_sid_to_sound
+except ImportError:
+    apply_sid_to_sound = None
 from palette import (get_depth_palette, get_edge_color, build_tinted_floors,
                       draw_tile_edges, generate_edge_overlay,
                       generate_floor_texture)
@@ -382,6 +385,8 @@ class Game:
             self.sprites['snake_neck'] = pygame.image.load("sprites/snake_neck.png").convert_alpha()
             # Generar sprite de esqueleto a partir del sprite del player
             self.sprites['skeleton'] = self._generate_skeleton_sprite(self.sprites['player'])
+            # Preparar animación de hélice (separar palas del cuerpo)
+            self._prepare_propeller_sprites()
             print("Sprites loaded successfully")
         except Exception as e:
             print(f"Error loading sprites: {e}")
@@ -513,6 +518,71 @@ class Game:
         self.render_x = (display_w - self.render_w) // 2
         self.render_y = (display_h - self.render_h) // 2
 
+    def _prepare_propeller_sprites(self):
+        """Separa las palas de la hélice del cuerpo de cada sprite y genera frames de rotación.
+        Las palas están en filas 2-3 para idle/walk/shoot y filas 0-1 para fly."""
+        # Filas que contienen las palas para cada sprite
+        blade_rows = {
+            'player': (2, 3),
+            'player_shooting': (2, 3),
+            'player_walk1': (2, 3),
+            'player_walk2': (2, 3),
+            'player_fly': (0, 1),
+        }
+
+        self.propeller_bodies = {}
+        self.propeller_bodies_flip = {}
+        self.propeller_frames = {}
+        self.propeller_frames_flip = {}
+
+        for sprite_key, (row_start, row_end) in blade_rows.items():
+            if sprite_key not in self.sprites:
+                continue
+
+            original = self.sprites[sprite_key]
+
+            # Recopilar píxeles de las palas (no transparentes en las filas de blade)
+            blade_pixels = []
+            for y in range(row_start, row_end + 1):
+                for x in range(original.get_width()):
+                    color = original.get_at((x, y))
+                    if color.a > 0:
+                        blade_pixels.append((x, y, color))
+
+            if not blade_pixels:
+                continue
+
+            # Centro y medio-ancho de las palas
+            min_x = min(p[0] for p in blade_pixels)
+            max_x = max(p[0] for p in blade_pixels)
+            center_x = (min_x + max_x) / 2.0
+            half_width = (max_x - min_x) / 2.0
+
+            # Sprite del cuerpo: original con píxeles de palas borrados
+            body = original.copy()
+            for bx, by, _ in blade_pixels:
+                body.set_at((bx, by), pygame.Color(0, 0, 0, 0))
+            self.propeller_bodies[sprite_key] = body
+            self.propeller_bodies_flip[sprite_key] = pygame.transform.flip(body, True, False)
+
+            # Generar frames de rotación variando el ancho visible
+            frames = []
+            frames_flip = []
+            for factor in PROPELLER_WIDTH_FACTORS:
+                frame = pygame.Surface((32, 32), pygame.SRCALPHA)
+                scaled_half = half_width * factor
+                for bx, by, color in blade_pixels:
+                    if abs(bx - center_x) <= scaled_half:
+                        frame.set_at((bx, by), color)
+                frames.append(frame)
+                frames_flip.append(pygame.transform.flip(frame, True, False))
+
+            self.propeller_frames[sprite_key] = frames
+            self.propeller_frames_flip[sprite_key] = frames_flip
+
+        print(f"Propeller sprites prepared: {len(self.propeller_bodies)} body sprites, "
+              f"{sum(len(f) for f in self.propeller_frames.values())} overlay frames")
+
     def _generate_skeleton_sprite(self, player_sprite):
         """Genera sprite de esqueleto a partir del sprite del jugador.
         Toma la silueta y la recolorea con tonos hueso/blanco."""
@@ -642,6 +712,12 @@ class Game:
             self.player.walk_frames = [self.sprites['player_walk1'], self.sprites['player_walk2']]
         if 'player_fly' in self.sprites:
             self.player.image_fly = self.sprites['player_fly']
+        # Asignar datos de animación de hélice
+        if hasattr(self, 'propeller_bodies'):
+            self.player._prop_bodies = self.propeller_bodies
+            self.player._prop_bodies_flip = self.propeller_bodies_flip
+            self.player._prop_frames = self.propeller_frames
+            self.player._prop_frames_flip = self.propeller_frames_flip
         if 'walk1' in self.sounds and 'walk2' in self.sounds:
             self.player.walk_sounds = [self.sounds['walk1'], self.sounds['walk2']]
 

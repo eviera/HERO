@@ -92,6 +92,12 @@ DEATH_FLASH_TIME = 0.35       # Segundos de flash blanco inicial (más dramátic
 DEATH_SKELETON_TIME = 1.0     # Segundos mostrando el esqueleto
 DEATH_ANIM_TIME = DEATH_FLASH_TIME + DEATH_SKELETON_TIME  # Total
 
+# Animación de hélice del helicóptero
+PROPELLER_SLOW_SPEED = 5.0    # Ciclos por segundo (idle/caminando)
+PROPELLER_FAST_SPEED = 20.0   # Ciclos por segundo (volando)
+PROPELLER_NUM_FRAMES = 4      # Frames de rotación
+PROPELLER_WIDTH_FACTORS = [1.0, 0.65, 0.15, 0.65]  # Factor de ancho por frame
+
 # Colors
 COLOR_BLACK = (0, 0, 0)
 COLOR_WHITE = (255, 255, 255)
