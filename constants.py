@@ -70,8 +70,65 @@ SNAKE_KILL_SCORE = 60          # Puntos al matar la víbora
 # Agua tóxica
 TOXIC_WATER_SCROLL_SPEED = 10  # Píxeles por segundo de scroll horizontal
 
-# Cave background dots (pintitas del fondo de caverna)
-CAVE_DOT_SIZE = 2  # Tamaño en pixels de las pintitas
+# =====================================================================
+# TEXTURAS - Fine tuning de overlays sobre suelo (.) y lava (X)
+# Todas las texturas se pre-generan al cargar el nivel.
+# Modificar estos valores cambia la apariencia de la caverna.
+# =====================================================================
+
+# --- Fondo de caverna (pintitas en el vacío) ---
+CAVE_DOT_SIZE = 2             # Tamaño en pixels de cada pintita
+CAVE_DOT_DENSITY = 0.002     # Proporción del área total cubierta (0.0005 = sparse, 0.003 = denso)
+CAVE_DOT_BRIGHTNESS = [13, 15, 18, 20, 22, 25]  # % del color base para cada variante de punto
+
+# --- Overlay de textura del suelo/lava (negro sobre tiles . y X) ---
+# Chevrones (formas de V invertida que dan textura rugosa)
+OVERLAY_CHEVRON_PERIOD = 14       # Separación vertical entre filas de chevrones (px)
+OVERLAY_CHEVRON_W = (10, 18)     # Ancho de cada chevrón (min, max px)
+OVERLAY_CHEVRON_H = (5, 9)       # Altura de cada chevrón (min, max px)
+OVERLAY_CHEVRON_THICKNESS = (2, 4)  # Grosor de las líneas del chevrón (min, max px)
+OVERLAY_CHEVRON_SPACING = (2, 8) # Espacio horizontal entre chevrones (min, max px)
+OVERLAY_CHEVRON_IRREGULARITY = 0.3  # Probabilidad de píxeles extra para irregularidad (0-1)
+
+# Ruido disperso (píxeles negros sueltos sobre el tile)
+OVERLAY_NOISE_DENSITY = 0.08     # Probabilidad de pixel negro por posición (0.01=limpio, 0.1=sucio)
+
+# Clusters (grupos de píxeles negros = cavidades pequeñas)
+OVERLAY_CLUSTER_COUNT = (2, 5)   # Cantidad de clusters por tile (min, max)
+OVERLAY_CLUSTER_SIZE = (2, 5)    # Tamaño de cada cluster en px (min, max)
+OVERLAY_CLUSTER_FILL = 0.65      # Probabilidad de llenar cada pixel del cluster (0-1)
+
+# Agujeros grandes (huecos irregulares en el tile)
+OVERLAY_BIG_HOLE_COUNT = (1, 3)  # Cantidad por tile (min, max)
+OVERLAY_BIG_HOLE_W = (5, 12)     # Ancho del agujero (min, max px)
+OVERLAY_BIG_HOLE_H = (4, 8)      # Alto del agujero (min, max px)
+OVERLAY_BIG_HOLE_EDGE_SKIP = 0.4 # Probabilidad de omitir pixel en bordes (irregularidad)
+
+# Dientes en bordes expuestos al vacío (dan aspecto irregular a las aristas)
+OVERLAY_TEETH_COUNT = (8, 14)    # Cantidad de dientes por borde (min, max)
+OVERLAY_TEETH_W = (1, 5)         # Ancho de cada diente (min, max px)
+OVERLAY_TEETH_DEPTH = (3, 10)    # Profundidad hacia adentro del tile (min, max px)
+OVERLAY_TEETH_BASE_GAP = 0.15    # Probabilidad de hueco en la línea base del borde
+OVERLAY_TEETH_BASE_EXTRA = 0.6   # Probabilidad de segunda línea base (más grosor)
+
+# --- Musgo/raíces (overlay verde en bordes de suelo expuestos) ---
+MOSS_BASE_H = 2              # Grosor base horizontal (stalactitas/stalagmitas) en px
+MOSS_BASE_W = 2              # Grosor base vertical (musgo lateral) en px
+MOSS_MAX_DOWN = 14           # Largo máximo de stalactitas (cuelgan del techo) en px
+MOSS_MAX_UP = 12             # Largo máximo de stalagmitas (crecen del suelo) en px
+MOSS_MAX_SIDE = 10           # Largo máximo de musgo lateral en px
+MOSS_BASE_GAP_CHANCE = 0.15  # Probabilidad de hueco en la banda base (0=sólida, 0.3=muy rota)
+MOSS_COLOR_VARIATION = 8     # ±variación RGB por pixel (0=uniforme, 15=muy variado)
+MOSS_ALPHA_TIP = 80          # Alpha mínimo en la punta (0=invisible, 255=sólido)
+MOSS_ALPHA_BASE = 240        # Alpha de la base (cerca del tile)
+MOSS_TENDRIL_COUNT = (1, 3)  # Hilos extra que se extienden más allá del dentado (min, max)
+MOSS_TENDRIL_LENGTH = (3, 12)  # Largo de cada tendril (min, max px)
+
+# Parámetros del dentado irregular (_jagged_heights)
+MOSS_JAG_GAP_CHANCE = 0.25   # Probabilidad de iniciar un gap (zona baja) en el dentado
+MOSS_JAG_CLUSTER_LEN = (2, 6)  # Largo de cada cluster de alturas similares (min, max)
+MOSS_JAG_PEAK_CHANCE = 0.06  # Probabilidad de pico largo ocasional
+MOSS_JAG_PEAK_EXTRA = (4, 10)  # Altura extra del pico sobre la base (min, max px)
 
 # Dimensiones por defecto de nivel (para compatibilidad y editor)
 DEFAULT_LEVEL_WIDTH = 16   # tiles

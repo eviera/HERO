@@ -648,16 +648,11 @@ class Game:
         else:
             base_r, base_g, base_b = 180, 120, 60  # Fallback marron
         dot_colors = [
-            (max(0, base_r * 18 // 100), max(0, base_g * 18 // 100), max(0, base_b * 18 // 100)),
-            (max(0, base_r * 22 // 100), max(0, base_g * 22 // 100), max(0, base_b * 22 // 100)),
-            (max(0, base_r * 15 // 100), max(0, base_g * 15 // 100), max(0, base_b * 15 // 100)),
-            (max(0, base_r * 20 // 100), max(0, base_g * 20 // 100), max(0, base_b * 20 // 100)),
-            (max(0, base_r * 13 // 100), max(0, base_g * 13 // 100), max(0, base_b * 13 // 100)),
-            (max(0, base_r * 25 // 100), max(0, base_g * 25 // 100), max(0, base_b * 25 // 100)),
+            (max(0, base_r * pct // 100), max(0, base_g * pct // 100), max(0, base_b * pct // 100))
+            for pct in CAVE_DOT_BRIGHTNESS
         ]
 
-        # Densidad baja: ~0.1% del area total
-        num_dots = int(width * height * 0.001)
+        num_dots = int(width * height * CAVE_DOT_DENSITY)
 
         for _ in range(num_dots):
             dx = random.randint(0, width - CAVE_DOT_SIZE)

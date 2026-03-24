@@ -5,32 +5,25 @@
 
 import pygame
 import random
-from constants import VIEWPORT_ROWS, TILE_SIZE, SOLID_TILES
+from constants import (
+    VIEWPORT_ROWS, TILE_SIZE, SOLID_TILES,
+    # Textura C64 (suelo/lava)
+    OVERLAY_CHEVRON_PERIOD, OVERLAY_CHEVRON_W, OVERLAY_CHEVRON_H, OVERLAY_CHEVRON_THICKNESS,
+    OVERLAY_CHEVRON_SPACING, OVERLAY_CHEVRON_IRREGULARITY, OVERLAY_NOISE_DENSITY,
+    OVERLAY_CLUSTER_COUNT, OVERLAY_CLUSTER_SIZE, OVERLAY_CLUSTER_FILL,
+    OVERLAY_BIG_HOLE_COUNT, OVERLAY_BIG_HOLE_W, OVERLAY_BIG_HOLE_H, OVERLAY_BIG_HOLE_EDGE_SKIP,
+    OVERLAY_TEETH_COUNT, OVERLAY_TEETH_W, OVERLAY_TEETH_DEPTH, OVERLAY_TEETH_BASE_GAP,
+    OVERLAY_TEETH_BASE_EXTRA,
+    # Musgo/raíces
+    MOSS_BASE_H, MOSS_BASE_W, MOSS_MAX_DOWN, MOSS_MAX_UP, MOSS_MAX_SIDE,
+    MOSS_BASE_GAP_CHANCE, MOSS_COLOR_VARIATION, MOSS_ALPHA_TIP, MOSS_ALPHA_BASE,
+    MOSS_TENDRIL_COUNT, MOSS_TENDRIL_LENGTH,
+    MOSS_JAG_GAP_CHANCE, MOSS_JAG_CLUSTER_LEN, MOSS_JAG_PEAK_CHANCE,
+    MOSS_JAG_PEAK_EXTRA,
+)
 
 # Grosor del borde decorativo en píxeles (legacy, usado por draw_tile_edges)
 EDGE_THICKNESS = 3
-
-# Parámetros del overlay de musgo/raices
-MOSS_BASE_H = 2        # Grosor base del borde sólido (horizontal)
-MOSS_MAX_DOWN = 14     # Largo máximo de stalactitas (cuelgan del techo)
-MOSS_MAX_UP = 12       # Largo máximo de stalagmitas (crecen del suelo)
-
-# Parámetros de textura C64 (chevrones grandes + ruido, solo negro puro)
-C64_CHEVRON_PERIOD = 14      # Período vertical entre filas de chevrones (px)
-C64_CHEVRON_W = (10, 18)     # Ancho de cada chevrón (px)
-C64_CHEVRON_H = (5, 9)       # Altura de cada chevrón (px)
-C64_CHEVRON_THICKNESS = (2, 4)  # Grosor de las líneas del chevrón (px)
-C64_CHEVRON_SPACING = (2, 8) # Espacio horizontal entre chevrones (px)
-C64_NOISE_DENSITY = 0.04     # Densidad de píxeles de ruido sueltos
-C64_CLUSTER_COUNT = (2, 5)   # Clusters de píxeles negros por tile
-C64_CLUSTER_SIZE = (2, 5)    # Tamaño de cada cluster (px)
-C64_BIG_HOLE_COUNT = (1, 3)  # Agujeros grandes por tile
-C64_BIG_HOLE_W = (5, 12)     # Ancho de agujero grande (px)
-C64_BIG_HOLE_H = (4, 8)      # Alto de agujero grande (px)
-# Dientes irregulares en bordes expuestos al vacío
-C64_TEETH_COUNT = (8, 14)    # Cantidad de dientes por borde
-C64_TEETH_W = (1, 5)         # Ancho de cada diente (px)
-C64_TEETH_DEPTH = (3, 10)    # Profundidad de cada diente (px hacia adentro del tile)
 
 # Tinte neutro (sin cambio de color)
 NEUTRAL_TINT = [255, 255, 255]
@@ -149,14 +142,14 @@ def _jagged_heights(rng, count, min_h, max_h):
         if cluster_len <= 0:
             if in_gap:
                 in_gap = False
-                cluster_len = rng.randint(2, 6)
+                cluster_len = rng.randint(*MOSS_JAG_CLUSTER_LEN)
                 h = rng.randint(min_h, max(min_h + 1, max_h))
             else:
-                if rng.random() < 0.25:
+                if rng.random() < MOSS_JAG_GAP_CHANCE:
                     in_gap = True
-                    cluster_len = rng.randint(2, 6)
+                    cluster_len = rng.randint(*MOSS_JAG_CLUSTER_LEN)
                 else:
-                    cluster_len = rng.randint(2, 5)
+                    cluster_len = rng.randint(*MOSS_JAG_CLUSTER_LEN)
                     h = rng.randint(min_h, max_h)
         cluster_len -= 1
         if in_gap:
@@ -165,8 +158,8 @@ def _jagged_heights(rng, count, min_h, max_h):
             h += rng.randint(-1, 1)
             h = max(min_h, min(max_h, h))
             # Picos largos ocasionales
-            if rng.random() < 0.06:
-                heights.append(min(max_h + 5, h + rng.randint(4, 10)))
+            if rng.random() < MOSS_JAG_PEAK_CHANCE:
+                heights.append(min(max_h + 5, h + rng.randint(*MOSS_JAG_PEAK_EXTRA)))
             else:
                 heights.append(h)
     return heights
@@ -207,18 +200,19 @@ def generate_edge_overlay(level_map, edge_color, seed=42):
 def _draw_moss_down(overlay, x, y0, sw, sh, cr, cg, cb, rng):
     """Stalactitas colgando del techo hacia abajo."""
     base_h = MOSS_BASE_H
+    v = MOSS_COLOR_VARIATION
     # Banda base (sparse - no todos los píxeles)
     for i in range(TILE_SIZE):
         bx = x + i
         if bx >= sw:
             break
-        if rng.random() < 0.15:
+        if rng.random() < MOSS_BASE_GAP_CHANCE:
             continue  # huecos en la base
         for dy in range(base_h):
             by = y0 + dy
             if by >= sh:
                 break
-            overlay.set_at((bx, by), (cr, cg, cb, 220))
+            overlay.set_at((bx, by), (cr, cg, cb, MOSS_ALPHA_BASE))
     # Dentado irregular
     heights = _jagged_heights(rng, TILE_SIZE, 1, MOSS_MAX_DOWN)
     for i, h in enumerate(heights):
@@ -229,41 +223,42 @@ def _draw_moss_down(overlay, x, y0, sw, sh, cr, cg, cb, rng):
             by = y0 + base_h + dy
             if by >= sh:
                 break
-            a = 240 if dy < h - 3 else max(80, 240 - (dy - (h - 3)) * 50)
+            a = MOSS_ALPHA_BASE if dy < h - 3 else max(MOSS_ALPHA_TIP, MOSS_ALPHA_BASE - (dy - (h - 3)) * 50)
             overlay.set_at((bx, by), (
-                _clamp_color(cr + rng.randint(-8, 8)),
-                _clamp_color(cg + rng.randint(-8, 8)),
-                _clamp_color(cb + rng.randint(-8, 8)), a))
+                _clamp_color(cr + rng.randint(-v, v)),
+                _clamp_color(cg + rng.randint(-v, v)),
+                _clamp_color(cb + rng.randint(-v, v)), a))
     # Tendriles finos extra
-    for _ in range(rng.randint(1, 3)):
+    for _ in range(rng.randint(*MOSS_TENDRIL_COUNT)):
         tx_off = rng.randint(0, TILE_SIZE - 1)
         tx = x + tx_off
         base = heights[tx_off] if tx_off < len(heights) else 3
-        tlen = rng.randint(3, 12)
+        tlen = rng.randint(*MOSS_TENDRIL_LENGTH)
         for dy in range(tlen):
             by = y0 + base_h + base + dy
             if by >= sh:
                 break
             tx2 = tx + rng.randint(-1, 1)
             if 0 <= tx2 < sw:
-                a = max(40, 180 - dy * 12)
+                a = max(MOSS_ALPHA_TIP // 2, 180 - dy * 12)
                 overlay.set_at((tx2, by), (cr, cg, cb, a))
 
 
 def _draw_moss_up(overlay, x, y0, sw, sh, cr, cg, cb, rng):
     """Stalagmitas creciendo del suelo hacia arriba."""
     base_h = MOSS_BASE_H
+    v = MOSS_COLOR_VARIATION
     for i in range(TILE_SIZE):
         bx = x + i
         if bx >= sw:
             break
-        if rng.random() < 0.15:
+        if rng.random() < MOSS_BASE_GAP_CHANCE:
             continue  # huecos en la base
         for dy in range(base_h):
             by = y0 - 1 - dy
             if by < 0:
                 break
-            overlay.set_at((bx, by), (cr, cg, cb, 220))
+            overlay.set_at((bx, by), (cr, cg, cb, MOSS_ALPHA_BASE))
     heights = _jagged_heights(rng, TILE_SIZE, 1, MOSS_MAX_UP)
     for i, h in enumerate(heights):
         bx = x + i
@@ -273,39 +268,40 @@ def _draw_moss_up(overlay, x, y0, sw, sh, cr, cg, cb, rng):
             by = y0 - base_h - 1 - dy
             if by < 0:
                 break
-            a = 240 if dy < h - 3 else max(80, 240 - (dy - (h - 3)) * 50)
+            a = MOSS_ALPHA_BASE if dy < h - 3 else max(MOSS_ALPHA_TIP, MOSS_ALPHA_BASE - (dy - (h - 3)) * 50)
             overlay.set_at((bx, by), (
-                _clamp_color(cr + rng.randint(-8, 8)),
-                _clamp_color(cg + rng.randint(-8, 8)),
-                _clamp_color(cb + rng.randint(-8, 8)), a))
-    for _ in range(rng.randint(1, 3)):
+                _clamp_color(cr + rng.randint(-v, v)),
+                _clamp_color(cg + rng.randint(-v, v)),
+                _clamp_color(cb + rng.randint(-v, v)), a))
+    for _ in range(rng.randint(*MOSS_TENDRIL_COUNT)):
         tx_off = rng.randint(0, TILE_SIZE - 1)
         tx = x + tx_off
         base = heights[tx_off] if tx_off < len(heights) else 3
-        tlen = rng.randint(3, 10)
+        tlen = rng.randint(*MOSS_TENDRIL_LENGTH)
         for dy in range(tlen):
             by = y0 - base_h - 1 - base - dy
             if by < 0:
                 break
             tx2 = tx + rng.randint(-1, 1)
             if 0 <= tx2 < sw:
-                a = max(40, 180 - dy * 14)
+                a = max(MOSS_ALPHA_TIP // 2, 180 - dy * 14)
                 overlay.set_at((tx2, by), (cr, cg, cb, a))
 
 
 def _draw_moss_left(overlay, x0, y, sw, sh, cr, cg, cb, rng):
     """Musgo creciendo hacia la izquierda."""
     base_w = MOSS_BASE_W
+    v = MOSS_COLOR_VARIATION
     for i in range(TILE_SIZE):
         by = y + i
         if by >= sh:
             break
-        bw = base_w + (1 if rng.random() < 0.15 else 0)
+        bw = base_w + (1 if rng.random() < MOSS_BASE_GAP_CHANCE else 0)
         for dx in range(bw):
             bx = x0 - 1 - dx
             if bx < 0:
                 break
-            overlay.set_at((bx, by), (cr, cg, cb, 220))
+            overlay.set_at((bx, by), (cr, cg, cb, MOSS_ALPHA_BASE))
     heights = _jagged_heights(rng, TILE_SIZE, 1, MOSS_MAX_SIDE)
     for i, h in enumerate(heights):
         by = y + i
@@ -315,26 +311,27 @@ def _draw_moss_left(overlay, x0, y, sw, sh, cr, cg, cb, rng):
             bx = x0 - base_w - 1 - dx
             if bx < 0:
                 break
-            a = 220 if dx < h - 2 else max(80, 220 - (dx - (h - 2)) * 60)
+            a = MOSS_ALPHA_BASE if dx < h - 2 else max(MOSS_ALPHA_TIP, MOSS_ALPHA_BASE - (dx - (h - 2)) * 60)
             overlay.set_at((bx, by), (
-                _clamp_color(cr + rng.randint(-8, 8)),
-                _clamp_color(cg + rng.randint(-8, 8)),
-                _clamp_color(cb + rng.randint(-8, 8)), a))
+                _clamp_color(cr + rng.randint(-v, v)),
+                _clamp_color(cg + rng.randint(-v, v)),
+                _clamp_color(cb + rng.randint(-v, v)), a))
 
 
 def _draw_moss_right(overlay, x0, y, sw, sh, cr, cg, cb, rng):
     """Musgo creciendo hacia la derecha."""
     base_w = MOSS_BASE_W
+    v = MOSS_COLOR_VARIATION
     for i in range(TILE_SIZE):
         by = y + i
         if by >= sh:
             break
-        bw = base_w + (1 if rng.random() < 0.15 else 0)
+        bw = base_w + (1 if rng.random() < MOSS_BASE_GAP_CHANCE else 0)
         for dx in range(bw):
             bx = x0 + dx
             if bx >= sw:
                 break
-            overlay.set_at((bx, by), (cr, cg, cb, 220))
+            overlay.set_at((bx, by), (cr, cg, cb, MOSS_ALPHA_BASE))
     heights = _jagged_heights(rng, TILE_SIZE, 1, MOSS_MAX_SIDE)
     for i, h in enumerate(heights):
         by = y + i
@@ -344,15 +341,15 @@ def _draw_moss_right(overlay, x0, y, sw, sh, cr, cg, cb, rng):
             bx = x0 + base_w + dx
             if bx >= sw:
                 break
-            a = 220 if dx < h - 2 else max(80, 220 - (dx - (h - 2)) * 60)
+            a = MOSS_ALPHA_BASE if dx < h - 2 else max(MOSS_ALPHA_TIP, MOSS_ALPHA_BASE - (dx - (h - 2)) * 60)
             overlay.set_at((bx, by), (
-                _clamp_color(cr + rng.randint(-8, 8)),
-                _clamp_color(cg + rng.randint(-8, 8)),
-                _clamp_color(cb + rng.randint(-8, 8)), a))
+                _clamp_color(cr + rng.randint(-v, v)),
+                _clamp_color(cg + rng.randint(-v, v)),
+                _clamp_color(cb + rng.randint(-v, v)), a))
 
 
 # ---------------------------------------------------------------------------
-# Textura estilo C64 para tiles de suelo (.) y lava (X)
+# Overlay de textura para tiles de suelo (.) y lava (X)
 # Solo negro puro (0,0,0,255) o nada. Sin degradados ni alpha parcial.
 # Patrón: bandas zigzag horizontales + ruido + dientes en bordes expuestos
 # ---------------------------------------------------------------------------
@@ -392,16 +389,16 @@ def generate_floor_texture(level_map, seed=42):
             py = row * TILE_SIZE
 
             # --- Filas de chevrones grandes (estilo C64) ---
-            period = C64_CHEVRON_PERIOD
+            period = OVERLAY_CHEVRON_PERIOD
             y_offset = rng.randint(0, period - 1)
 
             for band_y in range(y_offset, TILE_SIZE + period, period):
                 # Llenar la fila con chevrones uno al lado del otro
                 cx = rng.randint(-4, 2)  # offset inicial aleatorio
                 while cx < TILE_SIZE:
-                    cw = rng.randint(*C64_CHEVRON_W)
-                    ch = rng.randint(*C64_CHEVRON_H)
-                    thick = rng.randint(*C64_CHEVRON_THICKNESS)
+                    cw = rng.randint(*OVERLAY_CHEVRON_W)
+                    ch = rng.randint(*OVERLAY_CHEVRON_H)
+                    thick = rng.randint(*OVERLAY_CHEVRON_THICKNESS)
                     # Dibujar chevrón: forma de V invertida (∧)
                     half = cw // 2
                     for lx in range(cw):
@@ -415,22 +412,22 @@ def generate_floor_texture(level_map, seed=42):
                             if px <= bx < px + TILE_SIZE and py <= by < py + TILE_SIZE:
                                 overlay.set_at((bx, by), _BLACK)
                             # Píxeles extras para irregularidad
-                            if rng.random() < 0.3:
+                            if rng.random() < OVERLAY_CHEVRON_IRREGULARITY:
                                 by2 = by + rng.choice([-1, 1])
                                 if py <= by2 < py + TILE_SIZE and px <= bx < px + TILE_SIZE:
                                     overlay.set_at((bx, by2), _BLACK)
 
-                    cx += cw + rng.randint(*C64_CHEVRON_SPACING)
+                    cx += cw + rng.randint(*OVERLAY_CHEVRON_SPACING)
 
             # --- Clusters de píxeles negros (cavidades pequeñas) ---
-            num_clusters = rng.randint(*C64_CLUSTER_COUNT)
+            num_clusters = rng.randint(*OVERLAY_CLUSTER_COUNT)
             for _ in range(num_clusters):
                 cx = rng.randint(0, TILE_SIZE - 1)
                 cy = rng.randint(0, TILE_SIZE - 1)
-                size = rng.randint(*C64_CLUSTER_SIZE)
+                size = rng.randint(*OVERLAY_CLUSTER_SIZE)
                 for dx in range(size):
                     for dy in range(size):
-                        if rng.random() < 0.35:
+                        if rng.random() > OVERLAY_CLUSTER_FILL:
                             continue
                         bx = px + cx + dx
                         by = py + cy + dy
@@ -438,17 +435,17 @@ def generate_floor_texture(level_map, seed=42):
                             overlay.set_at((bx, by), _BLACK)
 
             # --- Agujeros grandes aleatorios ---
-            num_holes = rng.randint(*C64_BIG_HOLE_COUNT)
+            num_holes = rng.randint(*OVERLAY_BIG_HOLE_COUNT)
             for _ in range(num_holes):
                 hx = rng.randint(1, TILE_SIZE - 4)
                 hy = rng.randint(1, TILE_SIZE - 4)
-                hw = rng.randint(*C64_BIG_HOLE_W)
-                hh = rng.randint(*C64_BIG_HOLE_H)
+                hw = rng.randint(*OVERLAY_BIG_HOLE_W)
+                hh = rng.randint(*OVERLAY_BIG_HOLE_H)
                 for dx in range(hw):
                     for dy in range(hh):
                         # Forma irregular: bordes con huecos aleatorios
                         edge = (dx == 0 or dx == hw - 1 or dy == 0 or dy == hh - 1)
-                        if edge and rng.random() < 0.4:
+                        if edge and rng.random() < OVERLAY_BIG_HOLE_EDGE_SKIP:
                             continue
                         bx = px + hx + dx
                         by = py + hy + dy
@@ -458,7 +455,7 @@ def generate_floor_texture(level_map, seed=42):
             # --- Ruido disperso (píxeles sueltos) ---
             for ly in range(TILE_SIZE):
                 for lx in range(TILE_SIZE):
-                    if rng.random() < C64_NOISE_DENSITY:
+                    if rng.random() < OVERLAY_NOISE_DENSITY:
                         overlay.set_at((px + lx, py + ly), _BLACK)
 
             # --- Dientes irregulares en bordes expuestos al vacío ---
@@ -483,17 +480,17 @@ def _draw_c64_teeth_top(overlay, px, py, rng):
     ts = TILE_SIZE
     # Línea base negra en el borde (1-2px)
     for lx in range(ts):
-        if rng.random() < 0.15:
+        if rng.random() < OVERLAY_TEETH_BASE_GAP:
             continue
         overlay.set_at((px + lx, py), _BLACK)
-        if rng.random() < 0.6:
+        if rng.random() < OVERLAY_TEETH_BASE_EXTRA:
             overlay.set_at((px + lx, py + 1), _BLACK)
     # Dientes triangulares que se meten en el tile
-    num = rng.randint(*C64_TEETH_COUNT)
+    num = rng.randint(*OVERLAY_TEETH_COUNT)
     for _ in range(num):
         tx = rng.randint(0, ts - 1)
-        tw = rng.randint(*C64_TEETH_W)
-        td = rng.randint(*C64_TEETH_DEPTH)
+        tw = rng.randint(*OVERLAY_TEETH_W)
+        td = rng.randint(*OVERLAY_TEETH_DEPTH)
         for dy in range(td):
             # Se angosta con la profundidad (forma triangular)
             shrink = dy * tw // (td + 1)
@@ -508,16 +505,16 @@ def _draw_c64_teeth_bottom(overlay, px, py, rng):
     """Dientes negros irregulares en el borde inferior del tile."""
     ts = TILE_SIZE
     for lx in range(ts):
-        if rng.random() < 0.15:
+        if rng.random() < OVERLAY_TEETH_BASE_GAP:
             continue
         overlay.set_at((px + lx, py + ts - 1), _BLACK)
-        if rng.random() < 0.6:
+        if rng.random() < OVERLAY_TEETH_BASE_EXTRA:
             overlay.set_at((px + lx, py + ts - 2), _BLACK)
-    num = rng.randint(*C64_TEETH_COUNT)
+    num = rng.randint(*OVERLAY_TEETH_COUNT)
     for _ in range(num):
         tx = rng.randint(0, ts - 1)
-        tw = rng.randint(*C64_TEETH_W)
-        td = rng.randint(*C64_TEETH_DEPTH)
+        tw = rng.randint(*OVERLAY_TEETH_W)
+        td = rng.randint(*OVERLAY_TEETH_DEPTH)
         for dy in range(td):
             shrink = dy * tw // (td + 1)
             for dx in range(max(1, tw - shrink)):
@@ -531,16 +528,16 @@ def _draw_c64_teeth_left(overlay, px, py, rng):
     """Dientes negros irregulares en el borde izquierdo del tile."""
     ts = TILE_SIZE
     for ly in range(ts):
-        if rng.random() < 0.15:
+        if rng.random() < OVERLAY_TEETH_BASE_GAP:
             continue
         overlay.set_at((px, py + ly), _BLACK)
-        if rng.random() < 0.6:
+        if rng.random() < OVERLAY_TEETH_BASE_EXTRA:
             overlay.set_at((px + 1, py + ly), _BLACK)
-    num = rng.randint(*C64_TEETH_COUNT)
+    num = rng.randint(*OVERLAY_TEETH_COUNT)
     for _ in range(num):
         ty = rng.randint(0, ts - 1)
-        th = rng.randint(*C64_TEETH_W)
-        td = rng.randint(*C64_TEETH_DEPTH)
+        th = rng.randint(*OVERLAY_TEETH_W)
+        td = rng.randint(*OVERLAY_TEETH_DEPTH)
         for dx in range(td):
             shrink = dx * th // (td + 1)
             for dy in range(max(1, th - shrink)):
@@ -554,16 +551,16 @@ def _draw_c64_teeth_right(overlay, px, py, rng):
     """Dientes negros irregulares en el borde derecho del tile."""
     ts = TILE_SIZE
     for ly in range(ts):
-        if rng.random() < 0.15:
+        if rng.random() < OVERLAY_TEETH_BASE_GAP:
             continue
         overlay.set_at((px + ts - 1, py + ly), _BLACK)
-        if rng.random() < 0.6:
+        if rng.random() < OVERLAY_TEETH_BASE_EXTRA:
             overlay.set_at((px + ts - 2, py + ly), _BLACK)
-    num = rng.randint(*C64_TEETH_COUNT)
+    num = rng.randint(*OVERLAY_TEETH_COUNT)
     for _ in range(num):
         ty = rng.randint(0, ts - 1)
-        th = rng.randint(*C64_TEETH_W)
-        td = rng.randint(*C64_TEETH_DEPTH)
+        th = rng.randint(*OVERLAY_TEETH_W)
+        td = rng.randint(*OVERLAY_TEETH_DEPTH)
         for dx in range(td):
             shrink = dx * th // (td + 1)
             for dy in range(max(1, th - shrink)):
