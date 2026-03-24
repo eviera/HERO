@@ -130,6 +130,40 @@ MOSS_JAG_CLUSTER_LEN = (2, 6)  # Largo de cada cluster de alturas similares (min
 MOSS_JAG_PEAK_CHANCE = 0.06  # Probabilidad de pico largo ocasional
 MOSS_JAG_PEAK_EXTRA = (4, 10)  # Altura extra del pico sobre la base (min, max px)
 
+# Archivo JSON de parámetros de textura (editables desde el editor)
+TEXTURE_PARAMS_FILE = "texture_params.json"
+
+# Constantes que son tuplas (min, max) - se convierten desde listas JSON
+TEXTURE_TUPLE_KEYS = {
+    'OVERLAY_CHEVRON_W', 'OVERLAY_CHEVRON_H', 'OVERLAY_CHEVRON_THICKNESS',
+    'OVERLAY_CHEVRON_SPACING', 'OVERLAY_CLUSTER_COUNT', 'OVERLAY_CLUSTER_SIZE',
+    'OVERLAY_BIG_HOLE_COUNT', 'OVERLAY_BIG_HOLE_W', 'OVERLAY_BIG_HOLE_H',
+    'OVERLAY_TEETH_COUNT', 'OVERLAY_TEETH_W', 'OVERLAY_TEETH_DEPTH',
+    'MOSS_TENDRIL_COUNT', 'MOSS_TENDRIL_LENGTH',
+    'MOSS_JAG_CLUSTER_LEN', 'MOSS_JAG_PEAK_EXTRA',
+}
+
+def _load_texture_params():
+    """Cargar parámetros de textura desde JSON, con fallback a defaults hardcodeados"""
+    import json as _json
+    import os as _os
+    if not _os.path.exists(TEXTURE_PARAMS_FILE):
+        return
+    try:
+        with open(TEXTURE_PARAMS_FILE, 'r', encoding='utf-8') as f:
+            data = _json.load(f)
+    except Exception:
+        return
+    g = globals()
+    for key, value in data.items():
+        if key in g:
+            if key in TEXTURE_TUPLE_KEYS and isinstance(value, list):
+                g[key] = tuple(value)
+            else:
+                g[key] = value
+
+_load_texture_params()
+
 # Dimensiones por defecto de nivel (para compatibilidad y editor)
 DEFAULT_LEVEL_WIDTH = 16   # tiles
 DEFAULT_LEVEL_HEIGHT = 24  # tiles
