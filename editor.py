@@ -130,6 +130,20 @@ class Editor:
             self.tiles['toxic_water'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
             self.tiles['toxic_water'].fill((30, 120, 40))
 
+        # Lava (indestructible, mata al contacto)
+        try:
+            self.tiles['lava'] = pygame.image.load("tiles/lava.png").convert_alpha()
+        except:
+            self.tiles['lava'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['lava'].fill((200, 80, 30))
+
+        # Roca lava (destructible)
+        try:
+            self.tiles['lava_rock'] = pygame.image.load("tiles/lava_breakable_wall.png").convert_alpha()
+        except:
+            self.tiles['lava_rock'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['lava_rock'].fill((180, 100, 40))
+
         # Cargar sprites de entidades
         self.sprites = {}
         try:
@@ -439,6 +453,10 @@ class Editor:
                     self.screen.blit(self.tiles['lamp'], (int(x), int(y)))
                 elif tile == '~':
                     self.screen.blit(self.tiles['toxic_water'], (int(x), int(y)))
+                elif tile == 'X':
+                    self.screen.blit(self.tiles['lava'], (int(x), int(y)))
+                elif tile == 'W':
+                    self.screen.blit(self.tiles['lava_rock'], (int(x), int(y)))
                 else:
                     self.screen.blit(self.tiles['blank'], (int(x), int(y)))
 
@@ -594,7 +612,7 @@ class Editor:
         self.screen.blit(tile_text, (8, hud_y + 32))
 
         # --- Zona de paleta (abajo) ---
-        KEY_LABELS = "123456789" + "FGHJKL"
+        KEY_LABELS = "123456789" + "FGHJKLZ"
         tiles_per_row = 8
         tile_spacing = 38
         preview_size = 20
@@ -618,7 +636,7 @@ class Editor:
             }
             tile_for_tile = {
                 '#': 'wall', '.': 'floor', 'G': 'granite', 'R': 'rock',
-                'L': 'lamp', '~': 'toxic_water'
+                'L': 'lamp', '~': 'toxic_water', 'X': 'lava', 'W': 'lava_rock'
             }
 
             preview = pygame.Surface((ps, ps), pygame.SRCALPHA)
@@ -915,6 +933,12 @@ class Editor:
                     elif event.key == pygame.K_k:
                         if len(TILE_TYPES) > 13:
                             self.selected_tile = 13
+                    elif event.key == pygame.K_l:
+                        if len(TILE_TYPES) > 14:
+                            self.selected_tile = 14
+                    elif event.key == pygame.K_z:
+                        if len(TILE_TYPES) > 15:
+                            self.selected_tile = 15
 
                     # Tab para ciclar tipo de tile
                     elif event.key == pygame.K_TAB:

@@ -125,6 +125,8 @@ TILE_TYPES = [
     ('>', 'VibDer',     (0, 180, 0),       60,   False),  # víbora que sale hacia la derecha
     ('L', 'Lampara',    (255, 200, 50),    0,    False),
     ('~', 'AguaToxica', (30, 120, 40),     0,    False),  # mata al jugador al contacto
+    ('X', 'Lava',       (200, 80, 30),     0,    True),   # indestructible, mata al contacto
+    ('W', 'RocaLava',   (180, 100, 40),    30,   True),   # destructible con dinamita/láser
 ]
 
 # Lookup rápido: caracter → puntos

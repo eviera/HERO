@@ -344,6 +344,25 @@ class Game:
         self.tiles['toxic_water'] = self.toxic_water_frames[0]
         self.toxic_water_scroll = 0.0
 
+        # Lava tile (X) - indestructible, mata al contacto
+        try:
+            self.tiles['lava'] = pygame.image.load("tiles/lava.png").convert_alpha()
+        except:
+            self.tiles['lava'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['lava'].fill((200, 80, 30))
+
+        # Lava rock tiles (W) - destructibles, tintados color lava
+        try:
+            self.tiles['lava_rock'] = pygame.image.load("tiles/lava_breakable_wall.png").convert_alpha()
+        except:
+            self.tiles['lava_rock'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['lava_rock'].fill((180, 100, 40))
+        try:
+            self.tiles['lava_rock_damaged'] = pygame.image.load("tiles/lava_broken_wall.png").convert_alpha()
+        except:
+            self.tiles['lava_rock_damaged'] = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.tiles['lava_rock_damaged'].fill((140, 70, 30))
+
         # Lamp tile (L) - lampara dorada
         try:
             self.tiles['lamp'] = pygame.image.load("tiles/lamp.png").convert_alpha()
@@ -720,6 +739,8 @@ class Game:
             self.player._prop_frames_flip = self.propeller_frames_flip
         if 'walk1' in self.sounds and 'walk2' in self.sounds:
             self.player.walk_sounds = [self.sounds['walk1'], self.sounds['walk2']]
+        # Referencia a masks para colisión pixel-perfect con tiles
+        self.player._masks_ref = self.masks
 
         # Parse level and create entities
         for row_index, row in enumerate(self.level_map):
@@ -994,7 +1015,7 @@ class Game:
                     for row_index in range(len(self.level_map)):
                         for col_index in range(len(self.level_map[row_index])):
                             tile = self.level_map[row_index][col_index]
-                            if tile in ('#', 'R'):  # Destruye tierra y rocas (G es indestructible)
+                            if tile in ('#', 'R', 'W'):  # Destruye tierra, rocas y roca lava (G, X indestructibles)
                                 tile_x = col_index * TILE_SIZE
                                 tile_y = row_index * TILE_SIZE
                                 tile_rect = pygame.Rect(tile_x, tile_y, TILE_SIZE, TILE_SIZE)
@@ -1171,6 +1192,12 @@ class Game:
         self.player.update(dt, self.keys, self.joy_axis_x, self.joy_axis_y,
                           self.level_map, self)
 
+        # Contacto con lava detectado por check_collision pixel-perfect
+        if self.player._touched_lava:
+            self.player._touched_lava = False
+            self.player_hit()
+            return
+
         # Helicopter sound when flying (in the air, not on ground)
         if 'helicopter' in self.sounds:
             # Play sound when player is in the air (not grounded)
@@ -1200,26 +1227,29 @@ class Game:
             # Procesar impacto en roca antes de eliminar el láser
             if laser.hit_rock_pos:
                 row, col = laser.hit_rock_pos
-                key = (row, col)
-                if key not in self.rock_health:
-                    self.rock_health[key] = ROCK_LASER_HITS
-                self.rock_health[key] -= 1
-                if self.rock_health[key] == ROCK_DAMAGE_MIDPOINT:
-                    # Sonido de agrietamiento al llegar al estado intermedio
-                    if 'rock_crack' in self.sounds:
-                        self.sounds['rock_crack'].play()
-                if self.rock_health[key] <= 0:
-                    # Destruir la roca
-                    row_list = list(self.level_map[row])
-                    row_list[col] = ' '
-                    self.level_map[row] = "".join(row_list)
-                    del self.rock_health[key]
-                    tile_x = col * TILE_SIZE
-                    tile_y = row * TILE_SIZE
-                    self.score += TILE_SCORES['R']
-                    self.add_floating_score(tile_x + 16, tile_y, TILE_SCORES['R'])
-                    if 'rock_break' in self.sounds:
-                        self.sounds['rock_break'].play()
+                tile_char = self.level_map[row][col] if (0 <= row < len(self.level_map) and 0 <= col < len(self.level_map[row])) else ' '
+                if tile_char in ('R', 'W'):
+                    key = (row, col)
+                    if key not in self.rock_health:
+                        self.rock_health[key] = ROCK_LASER_HITS
+                    self.rock_health[key] -= 1
+                    if self.rock_health[key] == ROCK_DAMAGE_MIDPOINT:
+                        # Sonido de agrietamiento al llegar al estado intermedio
+                        if 'rock_crack' in self.sounds:
+                            self.sounds['rock_crack'].play()
+                    if self.rock_health[key] <= 0:
+                        # Destruir la roca
+                        row_list = list(self.level_map[row])
+                        row_list[col] = ' '
+                        self.level_map[row] = "".join(row_list)
+                        del self.rock_health[key]
+                        tile_x = col * TILE_SIZE
+                        tile_y = row * TILE_SIZE
+                        pts = TILE_SCORES.get(tile_char, 0)
+                        self.score += pts
+                        self.add_floating_score(tile_x + 16, tile_y, pts)
+                        if 'rock_break' in self.sounds:
+                            self.sounds['rock_break'].play()
                 laser.hit_rock_pos = None
             if not laser.active:
                 self.lasers.remove(laser)
@@ -1535,6 +1565,15 @@ class Game:
                         self.game_surface.blit(self.tiles['rock_damaged'], (x, y))
                     else:
                         self.game_surface.blit(self.tiles['rock'], (x, y))
+                elif tile == 'X':
+                    self.game_surface.blit(self.tiles['lava'], (x, y))
+                elif tile == 'W':
+                    # Roca lava: sprite dañado si fue impactada lo suficiente
+                    key = (row_index, col_index)
+                    if key in self.rock_health and self.rock_health[key] <= ROCK_DAMAGE_MIDPOINT:
+                        self.game_surface.blit(self.tiles['lava_rock_damaged'], (x, y))
+                    else:
+                        self.game_surface.blit(self.tiles['lava_rock'], (x, y))
                 elif tile == '~':
                     # Agua tóxica con onda animada por frames
                     frame_idx = int(self.toxic_water_scroll) % len(self.toxic_water_frames)

@@ -367,9 +367,12 @@ def generate_floor_texture(level_map, seed=42):
     overlay = pygame.Surface((width, height), pygame.SRCALPHA)
     rng = random.Random(seed)
 
+    # Tiles que reciben textura porosa (suelo y lava)
+    _TEXTURED_TILES = {'.', 'X'}
+
     for row in range(level_h):
         for col in range(len(level_map[row])):
-            if level_map[row][col] != '.':
+            if level_map[row][col] not in _TEXTURED_TILES:
                 continue
             px = col * TILE_SIZE
             py = row * TILE_SIZE

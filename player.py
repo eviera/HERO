@@ -31,6 +31,11 @@ class Player:
         self._prop_bodies_flip = {}  # sprite_key -> Surface (cuerpo flippeado)
         self._prop_frames = {}       # sprite_key -> [frame0, frame1, frame2, frame3]
         self._prop_frames_flip = {}  # sprite_key -> [frame0_flip, ...]
+        # Mask para colisión pixel-perfect con tiles
+        self._tile_mask = pygame.mask.Mask((TILE_SIZE, TILE_SIZE), fill=True)
+        self._current_mask = None    # Se actualiza cada frame
+        self._masks_ref = None       # Referencia al dict de masks del Game
+        self._touched_lava = False   # Flag: check_collision detectó contacto con lava
 
     def init(self, level_map):
         """Initialize player position from map"""
@@ -49,6 +54,10 @@ class Player:
     def update(self, dt, keys, joy_axis_x, joy_axis_y, level_map, game):
         """Update player with CORRECT HERO physics"""
         level_h = len(level_map) if level_map else DEFAULT_LEVEL_HEIGHT
+
+        # Actualizar mask de colisión pixel-perfect (antes de cualquier check_collision)
+        if self._masks_ref:
+            self._current_mask = self.get_mask(self._masks_ref)
 
         # Actualizar timer de disparo
         if self.shooting_timer > 0:
@@ -172,7 +181,45 @@ class Player:
             self.propeller_frame = (self.propeller_frame + 1) % PROPELLER_NUM_FRAMES
 
     def check_collision(self, x, y, level_map):
-        """Check collision with tiles (hitbox estrecho centrado en el cuerpo)"""
+        """Check collision pixel-perfect: solo pixeles visibles del sprite contra tiles sólidos"""
+        level_h = len(level_map) if level_map else 0
+        if level_h == 0:
+            return False
+
+        mask = self._current_mask
+        if not mask:
+            # Fallback a esquinas si no hay mask disponible
+            return self._check_collision_corners(x, y, level_map)
+
+        # Tiles que el bounding rect del player podría tocar
+        left_tile = int(x / TILE_SIZE)
+        right_tile = int((x + self.width - 1) / TILE_SIZE)
+        top_tile = int(y / TILE_SIZE)
+        bottom_tile = int((y + self.height - 1) / TILE_SIZE)
+
+        for ty in range(top_tile, bottom_tile + 1):
+            if ty < 0 or ty >= level_h:
+                return True  # Fuera de límites = sólido
+            for tx in range(left_tile, right_tile + 1):
+                if tx < 0 or tx >= len(level_map[ty]):
+                    return True  # Fuera de límites = sólido
+                tile_char = level_map[ty][tx]
+                if tile_char in SOLID_TILES:
+                    # Verificar overlap pixel-perfect entre mask del player y el tile
+                    tile_px = tx * TILE_SIZE
+                    tile_py = ty * TILE_SIZE
+                    ox = int(x - tile_px)
+                    oy = int(y - tile_py)
+                    if mask.overlap(self._tile_mask, (-ox, -oy)):
+                        # Si es lava o roca lava, marcar contacto para que el game mate al héroe
+                        if tile_char in ('X', 'W'):
+                            self._touched_lava = True
+                        return True
+
+        return False
+
+    def _check_collision_corners(self, x, y, level_map):
+        """Fallback: colisión por esquinas cuando no hay mask disponible"""
         level_h = len(level_map) if level_map else 0
         corners = [
             (x + PLAYER_FOOT_INSET, y + 2),
@@ -180,20 +227,15 @@ class Player:
             (x + PLAYER_FOOT_INSET, y + self.height - 3),
             (x + self.width - PLAYER_FOOT_INSET - 1, y + self.height - 3)
         ]
-
         for corner_x, corner_y in corners:
             tile_x = int(corner_x / TILE_SIZE)
             tile_y = int(corner_y / TILE_SIZE)
-
             if tile_y < 0 or tile_y >= level_h:
                 return True
             if tile_x < 0 or tile_x >= len(level_map[tile_y]):
                 return True
-
-            tile = level_map[tile_y][tile_x]
-            if tile in SOLID_TILES:
+            if level_map[tile_y][tile_x] in SOLID_TILES:
                 return True
-
         return False
 
     def get_rect(self):

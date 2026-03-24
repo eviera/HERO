@@ -33,9 +33,12 @@
 /- el bug verde podria ser mas bien un bicho que vuela como en la commodore
 /- cuando hay una explosion se redibuja las texturas de moss
 - bloques y nivel de magma (si lo toca me quemo)
+-- rocas de magma magma_breakeable_wall y magma_broken_wall
+-- pared de magma no reventable
 /- animacion de muerte del hero
 /- animacion de la helice en vuelo
 - que los tiles de tierra expuestos queden medios jagged y no tan rectos
+- musica muerte
 
 
 AI prompts
@@ -116,4 +119,14 @@ Tiene que ser algo eficiente. Piensa la mejor manera de hacerlo. Para que tengas
 a como se ve en la imagen (como porosa, con patrones repetibles, pero no por tile, sino por conjuntos de tiles), y vamos a usar la misma tecnica que descubras ahora.
 Si tienes que hacer tests para ver como se ve, hazlos.
 
+
+----
+Quiero hacer dos nuevos tipos de tile para imitar terreno con lava.
+Vamos a crear un tile con la letra X llamado Lava, que tiene que ser indestructible, 0 puntos, color_fallback = rojo (o mejor un naranja rojizo como la lava).
+Este tile tiene que ser de color naranja-rojizo (color lava), y con algun diseño que haga recordar a la lava.
+Este tile tiene que poderse 'agujerear' por la textura de la misma manera que lo hace el tile de suelo (.) En este tile no debe crecer el moss.
+Si el HERO toca este tile, debe perder la vida (si toca la lava, se muere)
+El otro tile que quiero hacer con la letra W es como la Roca (R), pero teñida de color lava. Quiero que agarres los mismos tiles de roca (broken_wall.png y breakable_wall.png) y crees dos nuevos
+llamados lava_broken_wall.png y lava_breakable_wall.png, que van a ser los mismos, pero teñidos de color lava. Estos tiles son rompibles, igual que los de la roca (R) y van a tener 30 puntos
+Crea ambos tiles, todos los pngs necesarios, y actualiza el editor tambien.
 
