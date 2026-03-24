@@ -15,14 +15,19 @@ MOSS_BASE_H = 2        # Grosor base del borde sólido (horizontal)
 MOSS_MAX_DOWN = 14     # Largo máximo de stalactitas (cuelgan del techo)
 MOSS_MAX_UP = 12       # Largo máximo de stalagmitas (crecen del suelo)
 
-# Parámetros de textura porosa del suelo
-FLOOR_STREAKS = (5, 9)       # Rango de franjas por tile
-FLOOR_STREAK_W = (6, 18)     # Ancho de franjas en px
-FLOOR_STREAK_H = (1, 3)      # Alto de franjas en px
-FLOOR_BLOBS = (3, 7)         # Rango de manchas por tile
-FLOOR_BLOB_W = (3, 10)       # Ancho de manchas en px
-FLOOR_BLOB_H = (2, 5)        # Alto de manchas en px
-FLOOR_DOTS = (15, 25)        # Rango de poros por tile
+# Parámetros de textura C64 (chevrones grandes + ruido, solo negro puro)
+C64_CHEVRON_PERIOD = 14      # Período vertical entre filas de chevrones (px)
+C64_CHEVRON_W = (10, 18)     # Ancho de cada chevrón (px)
+C64_CHEVRON_H = (5, 9)       # Altura de cada chevrón (px)
+C64_CHEVRON_THICKNESS = (2, 4)  # Grosor de las líneas del chevrón (px)
+C64_CHEVRON_SPACING = (2, 8) # Espacio horizontal entre chevrones (px)
+C64_NOISE_DENSITY = 0.04     # Densidad de píxeles de ruido sueltos
+C64_CLUSTER_COUNT = (2, 5)   # Clusters de píxeles negros por tile
+C64_CLUSTER_SIZE = (2, 5)    # Tamaño de cada cluster (px)
+# Dientes irregulares en bordes expuestos al vacío
+C64_TEETH_COUNT = (8, 14)    # Cantidad de dientes por borde
+C64_TEETH_W = (1, 5)         # Ancho de cada diente (px)
+C64_TEETH_DEPTH = (3, 10)    # Profundidad de cada diente (px hacia adentro del tile)
 
 # Tinte neutro (sin cambio de color)
 NEUTRAL_TINT = [255, 255, 255]
@@ -344,21 +349,27 @@ def _draw_moss_right(overlay, x0, y, sw, sh, cr, cg, cb, rng):
 
 
 # ---------------------------------------------------------------------------
-# Textura porosa del suelo (hoyos oscuros sobre tiles de suelo '.')
-# Se pre-genera una vez al cargar el nivel y se blitea por viewport
+# Textura estilo C64 para tiles de suelo (.) y lava (X)
+# Solo negro puro (0,0,0,255) o nada. Sin degradados ni alpha parcial.
+# Patrón: bandas zigzag horizontales + ruido + dientes en bordes expuestos
 # ---------------------------------------------------------------------------
 
-# Colores oscuros para los hoyos/poros
-_HOLE_COLORS = [
-    (0, 0, 0),
-    (10, 8, 3),
-    (20, 15, 8),
-    (5, 3, 1),
-]
+_BLACK = (0, 0, 0, 255)
+
+
+def _is_empty(level_map, row, col):
+    """Verificar si un tile es vacío (aire, o fuera de límites)."""
+    if row < 0 or row >= len(level_map):
+        return False
+    row_data = level_map[row]
+    if col < 0 or col >= len(row_data):
+        return False
+    return row_data[col] not in SOLID_TILES
 
 
 def generate_floor_texture(level_map, seed=42):
-    """Genera overlay SRCALPHA con hoyos oscuros sobre tiles de suelo (.).
+    """Genera overlay SRCALPHA estilo C64: solo negro puro sobre tiles de suelo/lava.
+    Patrón de bandas zigzag horizontales + ruido disperso + dientes en bordes.
     Se llama una vez al inicio del nivel."""
     level_h = len(level_map)
     level_w = max(len(row) for row in level_map)
@@ -367,63 +378,175 @@ def generate_floor_texture(level_map, seed=42):
     overlay = pygame.Surface((width, height), pygame.SRCALPHA)
     rng = random.Random(seed)
 
-    # Tiles que reciben textura porosa (suelo y lava)
     _TEXTURED_TILES = {'.', 'X'}
 
     for row in range(level_h):
         for col in range(len(level_map[row])):
-            if level_map[row][col] not in _TEXTURED_TILES:
+            tile = level_map[row][col]
+            if tile not in _TEXTURED_TILES:
                 continue
             px = col * TILE_SIZE
             py = row * TILE_SIZE
 
-            # Franjas horizontales oscuras
-            num_streaks = rng.randint(*FLOOR_STREAKS)
-            for _ in range(num_streaks):
-                sy = py + rng.randint(0, TILE_SIZE - 1)
-                sx = px + rng.randint(-6, TILE_SIZE - 1)
-                streak_w = rng.randint(*FLOOR_STREAK_W)
-                streak_h = rng.randint(*FLOOR_STREAK_H)
-                color = rng.choice(_HOLE_COLORS)
-                for dx in range(streak_w):
-                    for dy in range(streak_h):
-                        if rng.random() < 0.15:
+            # --- Filas de chevrones grandes (estilo C64) ---
+            period = C64_CHEVRON_PERIOD
+            y_offset = rng.randint(0, period - 1)
+
+            for band_y in range(y_offset, TILE_SIZE + period, period):
+                # Llenar la fila con chevrones uno al lado del otro
+                cx = rng.randint(-4, 2)  # offset inicial aleatorio
+                while cx < TILE_SIZE:
+                    cw = rng.randint(*C64_CHEVRON_W)
+                    ch = rng.randint(*C64_CHEVRON_H)
+                    thick = rng.randint(*C64_CHEVRON_THICKNESS)
+                    # Dibujar chevrón: forma de V invertida (∧)
+                    half = cw // 2
+                    for lx in range(cw):
+                        # Altura del trazo en esta columna (forma de V)
+                        dist_center = abs(lx - half)
+                        # La V baja desde los extremos hacia el centro
+                        stripe_y = ch * dist_center // max(1, half)
+                        for t in range(thick):
+                            bx = px + cx + lx
+                            by = py + band_y + stripe_y + t
+                            if px <= bx < px + TILE_SIZE and py <= by < py + TILE_SIZE:
+                                overlay.set_at((bx, by), _BLACK)
+                            # Píxeles extras para irregularidad
+                            if rng.random() < 0.3:
+                                by2 = by + rng.choice([-1, 1])
+                                if py <= by2 < py + TILE_SIZE and px <= bx < px + TILE_SIZE:
+                                    overlay.set_at((bx, by2), _BLACK)
+
+                    cx += cw + rng.randint(*C64_CHEVRON_SPACING)
+
+            # --- Clusters de píxeles negros (cavidades pequeñas) ---
+            num_clusters = rng.randint(*C64_CLUSTER_COUNT)
+            for _ in range(num_clusters):
+                cx = rng.randint(0, TILE_SIZE - 1)
+                cy = rng.randint(0, TILE_SIZE - 1)
+                size = rng.randint(*C64_CLUSTER_SIZE)
+                for dx in range(size):
+                    for dy in range(size):
+                        if rng.random() < 0.35:
                             continue
-                        bx = sx + dx
-                        by = sy + dy
-                        # Clampar al tile actual para no escapar
+                        bx = px + cx + dx
+                        by = py + cy + dy
                         if px <= bx < px + TILE_SIZE and py <= by < py + TILE_SIZE:
-                            overlay.set_at((bx, by), (*color, 230))
+                            overlay.set_at((bx, by), _BLACK)
 
-            # Manchas irregulares
-            num_blobs = rng.randint(*FLOOR_BLOBS)
-            for _ in range(num_blobs):
-                bx = px + rng.randint(0, TILE_SIZE - 1)
-                by = py + rng.randint(0, TILE_SIZE - 1)
-                blob_w = rng.randint(*FLOOR_BLOB_W)
-                blob_h = rng.randint(*FLOOR_BLOB_H)
-                color = rng.choice(_HOLE_COLORS)
-                for dx in range(blob_w):
-                    for dy in range(blob_h):
-                        if rng.random() < 0.25:
-                            continue
-                        px2 = bx + dx
-                        py2 = by + dy
-                        # Clampar al tile actual para no escapar
-                        if px <= px2 < px + TILE_SIZE and py <= py2 < py + TILE_SIZE:
-                            overlay.set_at((px2, py2), (*color, 220))
+            # --- Ruido disperso (píxeles sueltos) ---
+            for ly in range(TILE_SIZE):
+                for lx in range(TILE_SIZE):
+                    if rng.random() < C64_NOISE_DENSITY:
+                        overlay.set_at((px + lx, py + ly), _BLACK)
 
-            # Poros pequeños
-            num_dots = rng.randint(*FLOOR_DOTS)
-            for _ in range(num_dots):
-                dx = px + rng.randint(0, TILE_SIZE - 1)
-                dy = py + rng.randint(0, TILE_SIZE - 1)
-                if 0 <= dx < width and 0 <= dy < height:
-                    color = rng.choice(_HOLE_COLORS)
-                    overlay.set_at((dx, dy), (*color, 200))
-                    if rng.random() < 0.5:
-                        dx2 = dx + rng.choice([-1, 0, 1])
-                        if 0 <= dx2 < width:
-                            overlay.set_at((dx2, dy), (*color, 180))
+            # --- Dientes irregulares en bordes expuestos al vacío ---
+            # Cara superior expuesta (dientes crecen hacia arriba = dentro del tile)
+            if _is_empty(level_map, row - 1, col):
+                _draw_c64_teeth_top(overlay, px, py, rng)
+            # Cara inferior expuesta (dientes cuelgan hacia abajo = dentro del tile)
+            if _is_empty(level_map, row + 1, col):
+                _draw_c64_teeth_bottom(overlay, px, py, rng)
+            # Cara izquierda expuesta
+            if _is_empty(level_map, row, col - 1):
+                _draw_c64_teeth_left(overlay, px, py, rng)
+            # Cara derecha expuesta
+            if _is_empty(level_map, row, col + 1):
+                _draw_c64_teeth_right(overlay, px, py, rng)
 
     return overlay
+
+
+def _draw_c64_teeth_top(overlay, px, py, rng):
+    """Dientes negros irregulares en el borde superior del tile."""
+    ts = TILE_SIZE
+    # Línea base negra en el borde (1-2px)
+    for lx in range(ts):
+        if rng.random() < 0.15:
+            continue
+        overlay.set_at((px + lx, py), _BLACK)
+        if rng.random() < 0.6:
+            overlay.set_at((px + lx, py + 1), _BLACK)
+    # Dientes triangulares que se meten en el tile
+    num = rng.randint(*C64_TEETH_COUNT)
+    for _ in range(num):
+        tx = rng.randint(0, ts - 1)
+        tw = rng.randint(*C64_TEETH_W)
+        td = rng.randint(*C64_TEETH_DEPTH)
+        for dy in range(td):
+            # Se angosta con la profundidad (forma triangular)
+            shrink = dy * tw // (td + 1)
+            for dx in range(max(1, tw - shrink)):
+                bx = px + tx + dx
+                by = py + dy
+                if px <= bx < px + ts and py <= by < py + ts:
+                    overlay.set_at((bx, by), _BLACK)
+
+
+def _draw_c64_teeth_bottom(overlay, px, py, rng):
+    """Dientes negros irregulares en el borde inferior del tile."""
+    ts = TILE_SIZE
+    for lx in range(ts):
+        if rng.random() < 0.15:
+            continue
+        overlay.set_at((px + lx, py + ts - 1), _BLACK)
+        if rng.random() < 0.6:
+            overlay.set_at((px + lx, py + ts - 2), _BLACK)
+    num = rng.randint(*C64_TEETH_COUNT)
+    for _ in range(num):
+        tx = rng.randint(0, ts - 1)
+        tw = rng.randint(*C64_TEETH_W)
+        td = rng.randint(*C64_TEETH_DEPTH)
+        for dy in range(td):
+            shrink = dy * tw // (td + 1)
+            for dx in range(max(1, tw - shrink)):
+                bx = px + tx + dx
+                by = py + ts - 1 - dy
+                if px <= bx < px + ts and py <= by < py + ts:
+                    overlay.set_at((bx, by), _BLACK)
+
+
+def _draw_c64_teeth_left(overlay, px, py, rng):
+    """Dientes negros irregulares en el borde izquierdo del tile."""
+    ts = TILE_SIZE
+    for ly in range(ts):
+        if rng.random() < 0.15:
+            continue
+        overlay.set_at((px, py + ly), _BLACK)
+        if rng.random() < 0.6:
+            overlay.set_at((px + 1, py + ly), _BLACK)
+    num = rng.randint(*C64_TEETH_COUNT)
+    for _ in range(num):
+        ty = rng.randint(0, ts - 1)
+        th = rng.randint(*C64_TEETH_W)
+        td = rng.randint(*C64_TEETH_DEPTH)
+        for dx in range(td):
+            shrink = dx * th // (td + 1)
+            for dy in range(max(1, th - shrink)):
+                bx = px + dx
+                by = py + ty + dy
+                if px <= bx < px + ts and py <= by < py + ts:
+                    overlay.set_at((bx, by), _BLACK)
+
+
+def _draw_c64_teeth_right(overlay, px, py, rng):
+    """Dientes negros irregulares en el borde derecho del tile."""
+    ts = TILE_SIZE
+    for ly in range(ts):
+        if rng.random() < 0.15:
+            continue
+        overlay.set_at((px + ts - 1, py + ly), _BLACK)
+        if rng.random() < 0.6:
+            overlay.set_at((px + ts - 2, py + ly), _BLACK)
+    num = rng.randint(*C64_TEETH_COUNT)
+    for _ in range(num):
+        ty = rng.randint(0, ts - 1)
+        th = rng.randint(*C64_TEETH_W)
+        td = rng.randint(*C64_TEETH_DEPTH)
+        for dx in range(td):
+            shrink = dx * th // (td + 1)
+            for dy in range(max(1, th - shrink)):
+                bx = px + ts - 1 - dx
+                by = py + ty + dy
+                if px <= bx < px + ts and py <= by < py + ts:
+                    overlay.set_at((bx, by), _BLACK)
