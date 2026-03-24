@@ -132,22 +132,54 @@ class Player:
         new_x = self.x + self.vel_x * dt
         new_y = self.y + self.vel_y * dt
 
-        # Check horizontal collision
+        # Check horizontal collision con búsqueda binaria sub-pixel
         if not self.check_collision(new_x, self.y, level_map):
             self.x = new_x
         else:
+            # Búsqueda binaria: self.x es válido, new_x colisiona
+            # Encontrar la posición más cercana a new_x sin colisión
+            valid = self.x
+            invalid = new_x
+            for _ in range(10):  # ~0.01px de precisión
+                mid = (valid + invalid) * 0.5
+                if self.check_collision(mid, self.y, level_map):
+                    invalid = mid
+                else:
+                    valid = mid
+            self.x = valid
             self.vel_x = 0
 
-        # Check vertical collision
+        # Check vertical collision con búsqueda binaria sub-pixel
         if not self.check_collision(self.x, new_y, level_map):
             self.y = new_y
         else:
+            # Búsqueda binaria: self.y es válido, new_y colisiona
+            valid = self.y
+            invalid = new_y
+            for _ in range(10):
+                mid = (valid + invalid) * 0.5
+                if self.check_collision(self.x, mid, level_map):
+                    invalid = mid
+                else:
+                    valid = mid
+            self.y = valid
             self.vel_y = 0
 
         # Keep in level bounds (ancho por banda, alto total)
         current_band_w = band_width(level_map, int(self.y / TILE_SIZE))
         self.x = max(0, min(self.x, current_band_w * TILE_SIZE - self.width))
         self.y = max(0, min(self.y, level_h * TILE_SIZE - self.height))
+
+        # Seguridad: si la posición actual colisiona (por bounds clamp u otro edge case),
+        # empujar al jugador hacia abajo o arriba hasta encontrar posición libre
+        if self.check_collision(self.x, self.y, level_map):
+            for nudge in range(1, TILE_SIZE + 1):
+                if not self.check_collision(self.x, self.y + nudge, level_map):
+                    self.y += nudge
+                    break
+                if not self.check_collision(self.x, self.y - nudge, level_map):
+                    self.y -= nudge
+                    break
 
         # Energia: se consume siempre, ritmo segun estado
         if self.using_propulsor:
