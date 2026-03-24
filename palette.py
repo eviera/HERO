@@ -24,6 +24,9 @@ C64_CHEVRON_SPACING = (2, 8) # Espacio horizontal entre chevrones (px)
 C64_NOISE_DENSITY = 0.04     # Densidad de píxeles de ruido sueltos
 C64_CLUSTER_COUNT = (2, 5)   # Clusters de píxeles negros por tile
 C64_CLUSTER_SIZE = (2, 5)    # Tamaño de cada cluster (px)
+C64_BIG_HOLE_COUNT = (1, 3)  # Agujeros grandes por tile
+C64_BIG_HOLE_W = (5, 12)     # Ancho de agujero grande (px)
+C64_BIG_HOLE_H = (4, 8)      # Alto de agujero grande (px)
 # Dientes irregulares en bordes expuestos al vacío
 C64_TEETH_COUNT = (8, 14)    # Cantidad de dientes por borde
 C64_TEETH_W = (1, 5)         # Ancho de cada diente (px)
@@ -431,6 +434,24 @@ def generate_floor_texture(level_map, seed=42):
                             continue
                         bx = px + cx + dx
                         by = py + cy + dy
+                        if px <= bx < px + TILE_SIZE and py <= by < py + TILE_SIZE:
+                            overlay.set_at((bx, by), _BLACK)
+
+            # --- Agujeros grandes aleatorios ---
+            num_holes = rng.randint(*C64_BIG_HOLE_COUNT)
+            for _ in range(num_holes):
+                hx = rng.randint(1, TILE_SIZE - 4)
+                hy = rng.randint(1, TILE_SIZE - 4)
+                hw = rng.randint(*C64_BIG_HOLE_W)
+                hh = rng.randint(*C64_BIG_HOLE_H)
+                for dx in range(hw):
+                    for dy in range(hh):
+                        # Forma irregular: bordes con huecos aleatorios
+                        edge = (dx == 0 or dx == hw - 1 or dy == 0 or dy == hh - 1)
+                        if edge and rng.random() < 0.4:
+                            continue
+                        bx = px + hx + dx
+                        by = py + hy + dy
                         if px <= bx < px + TILE_SIZE and py <= by < py + TILE_SIZE:
                             overlay.set_at((bx, by), _BLACK)
 
