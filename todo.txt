@@ -40,7 +40,7 @@
 /- que los tiles de tierra expuestos queden medios jagged y no tan rectos
 - musica muerte
 - musica victoria
-- planear que hacer al llegar a la ultima pantalla y ganar
+/- planear que hacer al llegar a la ultima pantalla y ganar
 - armar niveles
 
 

@@ -222,6 +222,37 @@ class Game:
 
         # Name entry
         self.player_name = ""
+        self.is_victory = False
+        self.victory_palette_offset = 0  # Para ciclar colores en VICTORY!
+
+        # Paleta de 256 colores estilo VGA (6-8-5 levels RGB para retro feel)
+        self._victory_palette = []
+        for i in range(256):
+            if i < 64:
+                # Rojo a amarillo
+                r = 255
+                g = i * 4
+                b = 0
+            elif i < 128:
+                # Amarillo a verde
+                r = 255 - (i - 64) * 4
+                g = 255
+                b = 0
+            elif i < 192:
+                # Verde a cyan a azul
+                r = 0
+                g = 255 - (i - 128) * 4
+                b = (i - 128) * 4
+            else:
+                # Azul a magenta a rojo
+                r = (i - 192) * 4
+                g = 0
+                b = 255 - (i - 192) * 4
+            # Clampar a 0-255
+            r = max(0, min(255, r))
+            g = max(0, min(255, g))
+            b = max(0, min(255, b))
+            self._victory_palette.append((r, g, b))
 
         # Score tracking
         self.last_life_score = 0
@@ -1158,7 +1189,9 @@ class Game:
             self.lives += 1
         self.level_num += 1
         if self.level_num >= len(LEVELS):
-            # Won game!
+            # Won game! - pantalla de victoria
+            self.is_victory = True
+            self.victory_palette_offset = 0
             self.state = STATE_ENTERING_NAME
         else:
             self.start_level()
@@ -1174,6 +1207,7 @@ class Game:
         # Fase 2: después del tiempo total, reiniciar o game over
         if self.death_timer >= DEATH_ANIM_TIME:
             if self.lives <= 0:
+                self.is_victory = False
                 self.state = STATE_ENTERING_NAME
             else:
                 self.start_level()
@@ -1799,12 +1833,34 @@ class Game:
         self.screen.blit(scaled, ((SCREEN_WIDTH - sw) // 2, (SCREEN_HEIGHT - sh) // 2))
 
     def render_entering_name(self):
-        """Render name entry screen"""
+        """Render name entry screen (victoria o game over)"""
         self.screen.fill(COLOR_BLACK)
 
-        game_over = self.font.render("GAME OVER", True, COLOR_RED)
-        go_rect = game_over.get_rect(center=(SCREEN_WIDTH//2, 100))
-        self.screen.blit(game_over, go_rect)
+        if self.is_victory:
+            # "VICTORY!" con cada letra de un color distinto, ciclando la paleta
+            self.victory_palette_offset = (self.victory_palette_offset + 1) % 256
+            victory_text = "VICTORY!"
+            # Renderizar cada letra por separado con color distinto
+            letter_surfaces = []
+            total_w = 0
+            spacing = 256 // len(victory_text)  # Distribuir colores uniformemente
+            for i, ch in enumerate(victory_text):
+                color_idx = (self.victory_palette_offset + i * spacing) % 256
+                color = self._victory_palette[color_idx]
+                surf = self.font.render(ch, True, color)
+                letter_surfaces.append(surf)
+                total_w += surf.get_width()
+            # Centrar y dibujar
+            x = (SCREEN_WIDTH - total_w) // 2
+            y = 100
+            for surf in letter_surfaces:
+                h = surf.get_height()
+                self.screen.blit(surf, (x, y - h // 2))
+                x += surf.get_width()
+        else:
+            game_over = self.font.render("GAME OVER", True, COLOR_RED)
+            go_rect = game_over.get_rect(center=(SCREEN_WIDTH//2, 100))
+            self.screen.blit(game_over, go_rect)
 
         score_text = self.small_font.render(f"Final Score: {self.score}", True, COLOR_WHITE)
         score_rect = score_text.get_rect(center=(SCREEN_WIDTH//2, 150))
