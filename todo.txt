@@ -32,9 +32,9 @@
 /- los colores de los puntitos del fondo deberian matchear los colores del nivel
 /- el bug verde podria ser mas bien un bicho que vuela como en la commodore
 /- cuando hay una explosion se redibuja las texturas de moss
-- bloques y nivel de magma (si lo toca me quemo)
--- rocas de magma magma_breakeable_wall y magma_broken_wall
--- pared de magma no reventable
+/- bloques y nivel de magma (si lo toca me quemo)
+/-- rocas de magma magma_breakeable_wall y magma_broken_wall
+/-- pared de magma no reventable
 /- animacion de muerte del hero
 /- animacion de la helice en vuelo
 - que los tiles de tierra expuestos queden medios jagged y no tan rectos
