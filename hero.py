@@ -207,6 +207,7 @@ class Game:
         # Sound state
         self.helicopter_playing = False
         self.splash_theme_playing = False
+        self.death_song_playing = False
 
         # Quit confirmation
         self.show_quit_confirm = False
@@ -493,6 +494,7 @@ class Game:
             self.sounds['win_screen'] = pygame.mixer.Sound("sounds/win_screen.wav")
             self.sounds['rock_break'] = pygame.mixer.Sound("sounds/rock_break.wav")
             self.sounds['rock_crack'] = pygame.mixer.Sound("sounds/rock_crack.wav")
+            self.sounds['death_song'] = pygame.mixer.Sound("sounds/death_song.wav")
 
             # Load splash theme original
             splash_original = pygame.mixer.Sound("sounds/splash_screen_theme.wav")
@@ -1866,17 +1868,23 @@ class Game:
         score_rect = score_text.get_rect(center=(SCREEN_WIDTH//2, 150))
         self.screen.blit(score_text, score_rect)
 
-        prompt = self.small_font.render("Enter Your Name:", True, COLOR_WHITE)
-        prompt_rect = prompt.get_rect(center=(SCREEN_WIDTH//2, 200))
-        self.screen.blit(prompt, prompt_rect)
+        # Solo permitir entrada de nombre si el score es mayor a 0
+        if self.score > 0 or self.is_victory:
+            prompt = self.small_font.render("Enter Your Name:", True, COLOR_WHITE)
+            prompt_rect = prompt.get_rect(center=(SCREEN_WIDTH//2, 200))
+            self.screen.blit(prompt, prompt_rect)
 
-        name = self.font.render(self.player_name + "_", True, COLOR_GREEN)
-        name_rect = name.get_rect(center=(SCREEN_WIDTH//2, 240))
-        self.screen.blit(name, name_rect)
+            name = self.font.render(self.player_name + "_", True, COLOR_GREEN)
+            name_rect = name.get_rect(center=(SCREEN_WIDTH//2, 240))
+            self.screen.blit(name, name_rect)
 
-        instr = self.small_font.render("Press ENTER when done", True, COLOR_GRAY)
-        instr_rect = instr.get_rect(center=(SCREEN_WIDTH//2, 300))
-        self.screen.blit(instr, instr_rect)
+            instr = self.small_font.render("Press ENTER when done", True, COLOR_GRAY)
+            instr_rect = instr.get_rect(center=(SCREEN_WIDTH//2, 300))
+            self.screen.blit(instr, instr_rect)
+        else:
+            instr = self.small_font.render("Press ENTER to continue", True, COLOR_GRAY)
+            instr_rect = instr.get_rect(center=(SCREEN_WIDTH//2, 250))
+            self.screen.blit(instr, instr_rect)
 
     def render_level_complete(self):
         """Render level complete - fases 0 y 1 muestran juego + HUD, fase 2 agrega overlay"""
@@ -1984,7 +1992,11 @@ class Game:
                             self.state = STATE_SPLASH
 
                     elif self.state == STATE_ENTERING_NAME:
-                        if event.key == pygame.K_RETURN:
+                        # Sin score, solo ENTER para volver al splash
+                        if self.score <= 0 and not self.is_victory:
+                            if event.key == pygame.K_RETURN:
+                                self.state = STATE_SPLASH
+                        elif event.key == pygame.K_RETURN:
                             if len(self.player_name) > 0:
                                 add_score(self.player_name, self.score)
                                 self.player_name = ""
@@ -2030,6 +2042,17 @@ class Game:
                     if self.splash_theme_playing:
                         self.sounds['splash_theme'].stop()
                         self.splash_theme_playing = False
+
+            # Death song music management (game over screen)
+            if 'death_song' in self.sounds:
+                if self.state == STATE_ENTERING_NAME and not self.is_victory:
+                    if not self.death_song_playing:
+                        self.sounds['death_song'].play()
+                        self.death_song_playing = True
+                else:
+                    if self.death_song_playing:
+                        self.sounds['death_song'].stop()
+                        self.death_song_playing = False
 
             # Render
             self.screen.fill(COLOR_BLACK)

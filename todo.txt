@@ -38,7 +38,7 @@
 /- animacion de muerte del hero
 /- animacion de la helice en vuelo
 /- que los tiles de tierra expuestos queden medios jagged y no tan rectos
-- musica muerte
+/- musica muerte
 - musica victoria
 /- planear que hacer al llegar a la ultima pantalla y ganar
 - armar niveles
