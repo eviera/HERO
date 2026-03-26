@@ -17,17 +17,19 @@ Este es un remake del clásico juego de Atari **H.E.R.O.** (Helicopter Emergency
 
 ```
 hero/
-├── hero.py                      # Archivo principal del juego (~1410 líneas)
-├── constants.py                 # Constantes del juego (~96 líneas)
-├── player.py                    # Clase Player (~208 líneas)
-├── enemy.py                     # Clase Enemy (~166 líneas)
-├── laser.py                     # Clase Laser (~51 líneas)
-├── dynamite.py                  # Clase Dynamite (~112 líneas)
-├── miner.py                     # Clase Miner (~37 líneas)
+├── hero.py                      # Archivo principal del juego (~2156 líneas)
+├── constants.py                 # Constantes del juego (~271 líneas)
+├── player.py                    # Clase Player (~346 líneas)
+├── enemy.py                     # Clase Enemy (~384 líneas)
+├── laser.py                     # Clase Laser (~56 líneas)
+├── dynamite.py                  # Clase Dynamite (~99 líneas)
+├── miner.py                     # Clase Miner (~41 líneas)
+├── palette.py                   # Texturas de suelo, musgo y overlays (~570 líneas)
 ├── audio_effects.py             # Emulación SID de Commodore 64 (numpy)
-├── editor.py                    # Editor visual de niveles
+├── editor.py                    # Editor visual de niveles (~1661 líneas)
 ├── screens.json                 # Niveles del juego (cargados en runtime)
 ├── scores.json                  # High scores persistidos
+├── texture_params.json          # Parámetros de textura editables desde el editor
 ├── CLAUDE.md                    # Este archivo
 ├── IMPLEMENTATION_SUMMARY.md    # Resumen de implementación
 ├── fonts/
@@ -41,6 +43,12 @@ hero/
 │   ├── bat1.png                # Sprite murciélago frame 1
 │   ├── bat2.png                # Sprite murciélago frame 2
 │   ├── spider.png              # Sprite araña
+│   ├── bug1.png                # Sprite bicho frame 1
+│   ├── bug2.png                # Sprite bicho frame 2
+│   ├── bug3.png                # Sprite bicho frame 3
+│   ├── bug4.png                # Sprite bicho frame 4
+│   ├── snake_head.png          # Sprite cabeza de serpiente
+│   ├── snake_neck.png          # Sprite cuello de serpiente
 │   ├── miner.png               # Sprite del minero rescatado
 │   ├── bomb1.png               # Sprite bomba/explosión frame 1
 │   ├── bomb2.png               # Sprite bomba/explosión frame 2
@@ -48,8 +56,15 @@ hero/
 ├── tiles/
 │   ├── wall.png                # Tile de pared (#)
 │   ├── floor.png               # Tile de suelo (.)
-│   ├── breakable_wall.png      # Tile de pared rompible (W)
+│   ├── granite.png             # Tile de granito (G)
+│   ├── breakable_wall.png      # Tile de roca (R)
+│   ├── broken_wall.png         # Tile de roca dañada (R con impactos)
+│   ├── lava.png                # Tile de lava (X)
+│   ├── lava_breakable_wall.png # Tile de roca lava (W)
+│   ├── lava_broken_wall.png    # Tile de roca lava dañada (W con impactos)
+│   ├── lamp.png                # Tile de lámpara (L)
 │   ├── toxic_water.png         # Tile de agua tóxica (~)
+│   ├── toxic_water_strip.png   # Strip de animación de agua tóxica
 │   └── blank.png               # Espacio vacío
 ├── images/
 │   └── hero_background.png     # Imagen de fondo para splash screen
@@ -57,10 +72,13 @@ hero/
     ├── shoot.wav               # Efecto de disparo láser
     ├── explosion.wav           # Efecto de explosión de dinamita
     ├── death.wav               # Efecto de muerte del héroe
+    ├── death_song.wav          # Música de game over (loop)
     ├── splatter.wav            # Efecto de muerte de enemigo
     ├── helicopter.wav          # Sonido del helicóptero (loop)
     ├── walk1.wav               # Sonido de paso 1
     ├── walk2.wav               # Sonido de paso 2
+    ├── rock_break.wav          # Sonido de roca destruida
+    ├── rock_crack.wav          # Sonido de roca agrietada
     ├── win_screen.wav          # Sonido de nivel completado
     └── splash_screen_theme.wav # Música del menú principal (loop)
 ```
@@ -69,14 +87,16 @@ hero/
 
 ### Estructura Modular
 
-- **constants.py**: Todas las constantes del juego (dimensiones, físicas, colores, estados, SID)
-- **player.py**: Clase Player con física de vuelo, caminata animada y colisiones
-- **enemy.py**: Clase Enemy con murciélagos (animación 2 frames) y arañas (verticales con hilo)
-- **laser.py**: Clase Laser para proyectiles
+- **constants.py**: Todas las constantes del juego (dimensiones, físicas, colores, estados, texturas, animación de muerte)
+- **player.py**: Clase Player con física de vuelo, caminata animada, colisión pixel-perfect y animación de hélice
+- **enemy.py**: Clase Enemy con murciélagos (animación 2 frames), arañas (verticales con hilo), bichos (4 frames) y serpientes
+- **laser.py**: Clase Laser para proyectiles (destruye rocas R y W con múltiples impactos)
 - **dynamite.py**: Clase Dynamite con explosiones animadas (3 frames)
 - **miner.py**: Clase Miner (objetivo a rescatar)
+- **palette.py**: Texturas procedurales de suelo/lava (chevrones, clusters, dientes) y musgo/raíces en bordes
 - **audio_effects.py**: Clase SIDEmulator para efectos de audio estilo Commodore 64
-- **hero.py**: Juego principal (Game class, carga de niveles desde JSON, loop)
+- **hero.py**: Juego principal (Game class, carga de niveles desde JSON, loop, animación de muerte, pantalla de victoria)
+- **editor.py**: Editor visual de niveles con editor de texturas integrado (F3)
 
 ### Constantes Principales (constants.py)
 
@@ -139,11 +159,79 @@ ENEMY_SPEED_VARIATION = 0.05 # ±5% variación aleatoria por enemigo
 # Control
 DEAD_ZONE = 0.15
 
+# Estados del juego
+STATE_SPLASH = "splash"
+STATE_PLAYING = "playing"
+STATE_GAME_OVER = "game_over"
+STATE_ENTERING_NAME = "entering_name"
+STATE_LEVEL_COMPLETE = "level_complete"
+STATE_DYING = "dying"
+
+# Animación de muerte
+DEATH_FLASH_TIME = 0.35       # Segundos de flash blanco inicial
+DEATH_SKELETON_TIME = 1.0     # Segundos mostrando el esqueleto
+DEATH_ANIM_TIME = DEATH_FLASH_TIME + DEATH_SKELETON_TIME
+
+# Animación de hélice del helicóptero
+PROPELLER_SLOW_SPEED = 5.0    # Ciclos por segundo (idle/caminando)
+PROPELLER_FAST_SPEED = 20.0   # Ciclos por segundo (volando)
+PROPELLER_NUM_FRAMES = 4      # Frames de rotación
+PROPELLER_WIDTH_FACTORS = [1.0, 0.65, 0.15, 0.65]  # Factor de ancho por frame
+
 # SID Audio Effects
 SID_INTENSITY = 'light'
 SID_BITDEPTH = 8
 SID_LOWPASS_CUTOFF = 3500
 SID_DISTORTION = 0.2
+```
+
+### Constantes de Texturas (constants.py)
+
+Todas las constantes de textura se pueden sobreescribir desde `texture_params.json` (editables desde el editor con F3). Se cargan automáticamente al importar constants.py via `_load_texture_params()`.
+
+```python
+# Fondo de caverna (pintitas en el vacío)
+CAVE_DOT_SIZE = 2
+CAVE_DOT_DENSITY = 0.002
+CAVE_DOT_BRIGHTNESS = [13, 15, 18, 20, 22, 25]  # % del color base
+
+# Overlay de textura del suelo/lava (negro puro sobre tiles . y X)
+OVERLAY_CHEVRON_PERIOD = 14       # Separación vertical entre filas de chevrones
+OVERLAY_CHEVRON_W = (10, 18)     # Ancho de cada chevrón
+OVERLAY_CHEVRON_H = (5, 9)       # Altura de cada chevrón
+OVERLAY_CHEVRON_THICKNESS = (2, 4)
+OVERLAY_CHEVRON_SPACING = (2, 8)
+OVERLAY_CHEVRON_IRREGULARITY = 0.3
+OVERLAY_NOISE_DENSITY = 0.08
+OVERLAY_CLUSTER_COUNT = (2, 5)
+OVERLAY_CLUSTER_SIZE = (2, 5)
+OVERLAY_CLUSTER_FILL = 0.65
+OVERLAY_BIG_HOLE_COUNT = (1, 3)
+OVERLAY_BIG_HOLE_W = (5, 12)
+OVERLAY_BIG_HOLE_H = (4, 8)
+OVERLAY_BIG_HOLE_EDGE_SKIP = 0.4
+OVERLAY_TEETH_COUNT = (8, 14)    # Dientes en bordes expuestos al vacío
+OVERLAY_TEETH_W = (1, 5)
+OVERLAY_TEETH_DEPTH = (3, 10)
+OVERLAY_TEETH_BASE_GAP = 0.15
+OVERLAY_TEETH_BASE_EXTRA = 0.6
+
+# Musgo/raíces en bordes de suelo expuestos
+MOSS_BASE_H = 2
+MOSS_BASE_W = 2
+MOSS_MAX_DOWN = 14           # Largo máximo de stalactitas
+MOSS_MAX_UP = 12             # Largo máximo de stalagmitas
+MOSS_MAX_SIDE = 10           # Largo máximo de musgo lateral
+MOSS_BASE_GAP_CHANCE = 0.15
+MOSS_COLOR_VARIATION = 8
+MOSS_ALPHA_TIP = 80
+MOSS_ALPHA_BASE = 240
+MOSS_TENDRIL_COUNT = (1, 3)
+MOSS_TENDRIL_LENGTH = (3, 12)
+MOSS_JAG_GAP_CHANCE = 0.25
+MOSS_JAG_CLUSTER_LEN = (2, 6)
+MOSS_JAG_PEAK_CHANCE = 0.06
+MOSS_JAG_PEAK_EXTRA = (4, 10)
 ```
 
 ### Clase Player (player.py)
@@ -166,48 +254,60 @@ SID_DISTORTION = 0.2
 - `walk_distance`: Distancia acumulada para alternar pasos
 - `walk_frame_index`: Frame actual de caminata (0 o 1)
 - `is_walking`: Si está caminando
+- `propeller_timer`, `propeller_frame`: Animación de hélice rotando
+- `_prop_bodies`, `_prop_frames`: Sprites pre-computados de cuerpo sin palas y frames de hélice
+- `_current_mask`: Mask de pygame para colisión pixel-perfect
+- `_touched_lava`: Flag de contacto con lava (X, W) detectado en check_collision
 
 **Métodos:**
 - `init(level_map)`: Inicializa posición buscando "S" en el mapa
-- `update(dt, keys, joy_axis_x, joy_axis_y, level_map, game)`: Actualiza física y movimiento
-- `check_collision(x, y, level_map)`: Verifica colisiones con tiles (#, ., G, R)
-- `draw(surface, camera_x, camera_y)`: Renderiza al jugador (prioridad: disparo > vuelo > caminata > idle)
+- `update(dt, keys, joy_axis_x, joy_axis_y, level_map, game)`: Actualiza física, movimiento y animación de hélice
+- `check_collision(x, y, level_map)`: Colisión pixel-perfect usando masks de pygame contra tiles sólidos
+- `_check_collision_corners(x, y, level_map)`: Fallback de colisión por esquinas cuando no hay mask
+- `draw(surface, camera_x, camera_y)`: Renderiza cuerpo + hélice animada (2 blits pre-computados, sin transforms en runtime)
 - `get_rect()`: Rectángulo de colisión
+- `get_mask(masks_dict)`: Obtiene mask de pygame del sprite actual
 
 **Características:**
 - Física con gravedad constante
 - Propulsor para volar (mantener presionado, intensidad gradual con joystick)
 - Descenso activo con tecla ↓ o joystick abajo (DIVE_POWER)
-- Colisión con paredes (#), suelos (.), granito (G) y rocas (R) — bounds dinámicos del mapa
+- **Colisión pixel-perfect** con masks de pygame contra tiles sólidos (#, ., G, R, X, W)
+- **Búsqueda binaria sub-pixel** para resolver colisiones horizontales y verticales (~0.01px precisión)
 - Movimiento independiente del framerate (delta-time)
 - Energía: se drena al volar, se recupera en el suelo (no hay drenaje pasivo)
 - Animación de caminata con sonidos alternados cada WALK_STEP_DISTANCE píxeles
+- **Animación de hélice**: gira lento en tierra (PROPELLER_SLOW_SPEED), rápido en vuelo (PROPELLER_FAST_SPEED). 4 frames de rotación con factores de ancho variables.
 - Sprite se voltea (flip) según dirección
+- Detección de contacto con lava (X, W) que mata al jugador instantáneamente
+- Nudge de seguridad si queda atrapado en tile sólido (empuja arriba/abajo)
 
 ### Clase Enemy (enemy.py)
 
-**Responsabilidad:** Enemigos del juego (murciélagos y arañas).
+**Responsabilidad:** Enemigos del juego (murciélagos, arañas, bichos y serpientes).
 
 **Tipos:**
 - **bat**: Vuela horizontalmente, rebota contra paredes. Animación de 2 frames (bat1/bat2) alternando cada BAT_ANIM_DISTANCE píxeles. Velocidad escala +5% por nivel.
 - **spider**: Se mueve verticalmente desde su spawn hasta 2 tiles abajo y vuelve. Dibuja hilo de seda hasta el techo más cercano.
+- **bug**: Enemigo volador con animación de 4 frames (bug1-bug4). Patrulla horizontalmente.
+- **snake**: Serpiente que emerge de cuevas. Usa sprites snake_head y snake_neck.
 
 **Atributos:**
 - `x`, `y`: Posición actual
 - `start_x`, `start_y`: Posición de spawn (para límites de araña)
-- `enemy_type`: "bat" o "spider"
+- `enemy_type`: "bat", "spider", "bug" o "snake"
 - `speed`: Velocidad (BAT_SPEED para bats, SPIDER_SPEED para spiders)
 - `direction`: Dirección de movimiento (-1 o 1)
 - `active`: Estado activo/inactivo
 - `exploding`: En animación de explosión
 - `image`: Sprite actual
-- `images`: Lista de sprites para animación [bat1, bat2] (solo bats)
+- `images`: Lista de sprites para animación [bat1, bat2] (solo bats) o [bug1-bug4] (bugs)
 - `distance_traveled`: Distancia acumulada para alternar sprites
 - `anim_frame`: Frame actual de animación (0 o 1)
 
 **Métodos:**
 - `update(dt, level_map)`: Actualiza movimiento y patrullaje
-- `check_collision(x, y, level_map)`: Colisión con tiles (#, ., G, R)
+- `check_collision(x, y, level_map)`: Colisión con tiles (#, ., G, R, X, W)
 - `draw(surface, camera_x, camera_y, level_map)`: Renderiza enemigo, hilo de araña o explosión
 - `get_rect()`: Rectángulo de colisión
 - `_find_ceiling_y(level_map)`: (privado) Busca techo para hilo de araña
@@ -222,6 +322,7 @@ SID_DISTORTION = 0.2
 - `width`, `height`: Tamaño (LASER_WIDTH x LASER_HEIGHT = 10x2)
 - `active`: Estado activo
 - `color`: COLOR_YELLOW
+- `hit_rock_pos`: Posición (row, col) del tile de roca impactado (R o W)
 
 **Métodos:**
 - `update(dt, level_map)`: Actualiza posición y colisiones
@@ -229,7 +330,8 @@ SID_DISTORTION = 0.2
 - `get_rect()`: Rectángulo de colisión
 
 **Características:**
-- Colisiona con paredes (#), suelos (.), granito (G) y rocas (R)
+- Colisiona con paredes (#), suelos (.), granito (G), rocas (R), lava (X) y roca lava (W)
+- Destruye rocas (R) y roca lava (W) con múltiples impactos (ROCK_LASER_HITS)
 - Se desactiva al salir de límites del nivel
 - Sale de la punta del arma del jugador (posición ajustada según dirección)
 
@@ -259,7 +361,7 @@ SID_DISTORTION = 0.2
 - Se coloca enfrente del héroe según su dirección
 - Explota después de 1.5 segundos
 - Radio de explosión de DYNAMITE_EXPLOSION_RADIUS píxeles
-- Destruye paredes (#), rocas (R) y enemigos (G es indestructible)
+- Destruye paredes (#), rocas (R), roca lava (W) y enemigos (G y X son indestructibles)
 - Animación con sprites bomb1/bomb2/bomb3 tanto en cuenta regresiva como en explosión
 - Explosión daña al jugador si está en el radio
 
@@ -293,16 +395,20 @@ SID_DISTORTION = 0.2
 - `xbox_controller`: Input del control (opcional)
 - `score`, `level_num`, `lives`, `dynamite_count`, `energy`: Estado del juego
 - `player`, `enemies`, `lasers`, `dynamites`, `miner`: Entidades
-- `sprites`, `tiles`, `sounds`: Diccionarios de assets
+- `sprites`, `tiles`, `sounds`, `masks`: Diccionarios de assets
 - `background_image`, `gray_overlay`: Splash screen
 - `cave_bg`: Fondo de caverna con pintitas generadas proceduralmente
 - `camera_x`, `camera_y`: Posición de la cámara en ambos ejes (scrolling 2D)
-- `helicopter_playing`, `splash_theme_playing`: Estado de sonidos en loop
+- `helicopter_playing`, `splash_theme_playing`, `death_song_playing`: Estado de sonidos en loop
 - `explosion_flash`: Efecto de flash blanco/negro durante explosiones
 - `floating_scores`: Textos flotantes de puntuación
 - `level_complete_phase`: Fase de animación ColecoVision (0=energy, 1=bombs, 2=display)
 - `show_quit_confirm`: Diálogo de confirmación de salida
 - `score_beeps`: Beep sounds pre-generados para animación de score
+- `is_victory`: Si el jugador completó todos los niveles
+- `_victory_palette`: Paleta de 256 colores estilo VGA para animación de VICTORY!
+- `death_timer`, `death_flash_done`, `death_sprite`: Estado de animación de muerte
+- `propeller_bodies`, `propeller_frames`: Sprites pre-computados de hélice
 
 **Métodos principales:**
 
@@ -312,23 +418,28 @@ SID_DISTORTION = 0.2
 4. **`drop_dynamite()`**: Coloca dinamita enfrente del héroe
 5. **`update_camera()`**: Cámara suave en ambos ejes que sigue al jugador (lerp 0.1)
 6. **`check_collisions()`**: Todas las colisiones (jugador/enemigos/láser/explosión)
-7. **`player_hit()`**: Daño al jugador, pierde vida o game over
+7. **`player_hit()`**: Inicia animación de muerte (STATE_DYING), captura sprite y posición
 8. **`rescue_miner()`**: Inicia animación de nivel completado (3 fases)
-9. **`update_playing(dt)`**: Actualización del estado PLAYING
-10. **`update_level_complete(dt)`**: Animación ColecoVision de 3 fases
-11. **`render_level()`**: Renderiza tiles visibles con fondo de caverna (en game_surface)
-12. **`render_lamps()`**: Dibuja lámparas en game_surface
-13. **`_render_dark_mode_overlay()`**: Modo oscuridad estilo C64 (en game_surface)
-14. **`_render_game_to_screen()`**: Escala game_surface (512x256) → screen (768x384)
-15. **`render_hud()`**: HUD estilo ColecoVision con paneles grises (en screen)
-16. **`render_splash()`**: Splash screen a 512x480 escalado con aspect ratio
-17. **`render_entering_name()`**: Pantalla de entrada de nombre
-18. **`render_level_complete()`**: Renderiza las 3 fases de level complete
-19. **`toggle_fullscreen()`**: Alterna ventana/fullscreen
-20. **`add_floating_score()`**: Agrega texto flotante de puntos
-21. **`render_floating_scores()`**: Renderiza textos flotantes (en game_surface)
-22. **`draw_text_with_outline()`**: Texto con contorno (acepta surface opcional)
-23. **`loop()`**: Loop principal del juego
+9. **`update_playing(dt)`**: Actualización del estado PLAYING (incluye detección de lava)
+10. **`update_dying(dt)`**: Animación de muerte (flash blanco → esqueleto → reinicio/game over)
+11. **`update_level_complete(dt)`**: Animación ColecoVision de 3 fases
+12. **`render_level()`**: Renderiza tiles visibles con fondo de caverna (en game_surface)
+13. **`render_lamps()`**: Dibuja lámparas en game_surface
+14. **`_render_dark_mode_overlay()`**: Modo oscuridad estilo C64 (en game_surface)
+15. **`_render_game_to_screen()`**: Escala game_surface (512x256) → screen (768x384)
+16. **`render_hud()`**: HUD estilo ColecoVision con paneles grises (en screen)
+17. **`render_splash()`**: Splash screen a 512x480 escalado con aspect ratio
+18. **`render_entering_name()`**: Pantalla de entrada de nombre (game over o victoria con colores VGA)
+19. **`render_dying()`**: Renderiza animación de muerte (flash blanco + esqueleto)
+20. **`render_level_complete()`**: Renderiza las 3 fases de level complete
+21. **`toggle_fullscreen()`**: Alterna ventana/fullscreen
+22. **`add_floating_score()`**: Agrega texto flotante de puntos
+23. **`render_floating_scores()`**: Renderiza textos flotantes (en game_surface)
+24. **`draw_text_with_outline()`**: Texto con contorno (acepta surface opcional)
+25. **`_prepare_propeller_sprites()`**: Separa palas del cuerpo y genera 4 frames de rotación por sprite
+26. **`_generate_skeleton_sprite()`**: Genera sprite de esqueleto (tonos hueso) a partir del player
+27. **`_generate_cave_background()`**: Genera fondo con pintitas usando CAVE_DOT_DENSITY y CAVE_DOT_BRIGHTNESS
+28. **`loop()`**: Loop principal del juego
 
 ## Sistema de Niveles
 
@@ -354,13 +465,16 @@ Grid de caracteres con ancho y alto dinámicos (múltiplos del viewport):
 - `"#"`: Tierra (sólida, destructible con dinamita)
 - `"."`: Suelo/plataforma (sólido, indestructible)
 - `"G"`: Granito (sólido, indestructible)
-- `"R"`: Rocas (sólido, destructible con dinamita)
+- `"R"`: Rocas (sólido, destructible con dinamita y láser)
 - `" "`: Espacio vacío (aire)
 - `"V"`: Enemigo murciélago (bat)
 - `"A"`: Enemigo araña (spider)
 - `"B"`: Enemigo bicho (bug)
+- `"<"`, `">"`: Víbora/serpiente (izquierda/derecha)
 - `"L"`: Lámpara (toggle modo oscuridad al tocar)
 - `"~"`: Agua tóxica (mata al jugador al contacto, animada con scroll)
+- `"X"`: Lava (sólido, indestructible, mata al contacto)
+- `"W"`: Roca lava (sólido, destructible con dinamita y láser, mata al contacto)
 - `"M"`: Minero a rescatar (objetivo)
 
 ### Carga de Niveles
@@ -383,15 +497,17 @@ Secuencia de ejecución por frame:
 2. Leer input (teclado/control Xbox con zona muerta)
 3. Procesar eventos (disparar, dinamita, fullscreen, quit confirm)
 4. Según estado:
-   - PLAYING: `update_playing(dt)` (jugador, enemigos, láseres, dinamitas, colisiones, cámara, flash)
+   - PLAYING: `update_playing(dt)` (jugador, enemigos, láseres, dinamitas, colisiones, cámara, flash, detección lava)
+   - DYING: `update_dying(dt)` (animación de muerte: flash → esqueleto → reinicio)
    - LEVEL_COMPLETE: `update_level_complete(dt)` (3 fases de animación)
-5. Gestionar música de splash (play/stop según estado)
+5. Gestionar música de splash y death_song (play/stop según estado)
 6. Limpiar screen
 7. Renderizar según estado:
    - SPLASH: render_splash() (512x480 → escala a screen)
    - PLAYING: game_surface → render_level/entidades/dark_mode → _render_game_to_screen() → render_hud()
+   - DYING: render_dying() (nivel + flash/esqueleto en lugar del player + HUD)
    - LEVEL_COMPLETE: igual que PLAYING + overlay fase 2
-   - ENTERING_NAME: directo en screen
+   - ENTERING_NAME: directo en screen (game over o victoria con colores VGA ciclando)
 8. Renderizar quit confirm overlay si activo
 9. Escalar screen a display con aspect ratio y flip
 
@@ -433,6 +549,26 @@ Estilo ColecoVision TMS9918A. Posición: parte inferior de la pantalla (HUD_HEIG
 - Rojo: (212, 82, 77)
 - Gris: (192, 192, 192)
 
+## Animación de Muerte del Jugador
+
+Cuando el jugador muere (contacto con enemigo, explosión o lava), se ejecuta una animación en 2 fases:
+
+1. **Flash blanco** (DEATH_FLASH_TIME = 0.35s): Silueta del sprite en blanco puro con overlay de pantalla que se desvanece. Se captura el sprite que tenía al morir.
+2. **Esqueleto** (DEATH_SKELETON_TIME = 1.0s): Se muestra un sprite de esqueleto generado proceduralmente a partir del sprite del player (tonos hueso: claro/oscuro/sombra según luminosidad).
+
+Después de la animación:
+- Si quedan vidas → reinicia el nivel
+- Si no quedan vidas → pantalla de game over con death_song
+
+El estado `STATE_DYING` suspende el gameplay pero sigue renderizando el nivel y las entidades.
+
+## Pantalla de Victoria
+
+Al completar todos los niveles, se muestra `STATE_ENTERING_NAME` con `is_victory = True`:
+- Texto "VICTORY!" con cada letra de un color distinto ciclando por una paleta VGA de 256 colores
+- Permite ingresar nombre para el high score
+- No se reproduce death_song (solo en game over)
+
 ## Level Complete - Animación ColecoVision
 
 3 fases secuenciales:
@@ -445,10 +581,13 @@ Estilo ColecoVision TMS9918A. Posición: parte inferior de la pantalla (HUD_HEIG
 **Efectos implementados:**
 - `shoot.wav`: Disparo láser
 - `explosion.wav`: Explosión de dinamita y bombas en level complete
-- `death.wav`: Muerte del héroe
+- `death.wav`: Muerte del héroe (efecto)
+- `death_song.wav`: Música de pantalla de game over (loop)
 - `splatter.wav`: Muerte de enemigo (láser o explosión)
 - `helicopter.wav`: Loop mientras el jugador está en el aire (no grounded)
 - `walk1.wav` / `walk2.wav`: Pasos alternados al caminar
+- `rock_break.wav`: Sonido de roca destruida
+- `rock_crack.wav`: Sonido de roca agrietada (impacto parcial)
 - `win_screen.wav`: Sonido al completar nivel (fase 2)
 - `splash_screen_theme.wav`: Música de menú principal (loop)
 
@@ -457,15 +596,17 @@ Estilo ColecoVision TMS9918A. Posición: parte inferior de la pantalla (HUD_HEIG
 
 **Audio effects (audio_effects.py):**
 - Emulación SID de Commodore 64 (bitcrush, lowpass, distorsión)
-- Actualmente deshabilitado en el código (comentado)
+- Import con try/except (falla silenciosamente si numpy no está disponible)
 
 ## Sistema de Puntuación
 
 - **Rescatar minero**: +1000 pts
 - **Matar enemigo con láser**: +50 pts
 - **Matar enemigo con explosión**: +75 pts
+- **Matar serpiente**: +60 pts
 - **Destruir tierra (#) con dinamita**: +20 pts
 - **Destruir rocas (R) con dinamita**: +10 pts
+- **Destruir roca lava (W)**: puntos según TILE_SCORES
 - **Energía restante al completar nivel**: se convierte 1:1 en puntos
 - **Bombas restantes al completar nivel**: +50 pts cada una
 - **Vida extra**: cada 20,000 puntos
@@ -507,64 +648,57 @@ Estilo ColecoVision TMS9918A. Posición: parte inferior de la pantalla (HUD_HEIG
 
 Ambos sistemas viven en **palette.py** y generan superficies SRCALPHA del tamaño completo del nivel, que se pre-computan una vez al cargar el nivel (`start_level()`) y se blitean por viewport en `render_level()`. Se regeneran cuando la dinamita destruye tiles (para reflejar el nuevo mapa).
 
-### Textura Porosa del Suelo (floor_texture)
+### Textura de Suelo/Lava (floor_texture) — Estilo C64
 
 **Función:** `generate_floor_texture(level_map, seed)` → superficie SRCALPHA
 
-Genera un overlay con "hoyos" oscuros sobre cada tile de suelo (`.`) para darle un aspecto cavernoso y poroso. Solo afecta tiles de suelo, nunca paredes ni espacios vacíos.
+Genera un overlay de **negro puro** (sin degradados ni alpha parcial) sobre tiles de suelo (`.`) y lava (`X`) con patrón estilo C64.
 
-**Capas de detalle por tile (3 tipos):**
-1. **Franjas horizontales** (`FLOOR_STREAKS`): Líneas oscuras alargadas (5-9 por tile, ancho 6-18px, alto 1-3px). Simulan grietas o vetas en la roca.
-2. **Manchas irregulares** (`FLOOR_BLOBS`): Parches más grandes y cuadrados (3-7 por tile, ancho 3-10px, alto 2-5px). Dan textura irregular.
-3. **Poros pequeños** (`FLOOR_DOTS`): Puntos individuales de 1-2px (15-25 por tile). Detalle fino granular.
+**Capas de detalle por tile:**
+1. **Chevrones** (OVERLAY_CHEVRON_*): Formas de V invertida horizontales con grosor e irregularidad configurables.
+2. **Ruido disperso** (OVERLAY_NOISE_DENSITY): Píxeles negros sueltos sobre el tile.
+3. **Clusters** (OVERLAY_CLUSTER_*): Grupos de píxeles negros = cavidades pequeñas.
+4. **Agujeros grandes** (OVERLAY_BIG_HOLE_*): Huecos irregulares con bordes recortados.
+5. **Dientes en bordes** (OVERLAY_TEETH_*): Irregularidades en aristas expuestas al vacío.
 
-**Colores:** Tonos oscuros casi negros definidos en `_HOLE_COLORS` (negro puro, marrón muy oscuro). Se aplican con alta opacidad (200-230 alpha) para simular profundidad.
-
-**Constantes en palette.py:**
-```python
-FLOOR_STREAKS = (5, 9)       # Cantidad de franjas por tile
-FLOOR_STREAK_W = (6, 18)     # Ancho de franjas en px
-FLOOR_STREAK_H = (1, 3)      # Alto de franjas en px
-FLOOR_BLOBS = (3, 7)         # Cantidad de manchas por tile
-FLOOR_BLOB_W = (3, 10)       # Ancho de manchas en px
-FLOOR_BLOB_H = (2, 5)        # Alto de manchas en px
-FLOOR_DOTS = (15, 25)        # Cantidad de poros por tile
-```
-
-**Importante:** Todos los píxeles se clampean a los límites del tile individual (`px <= bx < px + TILE_SIZE`) para que la textura no se escape a tiles adyacentes.
+**Todas las constantes** viven en `constants.py` y se pueden sobreescribir via `texture_params.json`.
 
 ### Overlay de Musgo/Raíces (edge_overlay)
 
 **Función:** `generate_edge_overlay(level_map, edge_color, seed)` → superficie SRCALPHA
 
-Genera vegetación decorativa en los bordes expuestos de tiles de suelo (`.`). Solo crece donde un tile sólido tiene un vecino vacío (aire).
+Genera vegetación decorativa en los bordes expuestos de tiles de suelo (`.`). Solo crece donde un tile sólido tiene un vecino vacío (aire). Ahora soporta 4 direcciones:
 
 **Tipos de crecimiento:**
-- **Stalactitas** (`_draw_moss_down`): Cuelgan de la cara inferior del suelo hacia abajo. Largo máximo: `MOSS_MAX_DOWN` (14px). Aparecen cuando el tile de abajo es vacío.
-- **Stalagmitas** (`_draw_moss_up`): Crecen desde la cara superior del suelo hacia arriba. Largo máximo: `MOSS_MAX_UP` (12px). Aparecen cuando el tile de arriba es vacío.
+- **Stalactitas** (`_draw_moss_down`): Cuelgan de la cara inferior del suelo hacia abajo. Largo máximo: `MOSS_MAX_DOWN` (14px).
+- **Stalagmitas** (`_draw_moss_up`): Crecen desde la cara superior del suelo hacia arriba. Largo máximo: `MOSS_MAX_UP` (12px).
+- **Musgo izquierdo** (`_draw_moss_left`): Crece hacia la izquierda. Largo máximo: `MOSS_MAX_SIDE` (10px).
+- **Musgo derecho** (`_draw_moss_right`): Crece hacia la derecha. Largo máximo: `MOSS_MAX_SIDE` (10px).
 
 **Anatomía de cada borde:**
-1. **Banda base**: Línea sólida de `MOSS_BASE_H` (2px) de grosor pegada al borde del tile. Tiene huecos aleatorios (15% de probabilidad) para no ser uniforme.
-2. **Dentado irregular**: Generado por `_jagged_heights()` — alturas variables con clusters (grupos de alturas similares), gaps (zonas bajas), y picos largos ocasionales (6% de probabilidad). Da aspecto orgánico.
-3. **Tendriles finos**: 1-3 hilos extra que se extienden más allá del dentado principal, con alpha decreciente para efecto de desvanecimiento.
+1. **Banda base**: Línea sólida de `MOSS_BASE_H`/`MOSS_BASE_W` de grosor. Huecos aleatorios (MOSS_BASE_GAP_CHANCE).
+2. **Dentado irregular**: Generado por `_jagged_heights()` — alturas con clusters (MOSS_JAG_CLUSTER_LEN), gaps (MOSS_JAG_GAP_CHANCE), y picos (MOSS_JAG_PEAK_CHANCE).
+3. **Tendriles finos**: MOSS_TENDRIL_COUNT hilos extra de MOSS_TENDRIL_LENGTH, con alpha decreciente.
 
-**Color:** Configurable por nivel via `edge_color` en screens.json. Default: verde musgo `[80, 180, 60]`. Se aplica variación aleatoria de ±8 por canal RGB a cada píxel para dar textura. El alpha decrece hacia las puntas (240→80) para un efecto de transparencia gradual.
-
-**Constantes en palette.py:**
-```python
-MOSS_BASE_H = 2        # Grosor base del borde sólido
-MOSS_MAX_DOWN = 14     # Largo máximo de stalactitas
-MOSS_MAX_UP = 12       # Largo máximo de stalagmitas
-```
+**Color:** Configurable por nivel via `edge_color` en screens.json. Default: verde musgo `[80, 180, 60]`. Variación ±MOSS_COLOR_VARIATION por canal RGB. Alpha de MOSS_ALPHA_BASE (240) a MOSS_ALPHA_TIP (80).
 
 ### Pipeline de Renderizado de Suelo
 
 El suelo (`.`) se renderiza en 3 capas superpuestas:
 1. **Tile base tintado** (`tinted_floors`): Tile floor.png tintado según la profundidad (fila del viewport). Construido por `build_tinted_floors()`.
-2. **Floor texture overlay** (`floor_texture`): Hoyos oscuros porosos encima del tile. Se blitea después de todos los tiles.
+2. **Floor texture overlay** (`floor_texture`): Patrón negro estilo C64 encima del tile. Se blitea después de todos los tiles.
 3. **Edge/moss overlay** (`edge_overlay`): Musgo/raíces en bordes expuestos. Se blitea último.
 
 Las 3 capas se generan en `start_level()` y se regeneran tras destrucción con dinamita (llamando `_generate_edge_overlay()` y `_generate_floor_texture()`).
+
+## Editor de Texturas (F3 en editor.py)
+
+El editor incluye un modo de edición de texturas accesible con F3. Permite ajustar en tiempo real todos los parámetros de textura definidos en constants.py:
+
+- Navegación por grupos de parámetros (fondo caverna, chevrones, ruido, clusters, agujeros, dientes, musgo)
+- Preview en vivo de suelo compacto y suelo+aire
+- Guardar a `texture_params.json` (se carga automáticamente al iniciar el juego)
+- Reset a valores por defecto
 
 ## Cómo Modificar el Juego
 
@@ -588,6 +722,10 @@ ENERGY_DRAIN_PROPULSOR = 400  # Drenaje al volar por segundo
 ENERGY_RECOVERY = 300         # Recuperación en el suelo por segundo
 MAX_ENERGY = 2550             # Energía total
 ```
+
+### Ajustar Texturas
+
+Editar **texture_params.json** directamente o usar el editor de texturas (F3 en editor.py). Los cambios se cargan automáticamente al iniciar el juego.
 
 ### Añadir un Nuevo Enemigo
 
@@ -635,8 +773,9 @@ El editor permite agregar/quitar viewports con Ctrl+Flechas.
 - **Usar las constantes** de constants.py, no hardcodear valores
 - **Comentarios en español** (es el idioma del desarrollador)
 - **Los suelos (.) son sólidos** - Igual que las paredes (#)
-- **Tiles sólidos para colisión**: #, ., G, R
-- **Tiles destructibles con dinamita**: # (tierra), R (rocas). G (granito) es indestructible
+- **Tiles sólidos para colisión**: #, ., G, R, X, W
+- **Tiles destructibles con dinamita**: # (tierra), R (rocas), W (roca lava). G (granito) y X (lava) son indestructibles
+- **Tiles que matan al contacto**: ~ (agua tóxica), X (lava), W (roca lava)
 - **Renderizado de juego en game_surface** - Entidades dibujan en game_surface, NO en self.screen
 - **Cámara 2D (camera_x, camera_y)** - Scrolling en ambos ejes, usar GAME_VIEWPORT_HEIGHT (256) y GAME_WIDTH (512) para el viewport
 - **Niveles de tamaño dinámico** - NO usar LEVEL_WIDTH/LEVEL_HEIGHT para bounds check. Usar `len(level_map[0])` y `len(level_map)` en su lugar
@@ -644,7 +783,10 @@ El editor permite agregar/quitar viewports con Ctrl+Flechas.
 - **Niveles en screens.json** - No hardcodear niveles en hero.py
 - **Entidades reciben camera_x y camera_y** - Todos los métodos draw() usan (camera_x, camera_y) para offset
 - **Sprites con fondo transparente** - Todo sprite generado debe usar `pygame.SRCALPHA` y fondo transparente
+- **Colisión pixel-perfect** - Player usa masks de pygame, no colisión por esquinas (fallback disponible)
+- **Constantes de textura en constants.py** - No en palette.py. Se sobreescriben via texture_params.json
+- **Animación de hélice pre-computada** - No hacer transforms en runtime, usar sprites pre-generados
 
 ---
 
-*Última actualización: 2026-03-09*
+*Última actualización: 2026-03-26*
