@@ -12,20 +12,47 @@ Este es un remake del clásico juego de Atari **H.E.R.O.** (Helicopter Emergency
 - Python 3.13.0
 - Pygame 2.6.1
 - SDL 2.28.4
+- **evgamelib** v0.1.0 — librería de motor de juego 2D extraída de este proyecto (https://github.com/eviera/evgamelib)
+
+## Dependencia: evgamelib
+
+Este proyecto usa **evgamelib**, una librería de motor de juego 2D extraída del propio HERO. Se instala con pip:
+
+```bash
+# Desde GitHub
+pip install git+https://github.com/eviera/evgamelib.git
+
+# O en modo desarrollo local
+pip install -e C:\Users\emi\workspace\pyTests\evgamelib
+```
+
+El juego usa los siguientes subsistemas de evgamelib:
+- **HighScoreManager** — persistencia de high scores en JSON
+- **FloatingTextManager** — textos flotantes de puntuación
+- **draw_text_with_outline** — texto con contorno
+- **SoundManager** — manejo de sonidos nombrados con loops
+- **SIDEmulator / apply_sid_to_sound** — emulación de audio Commodore 64
+- **InputManager** — teclado + gamepad con dead zones
+- **SnapCamera** — cámara con snap a viewport
+- **RenderPipeline** — pipeline de dos superficies con fullscreen
+- **mask_overlap** — colisión pixel-perfect entre masks
+- **Entity / PhysicsEntity / AnimatedEntity** — clases base de entidades
+- **TileMap** — funciones de mapas (band_width, row_width, max_level_width)
+- **StateMachine / GameState** — máquina de estados (disponible para uso futuro)
+- **Colores y estados** — COLOR_BLACK, STATE_PLAYING, etc.
 
 ## Estructura del Proyecto
 
 ```
 hero/
-├── hero.py                      # Archivo principal del juego (~2156 líneas)
-├── constants.py                 # Constantes del juego (~271 líneas)
-├── player.py                    # Clase Player (~346 líneas)
-├── enemy.py                     # Clase Enemy (~384 líneas)
-├── laser.py                     # Clase Laser (~56 líneas)
-├── dynamite.py                  # Clase Dynamite (~99 líneas)
-├── miner.py                     # Clase Miner (~41 líneas)
+├── hero.py                      # Archivo principal del juego
+├── constants.py                 # Constantes HERO-específicas (importa colores/estados de evgamelib)
+├── player.py                    # Clase Player (hereda de evgamelib.PhysicsEntity)
+├── enemy.py                     # Clase Enemy (hereda de evgamelib.AnimatedEntity)
+├── laser.py                     # Clase Laser (hereda de evgamelib.PhysicsEntity)
+├── dynamite.py                  # Clase Dynamite (hereda de evgamelib.PhysicsEntity)
+├── miner.py                     # Clase Miner (hereda de evgamelib.Entity)
 ├── palette.py                   # Texturas de suelo, musgo y overlays (~570 líneas)
-├── audio_effects.py             # Emulación SID de Commodore 64 (numpy)
 ├── editor.py                    # Editor visual de niveles (~1661 líneas)
 ├── screens.json                 # Niveles del juego (cargados en runtime)
 ├── scores.json                  # High scores persistidos
@@ -34,68 +61,25 @@ hero/
 ├── IMPLEMENTATION_SUMMARY.md    # Resumen de implementación
 ├── fonts/
 │   └── PressStart2P-vaV7.ttf   # Fuente estilo retro
-├── sprites/
-│   ├── player.png              # Sprite idle del jugador
-│   ├── player_fly.png          # Sprite volando
-│   ├── player_shooting.png     # Sprite disparando
-│   ├── player_walk1.png        # Sprite caminata frame 1
-│   ├── player_walk2.png        # Sprite caminata frame 2
-│   ├── bat1.png                # Sprite murciélago frame 1
-│   ├── bat2.png                # Sprite murciélago frame 2
-│   ├── spider.png              # Sprite araña
-│   ├── bug1.png                # Sprite bicho frame 1
-│   ├── bug2.png                # Sprite bicho frame 2
-│   ├── bug3.png                # Sprite bicho frame 3
-│   ├── bug4.png                # Sprite bicho frame 4
-│   ├── snake_head.png          # Sprite cabeza de serpiente
-│   ├── snake_neck.png          # Sprite cuello de serpiente
-│   ├── miner.png               # Sprite del minero rescatado
-│   ├── bomb1.png               # Sprite bomba/explosión frame 1
-│   ├── bomb2.png               # Sprite bomba/explosión frame 2
-│   └── bomb3.png               # Sprite bomba/explosión frame 3
-├── tiles/
-│   ├── wall.png                # Tile de pared (#)
-│   ├── floor.png               # Tile de suelo (.)
-│   ├── granite.png             # Tile de granito (G)
-│   ├── breakable_wall.png      # Tile de roca (R)
-│   ├── broken_wall.png         # Tile de roca dañada (R con impactos)
-│   ├── lava.png                # Tile de lava (X)
-│   ├── lava_breakable_wall.png # Tile de roca lava (W)
-│   ├── lava_broken_wall.png    # Tile de roca lava dañada (W con impactos)
-│   ├── lamp.png                # Tile de lámpara (L)
-│   ├── toxic_water.png         # Tile de agua tóxica (~)
-│   ├── toxic_water_strip.png   # Strip de animación de agua tóxica
-│   └── blank.png               # Espacio vacío
-├── images/
-│   └── hero_background.png     # Imagen de fondo para splash screen
-└── sounds/
-    ├── shoot.wav               # Efecto de disparo láser
-    ├── explosion.wav           # Efecto de explosión de dinamita
-    ├── death.wav               # Efecto de muerte del héroe
-    ├── death_song.wav          # Música de game over (loop)
-    ├── splatter.wav            # Efecto de muerte de enemigo
-    ├── helicopter.wav          # Sonido del helicóptero (loop)
-    ├── walk1.wav               # Sonido de paso 1
-    ├── walk2.wav               # Sonido de paso 2
-    ├── rock_break.wav          # Sonido de roca destruida
-    ├── rock_crack.wav          # Sonido de roca agrietada
-    ├── win_screen.wav          # Sonido de nivel completado
-    └── splash_screen_theme.wav # Música del menú principal (loop)
+├── sprites/                     # Sprites de personajes y enemigos
+├── tiles/                       # Tiles de terreno
+├── images/                      # Imágenes de fondo
+└── sounds/                      # Efectos de sonido y música
 ```
 
 ## Arquitectura del Código
 
 ### Estructura Modular
 
-- **constants.py**: Todas las constantes del juego (dimensiones, físicas, colores, estados, texturas, animación de muerte)
-- **player.py**: Clase Player con física de vuelo, caminata animada, colisión pixel-perfect y animación de hélice
-- **enemy.py**: Clase Enemy con murciélagos (animación 2 frames), arañas (verticales con hilo), bichos (4 frames) y serpientes
-- **laser.py**: Clase Laser para proyectiles (destruye rocas R y W con múltiples impactos)
-- **dynamite.py**: Clase Dynamite con explosiones animadas (3 frames)
-- **miner.py**: Clase Miner (objetivo a rescatar)
-- **palette.py**: Texturas procedurales de suelo/lava (chevrones, clusters, dientes) y musgo/raíces en bordes
-- **audio_effects.py**: Clase SIDEmulator para efectos de audio estilo Commodore 64
-- **hero.py**: Juego principal (Game class, carga de niveles desde JSON, loop, animación de muerte, pantalla de victoria)
+- **evgamelib** (paquete externo): Motor de juego genérico — entidades base, colisiones, cámara, rendering, input, sonido, scores, texto, tilemap, estado, audio effects
+- **constants.py**: Constantes HERO-específicas (físicas, tiles, texturas). Importa colores y estados genéricos desde `evgamelib.constants` y re-exporta helpers de tilemap desde `evgamelib.tilemap`
+- **player.py**: Clase Player (hereda de `evgamelib.PhysicsEntity`) con física de vuelo, caminata animada, colisión pixel-perfect y animación de hélice
+- **enemy.py**: Clase Enemy (hereda de `evgamelib.AnimatedEntity`) con murciélagos, arañas, bichos y serpientes
+- **laser.py**: Clase Laser (hereda de `evgamelib.PhysicsEntity`) para proyectiles
+- **dynamite.py**: Clase Dynamite (hereda de `evgamelib.PhysicsEntity`) con explosiones animadas
+- **miner.py**: Clase Miner (hereda de `evgamelib.Entity`) — objetivo a rescatar
+- **palette.py**: Texturas procedurales de suelo/lava y musgo/raíces (HERO-específico)
+- **hero.py**: Juego principal — Game class usa subsistemas de evgamelib por composición (SoundManager, InputManager, SnapCamera, RenderPipeline, FloatingTextManager, HighScoreManager)
 - **editor.py**: Editor visual de niveles con editor de texturas integrado (F3)
 
 ### Constantes Principales (constants.py)
@@ -628,7 +612,7 @@ Al completar todos los niveles, se muestra `STATE_ENTERING_NAME` con `is_victory
 - **Delta-time movement**: Movimiento independiente del framerate
 - **Asset management centralizado**: Game class gestiona todos los recursos
 - **Coordenadas flotantes**: Cálculos en float, renderizado en int
-- **Importación de módulos**: `from constants import *`, `from player import Player`
+- **Importación de módulos**: `from constants import *`, `from player import Player`, `from evgamelib.xxx import Yyy`
 - **Fallbacks visuales**: Todas las entidades tienen renderizado fallback si falta el sprite
 
 ### Renderizado (pipeline de dos superficies)
@@ -786,7 +770,12 @@ El editor permite agregar/quitar viewports con Ctrl+Flechas.
 - **Colisión pixel-perfect** - Player usa masks de pygame, no colisión por esquinas (fallback disponible)
 - **Constantes de textura en constants.py** - No en palette.py. Se sobreescriben via texture_params.json
 - **Animación de hélice pre-computada** - No hacer transforms en runtime, usar sprites pre-generados
+- **evgamelib es dependencia externa** - Se instala con pip, NO vive dentro del directorio hero/
+- **Entidades heredan de evgamelib** - Player→PhysicsEntity, Enemy→AnimatedEntity, Laser/Dynamite→PhysicsEntity, Miner→Entity
+- **Subsistemas de evgamelib por composición** - Game class tiene self.sound_manager, self.input_manager, self._camera, self._render_pipeline, self.floating_scores_mgr como atributos
+- **Colores y estados vienen de evgamelib** - COLOR_BLACK, STATE_PLAYING, etc. se importan desde evgamelib.constants y se re-exportan en constants.py
+- **band_width/row_width/max_level_width** - Funciones de tilemap se importan desde evgamelib.tilemap y se re-exportan en constants.py para compatibilidad con editor.py
 
 ---
 
-*Última actualización: 2026-03-26*
+*Última actualización: 2026-03-30*

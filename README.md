@@ -197,13 +197,17 @@ ColecoVision TMS9918A-style HUD with 3D gray side panels:
 ```
 Python 3.8+
 pygame 2.0+
+evgamelib (game engine library, installed via pip)
 numpy (optional, for SID emulation)
 ```
 
 ### Installation
 
 ```bash
-# Install dependencies
+# Install evgamelib (game engine library)
+pip install git+https://github.com/eviera/evgamelib.git
+
+# Install other dependencies
 pip install pygame numpy
 
 # Run the game
@@ -213,71 +217,45 @@ python hero.py
 python editor.py
 ```
 
+### Architecture
+
+This game uses **[evgamelib](https://github.com/eviera/evgamelib)**, a reusable 2D game engine library extracted from this project. The engine provides:
+
+- Entity base classes (Entity, PhysicsEntity, AnimatedEntity)
+- Collision system (pixel-perfect masks, corner-based, AABB)
+- Camera system (viewport-snapping)
+- Rendering pipeline (multi-surface with fullscreen scaling)
+- Input management (keyboard + gamepad with dead zones)
+- Sound management (named sounds, loops, beep generation)
+- SID audio emulation (Commodore 64)
+- Tile map system (variable-width bands)
+- High score persistence (JSON)
+- State machine
+- Text utilities (outline text, floating scores)
+
+HERO-specific code (physics tuning, enemy AI, level design, procedural textures) stays in this repository.
+
 ### File Structure
 
 ```
 hero/
-├── hero.py                      # Main game (Game class, loop, render) (~2156 lines)
-├── constants.py                 # Game constants + texture params (~271 lines)
-├── player.py                    # Player class (physics, animation, pixel-perfect collision) (~346 lines)
-├── enemy.py                     # Enemy class (bats, spiders, bugs, snakes) (~384 lines)
-├── laser.py                     # Laser class (projectiles, rock destruction)
-├── dynamite.py                  # Dynamite class (explosives with animated sprites)
-├── miner.py                     # Miner class (rescue objective)
-├── palette.py                   # Procedural textures: floor/lava overlay + moss/roots (~570 lines)
-├── audio_effects.py             # Commodore 64 SID emulation
-├── editor.py                    # Visual level editor + texture editor (F3) (~1661 lines)
+├── hero.py                      # Main game (uses evgamelib subsystems)
+├── constants.py                 # HERO-specific constants (imports from evgamelib)
+├── player.py                    # Player (extends evgamelib.PhysicsEntity)
+├── enemy.py                     # Enemies (extends evgamelib.AnimatedEntity)
+├── laser.py                     # Laser (extends evgamelib.PhysicsEntity)
+├── dynamite.py                  # Dynamite (extends evgamelib.PhysicsEntity)
+├── miner.py                     # Miner (extends evgamelib.Entity)
+├── palette.py                   # Procedural textures (C64-style, HERO-specific)
+├── editor.py                    # Visual level editor + texture editor (F3)
 ├── screens.json                 # Level definitions (editable)
 ├── scores.json                  # High scores (auto-generated)
 ├── texture_params.json          # Texture parameters (editable from editor)
-├── CLAUDE.md                    # Technical documentation for development
-├── README.md                    # This file
-├── fonts/
-│   └── PressStart2P-vaV7.ttf
-├── images/
-│   └── hero_background.png      # Start screen background
-├── sprites/
-│   ├── player.png               # Player idle sprite
-│   ├── player_fly.png           # Flying sprite
-│   ├── player_shooting.png      # Shooting sprite
-│   ├── player_walk1.png         # Walk animation frame 1
-│   ├── player_walk2.png         # Walk animation frame 2
-│   ├── bat1.png                 # Bat sprite frame 1
-│   ├── bat2.png                 # Bat sprite frame 2
-│   ├── spider.png               # Spider sprite
-│   ├── bug1.png - bug4.png      # Bug animation (4 frames)
-│   ├── snake_head.png           # Snake head sprite
-│   ├── snake_neck.png           # Snake neck sprite
-│   ├── miner.png                # Miner sprite
-│   ├── bomb1.png                # Bomb animation frame 1
-│   ├── bomb2.png                # Bomb animation frame 2
-│   └── bomb3.png                # Bomb animation frame 3
-├── tiles/
-│   ├── wall.png                 # Dirt (#)
-│   ├── floor.png                # Floor/platform (.)
-│   ├── granite.png              # Indestructible granite (G)
-│   ├── breakable_wall.png       # Destructible rocks (R)
-│   ├── broken_wall.png          # Damaged rocks (R after hits)
-│   ├── lava.png                 # Lava (X) - indestructible, kills on contact
-│   ├── lava_breakable_wall.png  # Lava rocks (W) - destructible
-│   ├── lava_broken_wall.png     # Damaged lava rocks (W after hits)
-│   ├── lamp.png                 # Lamp (L)
-│   ├── toxic_water.png          # Toxic water (~)
-│   ├── toxic_water_strip.png    # Toxic water animation strip
-│   └── blank.png                # Empty space
-└── sounds/
-    ├── shoot.wav                # Shooting effect
-    ├── explosion.wav            # Explosion effect
-    ├── death.wav                # Death effect
-    ├── death_song.wav           # Game over music
-    ├── splatter.wav             # Enemy death effect
-    ├── helicopter.wav           # Helicopter sound (loop)
-    ├── walk1.wav                # Left footstep
-    ├── walk2.wav                # Right footstep
-    ├── rock_break.wav           # Rock destroyed
-    ├── rock_crack.wav           # Rock cracked
-    ├── win_screen.wav           # Level complete sound
-    └── splash_screen_theme.wav  # Main menu music
+├── fonts/                       # Retro bitmap font
+├── images/                      # Background images
+├── sprites/                     # Character and enemy sprites
+├── tiles/                       # Terrain tiles
+└── sounds/                      # Sound effects and music
 ```
 
 The game generates procedural graphics as a fallback if images are not found.
@@ -390,11 +368,12 @@ The editor HUD shows a minimap with the level's viewport grid, highlighting the 
 
 - **Language**: Python 3.13
 - **Framework**: Pygame 2.6.1
-- **Audio**: Pygame.mixer + SID emulation (Commodore 64)
+- **Engine**: [evgamelib](https://github.com/eviera/evgamelib) v0.1.0 (reusable 2D game engine)
+- **Audio**: Pygame.mixer + SID emulation (Commodore 64, via evgamelib)
 - **Graphics**: PNG sprites + procedural generation (textures, cave backgrounds, skeleton)
-- **Collision**: Pixel-perfect using pygame masks
-- **Persistence**: JSON (scores, levels, texture parameters)
-- **Input**: Keyboard + Xbox Controller (with gradual joystick)
+- **Collision**: Pixel-perfect using pygame masks (via evgamelib)
+- **Persistence**: JSON (scores via evgamelib, levels, texture parameters)
+- **Input**: Keyboard + Xbox Controller with dead zones (via evgamelib)
 
 ## Possible Future Improvements
 
