@@ -2,15 +2,11 @@
 
 import pygame
 from constants import *
+from evgamelib.entity import PhysicsEntity
 
-class Player:
+class Player(PhysicsEntity):
     def __init__(self):
-        self.x = 0
-        self.y = 0
-        self.vel_x = 0
-        self.vel_y = 0
-        self.width = 32
-        self.height = 32
+        super().__init__(0, 0, 32, 32)
         self.facing_right = True
         self.using_propulsor = False
         self.is_grounded = False

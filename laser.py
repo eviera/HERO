@@ -2,15 +2,12 @@
 
 import pygame
 from constants import *
+from evgamelib.entity import PhysicsEntity
 
-class Laser:
+class Laser(PhysicsEntity):
     def __init__(self, x, y, direction):
-        self.x = x
-        self.y = y
+        super().__init__(x, y, LASER_WIDTH, LASER_HEIGHT)
         self.direction = direction  # 1 = right, -1 = left
-        self.width = LASER_WIDTH
-        self.height = LASER_HEIGHT
-        self.active = True
         self.color = COLOR_YELLOW
         self.hit_rock_pos = None  # (row, col) si impactó una roca
 

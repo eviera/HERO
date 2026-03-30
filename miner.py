@@ -3,15 +3,12 @@
 import pygame
 import math
 from constants import *
+from evgamelib.entity import Entity
 
-class Miner:
+class Miner(Entity):
     def __init__(self, x, y):
-        self.x = x
-        self.y = y
+        super().__init__(x, y, 32, 32)
         self.rescued = False
-        self.width = 32
-        self.height = 32
-        self.image = None
 
     def get_rect(self):
         return pygame.Rect(self.x, self.y, self.width, self.height)

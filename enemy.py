@@ -3,11 +3,11 @@
 import pygame
 import random
 from constants import *
+from evgamelib.entity import AnimatedEntity
 
-class Enemy:
+class Enemy(AnimatedEntity):
     def __init__(self, x, y, enemy_type="bat"):
-        self.x = x
-        self.y = y
+        super().__init__(x, y, 32, 32)
         self.start_x = x
         self.start_y = y
         self.enemy_type = enemy_type

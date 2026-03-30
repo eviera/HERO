@@ -19,45 +19,38 @@ from enemy import Enemy
 from miner import Miner
 from player import Player
 try:
-    from audio_effects import apply_sid_to_sound
+    from evgamelib.audio_effects import apply_sid_to_sound
 except ImportError:
     apply_sid_to_sound = None
 from palette import (get_depth_palette, get_edge_color, build_tinted_floors,
                       draw_tile_edges, generate_edge_overlay,
                       generate_floor_texture)
+from evgamelib.scores import HighScoreManager
+from evgamelib.text import draw_text_with_outline as _draw_text_with_outline, FloatingTextManager
+from evgamelib.sound_manager import SoundManager
+from evgamelib.input_manager import InputManager
+from evgamelib.collision import mask_overlap
+from evgamelib.camera import SnapCamera
+from evgamelib.rendering import RenderPipeline
 
 ##################################################################################################
 # Utility Functions
 ##################################################################################################
 
+# High score manager (evgamelib)
+_score_manager = HighScoreManager(SCORES_FILE)
+
 def load_scores():
     """Load high scores from JSON file"""
-    if os.path.exists(SCORES_FILE):
-        try:
-            with open(SCORES_FILE, 'r') as f:
-                scores = json.load(f)
-                if isinstance(scores, list):
-                    return scores
-        except:
-            pass
-    return []
+    return _score_manager.load()
 
 def save_scores(scores):
     """Save high scores to JSON file"""
-    try:
-        with open(SCORES_FILE, 'w') as f:
-            json.dump(scores, f, indent=2)
-    except Exception as e:
-        print(f"Error saving scores: {e}")
+    _score_manager.save(scores)
 
 def add_score(name, score):
     """Add a new score and keep only top 10"""
-    scores = load_scores()
-    scores.append({"name": name, "score": score})
-    scores.sort(key=lambda x: x["score"], reverse=True)
-    scores = scores[:10]
-    save_scores(scores)
-    return scores
+    return _score_manager.add(name, score)
 
 ##################################################################################################
 # Level Generator
@@ -156,10 +149,12 @@ class Game:
     def __init__(self):
         self.screen = None
         self.clock = None
-        self.xbox_controller = None
+        self.input_manager = InputManager(dead_zone=DEAD_ZONE)
+        self.xbox_controller = None  # alias legacy
         self.tiles = {}
         self.sprites = {}
-        self.sounds = {}
+        self.sound_manager = SoundManager()
+        self.sounds = self.sound_manager.sounds  # acceso directo al dict
         self.background_image = None
         self.gray_overlay = None
         self.font = None
@@ -191,12 +186,13 @@ class Game:
         self.edge_overlay = None
         self.floor_texture = None
 
-        # Camera (ambos ejes para niveles de tamaño dinámico)
+        # Camera (evgamelib)
+        self._camera = SnapCamera(GAME_WIDTH, GAME_VIEWPORT_HEIGHT, TILE_SIZE)
         self.camera_x = 0
         self.camera_y = 0
 
-        # Input
-        self.keys = []
+        # Input (accesos directos al input_manager)
+        self.keys = self.input_manager.keys
         self.joy_axis_x = 0
         self.joy_axis_y = 0
 
@@ -204,15 +200,13 @@ class Game:
         self.shoot_cooldown = 0
         self.level_complete_timer = 0
 
-        # Sound state
-        self.helicopter_playing = False
-        self.splash_theme_playing = False
-        self.death_song_playing = False
+        # Sound state (gestionado por sound_manager)
 
         # Quit confirmation
         self.show_quit_confirm = False
 
-        # Fullscreen
+        # Rendering pipeline (evgamelib)
+        self._render_pipeline = RenderPipeline(GAME_WIDTH, GAME_VIEWPORT_HEIGHT, RENDER_SCALE, HUD_HEIGHT)
         self.fullscreen = False
         self.display_surface = None
         self.render_scale = 1.0
@@ -262,8 +256,8 @@ class Game:
         self.explosion_flash = False
         self.explosion_flash_timer = 0
 
-        # Floating score texts
-        self.floating_scores = []
+        # Floating score texts (evgamelib)
+        self.floating_scores_mgr = FloatingTextManager()
 
         # Level complete animation (ColecoVision style)
         self.level_complete_phase = 0     # 0=energy drain, 1=bombs, 2=display
@@ -283,24 +277,22 @@ class Game:
         pygame.init()
         pygame.mixer.init()
 
-        # Initialize joysticks
-        pygame.joystick.init()
-        joystick_count = pygame.joystick.get_count()
+        # Initialize joysticks (via InputManager)
+        self.input_manager.init_controllers()
+        self.xbox_controller = self.input_manager.controller  # alias legacy
 
-        for i in range(joystick_count):
-            joystick = pygame.joystick.Joystick(i)
-            if "Xbox" in joystick.get_name() or "Controller" in joystick.get_name():
-                self.xbox_controller = joystick
-                self.xbox_controller.init()
-                print(f"Controller found: {joystick.get_name()}")
-                break
-
-        self.display_surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        self.fullscreen = True
-        self.screen = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-        self.game_surface = pygame.Surface((GAME_WIDTH, GAME_VIEWPORT_HEIGHT))
-        self._scaled_game = pygame.Surface((SCREEN_WIDTH, VIEWPORT_HEIGHT))
-        self._update_scaling()
+        # Inicializar rendering pipeline
+        self._render_pipeline.init_display(fullscreen=True)
+        self.fullscreen = self._render_pipeline.fullscreen
+        self.display_surface = self._render_pipeline.display_surface
+        self.screen = self._render_pipeline.screen
+        self.game_surface = self._render_pipeline.game_surface
+        self._scaled_game = self._render_pipeline._scaled_game
+        self.render_scale = self._render_pipeline.render_scale
+        self.render_w = self._render_pipeline.render_w
+        self.render_h = self._render_pipeline.render_h
+        self.render_x = self._render_pipeline.render_x
+        self.render_y = self._render_pipeline.render_y
         self.clock = pygame.time.Clock()
         pygame.display.set_caption("H.E.R.O. - Atari 2600 Remake")
         try:
@@ -482,31 +474,21 @@ class Game:
         if 'bomb1' in self.sprites:
             self.hud_bomb_icon = pygame.transform.scale(self.sprites['bomb1'], (16, 16))
 
-        # Load sounds
+        # Load sounds (via SoundManager)
         try:
-            self.sounds['shoot'] = pygame.mixer.Sound("sounds/shoot.wav")
-            self.sounds['explosion'] = pygame.mixer.Sound("sounds/explosion.wav")
-            self.sounds['death'] = pygame.mixer.Sound("sounds/death.wav")
-            self.sounds['splatter'] = pygame.mixer.Sound("sounds/splatter.wav")
-            self.sounds['helicopter'] = pygame.mixer.Sound("sounds/helicopter.wav")
-            self.sounds['walk1'] = pygame.mixer.Sound("sounds/walk1.wav")
-            self.sounds['walk2'] = pygame.mixer.Sound("sounds/walk2.wav")
-            self.sounds['win_screen'] = pygame.mixer.Sound("sounds/win_screen.wav")
-            self.sounds['rock_break'] = pygame.mixer.Sound("sounds/rock_break.wav")
-            self.sounds['rock_crack'] = pygame.mixer.Sound("sounds/rock_crack.wav")
-            self.sounds['death_song'] = pygame.mixer.Sound("sounds/death_song.wav")
-
-            # Load splash theme original
-            splash_original = pygame.mixer.Sound("sounds/splash_screen_theme.wav")
-
-            # Apply SID emulation effects
-            # print("Applying SID effects to splash theme...")
-            # self.sounds['splash_theme'] = apply_sid_to_sound(
-            #     splash_original,
-            #     intensity=SID_INTENSITY
-            # )
-            # print(f"SID effects applied (intensity: {SID_INTENSITY})")
-            self.sounds['splash_theme'] = splash_original
+            sm = self.sound_manager
+            sm.load('shoot', "sounds/shoot.wav")
+            sm.load('explosion', "sounds/explosion.wav")
+            sm.load('death', "sounds/death.wav")
+            sm.load('splatter', "sounds/splatter.wav")
+            sm.load('helicopter', "sounds/helicopter.wav")
+            sm.load('walk1', "sounds/walk1.wav")
+            sm.load('walk2', "sounds/walk2.wav")
+            sm.load('win_screen', "sounds/win_screen.wav")
+            sm.load('rock_break', "sounds/rock_break.wav")
+            sm.load('rock_crack', "sounds/rock_crack.wav")
+            sm.load('death_song', "sounds/death_song.wav")
+            sm.load('splash_theme', "sounds/splash_screen_theme.wav")
 
             print("Sounds loaded successfully")
         except Exception as e:
@@ -533,42 +515,29 @@ class Game:
         self.score_beeps = []
         for i in range(10):
             freq = 400 + i * 80  # 400Hz → 1120Hz
-            beep = self._generate_beep(freq, duration_ms=50, volume=0.3)
+            beep = self.sound_manager.generate_beep(freq, duration_ms=50, volume=0.3)
             self.score_beeps.append(beep)
-
-    def _generate_beep(self, frequency, duration_ms=50, volume=0.3):
-        """Genera un sonido corto sine wave sin dependencia de numpy"""
-        mixer_info = pygame.mixer.get_init()
-        sample_rate, bit_size, channels = mixer_info
-        n_samples = int(sample_rate * duration_ms / 1000)
-        samples = []
-        max_val = int(32767 * volume)
-        for i in range(n_samples):
-            val = int(max_val * math.sin(2 * math.pi * frequency * i / sample_rate))
-            samples.append(val)
-            if channels == 2:
-                samples.append(val)  # duplicar para stereo
-        return pygame.mixer.Sound(buffer=array.array('h', samples))
 
     def toggle_fullscreen(self):
         """Alternar entre ventana y pantalla completa"""
-        self.fullscreen = not self.fullscreen
-        if self.fullscreen:
-            self.display_surface = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        else:
-            self.display_surface = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        self._update_scaling()
+        self._render_pipeline.toggle_fullscreen()
+        self._sync_render_pipeline()
 
     def _update_scaling(self):
         """Calcular escala y offset para mantener aspect ratio"""
-        display_w, display_h = self.display_surface.get_size()
-        scale_x = display_w / SCREEN_WIDTH
-        scale_y = display_h / SCREEN_HEIGHT
-        self.render_scale = min(scale_x, scale_y)
-        self.render_w = int(SCREEN_WIDTH * self.render_scale)
-        self.render_h = int(SCREEN_HEIGHT * self.render_scale)
-        self.render_x = (display_w - self.render_w) // 2
-        self.render_y = (display_h - self.render_h) // 2
+        self._render_pipeline._update_scaling()
+        self._sync_render_pipeline()
+
+    def _sync_render_pipeline(self):
+        """Sincronizar atributos locales con el render pipeline"""
+        rp = self._render_pipeline
+        self.fullscreen = rp.fullscreen
+        self.display_surface = rp.display_surface
+        self.render_scale = rp.render_scale
+        self.render_w = rp.render_w
+        self.render_h = rp.render_h
+        self.render_x = rp.render_x
+        self.render_y = rp.render_y
 
     def _prepare_propeller_sprites(self):
         """Separa las palas de la hélice del cuerpo de cada sprite y genera frames de rotación.
@@ -714,9 +683,7 @@ class Game:
         self.dynamite_count = DYNAMITE_QUANTITY  # Restore bombs for new level
 
         # Stop helicopter sound when starting new level
-        if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
-            self.sounds['helicopter'].stop()
-            self.helicopter_playing = False
+        self.sound_manager.stop_loop('helicopter')
 
         # Generate level
         self.level_map = generate_level(self.level_num)
@@ -738,7 +705,7 @@ class Game:
         self.lasers = []
         self.dynamites = []
         self.miner = None
-        self.floating_scores = []
+        self.floating_scores_mgr.items.clear()
         self.rock_health = {}  # {(row, col): hits_restantes} para rocas dañadas por láser
 
         # Reset lampara/oscuridad
@@ -893,35 +860,18 @@ class Game:
     def update_camera(self):
         """Update camera - snap instantáneo a viewport (estilo juego original)"""
         level_h = len(self.level_map) if self.level_map else DEFAULT_LEVEL_HEIGHT
-
-        # Determinar en qué viewport está el jugador (snap instantáneo, usando centro del sprite)
-        player_cx = int(self.player.x + self.player.width / 2)
-        player_cy = int(self.player.y + self.player.height / 2)
-        viewport_col = player_cx // GAME_WIDTH
-        viewport_row = player_cy // GAME_VIEWPORT_HEIGHT
-
-        # Eje horizontal - snap al viewport, clampeado al ancho de la banda
-        player_tile_y = int(self.player.y / TILE_SIZE)
-        current_band_w = band_width(self.level_map, player_tile_y)
-        max_cam_x = current_band_w * TILE_SIZE - GAME_WIDTH
-        if max_cam_x > 0:
-            self.camera_x = max(0, min(viewport_col * GAME_WIDTH, max_cam_x))
-        else:
-            self.camera_x = 0
-
-        # Eje vertical - snap al viewport, clampeado a la altura del nivel
-        max_cam_y = level_h * TILE_SIZE - GAME_VIEWPORT_HEIGHT
-        if max_cam_y > 0:
-            self.camera_y = max(0, min(viewport_row * GAME_VIEWPORT_HEIGHT, max_cam_y))
-        else:
-            self.camera_y = 0
+        self._camera.update(
+            self.player.x, self.player.y,
+            self.player.width, self.player.height,
+            level_h,
+            band_width_fn=lambda tile_row: band_width(self.level_map, tile_row)
+        )
+        self.camera_x = self._camera.x
+        self.camera_y = self._camera.y
 
     def mask_collide(self, x1, y1, mask1, x2, y2, mask2):
         """Colision pixel-perfect entre dos masks. Retorna punto de overlap o None."""
-        if mask1 is None or mask2 is None:
-            return None
-        offset = (int(x2 - x1), int(y2 - y1))
-        return mask1.overlap(mask2, offset)
+        return mask_overlap(x1, y1, mask1, x2, y2, mask2)
 
     def check_collisions(self):
         """Check all collisions"""
@@ -1094,9 +1044,7 @@ class Game:
         self.lives -= 1
 
         # Stop helicopter sound
-        if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
-            self.sounds['helicopter'].stop()
-            self.helicopter_playing = False
+        self.sound_manager.stop_loop('helicopter')
 
         # Play death sound
         if 'death' in self.sounds:
@@ -1130,9 +1078,7 @@ class Game:
         self.score += TILE_SCORES['M']
 
         # Stop helicopter sound
-        if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
-            self.sounds['helicopter'].stop()
-            self.helicopter_playing = False
+        self.sound_manager.stop_loop('helicopter')
 
         # Inicializar animacion de level complete
         self.state = STATE_LEVEL_COMPLETE
@@ -1154,35 +1100,15 @@ class Game:
 
     def add_floating_score(self, x, y, points):
         """Agrega un texto flotante de puntuacion en coordenadas de mundo"""
-        self.floating_scores.append({
-            'x': x,
-            'y': y,
-            'text': str(points),
-            'timer': 1.0,
-            'max_timer': 1.0,
-        })
+        self.floating_scores_mgr.add(x, y, points)
 
     def render_floating_scores(self):
         """Renderiza los textos flotantes de puntuacion (en game_surface)"""
         cv_yellow = (212, 193, 84)
-        for fs in self.floating_scores:
-            alpha = int(255 * (fs['timer'] / fs['max_timer']))
-            text_surf = self.hud_font.render(fs['text'], True, cv_yellow)
-
-            # Posicion en coordenadas de juego (con offset de ambas cámaras)
-            screen_x = int(fs['x']) - int(self.camera_x) - text_surf.get_width() // 2
-            screen_y = int(fs['y']) - int(self.camera_y)
-
-            # Clampar dentro del viewport visible
-            screen_x = max(0, min(screen_x, GAME_WIDTH - text_surf.get_width()))
-            screen_y = max(0, min(screen_y, GAME_VIEWPORT_HEIGHT - text_surf.get_height()))
-
-            # Aplicar alpha con surface transparente
-            alpha_surf = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
-            text_surf_alpha = self.hud_font.render(fs['text'], True, (*cv_yellow, alpha))
-            alpha_surf.blit(text_surf_alpha, (0, 0))
-
-            self.game_surface.blit(alpha_surf, (screen_x, screen_y))
+        self.floating_scores_mgr.render(
+            self.game_surface, self.hud_font, self.camera_x, self.camera_y,
+            cv_yellow, GAME_WIDTH, GAME_VIEWPORT_HEIGHT
+        )
 
     def next_level(self):
         """Advance to next level"""
@@ -1233,15 +1159,9 @@ class Game:
         if 'helicopter' in self.sounds:
             # Play sound when player is in the air (not grounded)
             if not self.player.is_grounded:
-                # Start playing if not already
-                if not hasattr(self, 'helicopter_playing') or not self.helicopter_playing:
-                    self.sounds['helicopter'].play(loops=-1)  # Loop indefinitely
-                    self.helicopter_playing = True
+                self.sound_manager.start_loop('helicopter')
             else:
-                # Stop playing if it's playing (player is on ground)
-                if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
-                    self.sounds['helicopter'].stop()
-                    self.helicopter_playing = False
+                self.sound_manager.stop_loop('helicopter')
 
         # Update camera
         self.update_camera()
@@ -1292,11 +1212,7 @@ class Game:
                 self.dynamites.remove(dynamite)
 
         # Update floating scores
-        for fs in self.floating_scores[:]:
-            fs['timer'] -= dt
-            fs['y'] -= 30 * dt  # flota hacia arriba
-            if fs['timer'] <= 0:
-                self.floating_scores.remove(fs)
+        self.floating_scores_mgr.update(dt, rise_speed=30)
 
         # Actualizar animación de agua tóxica (avanza en frames)
         self.toxic_water_scroll += TOXIC_WATER_SCROLL_SPEED * dt
@@ -1623,8 +1539,7 @@ class Game:
 
     def _render_game_to_screen(self):
         """Escala game_surface (512x256) a la zona de juego del screen (768x384)"""
-        pygame.transform.scale(self.game_surface, (SCREEN_WIDTH, VIEWPORT_HEIGHT), self._scaled_game)
-        self.screen.blit(self._scaled_game, (0, 0))
+        self._render_pipeline.scale_game_to_screen()
 
     def render_dying(self):
         """Renderiza la animación de muerte: nivel + esqueleto en lugar del player"""
@@ -1776,20 +1691,7 @@ class Game:
 
     def draw_text_with_outline(self, font, text, color, outline_color, center, outline=1, surface=None):
         target = surface or self.screen
-        # Texto base
-        text_surf = font.render(text, True, color)
-        text_rect = text_surf.get_rect(center=center)
-
-        # Outline (dibujos alrededor)
-        for dx in (-outline, 0, outline):
-            for dy in (-outline, 0, outline):
-                if dx != 0 or dy != 0:
-                    outline_surf = font.render(text, True, outline_color)
-                    outline_rect = outline_surf.get_rect(center=(center[0] + dx, center[1] + dy))
-                    target.blit(outline_surf, outline_rect)
-
-        # Texto principal arriba
-        target.blit(text_surf, text_rect)
+        _draw_text_with_outline(target, font, text, color, outline_color, center, outline)
 
 
     def render_splash(self):
@@ -1933,20 +1835,11 @@ class Game:
         while running:
             dt = self.clock.tick(FPS) / 1000.0
 
-            # Get input
-            self.keys = pygame.key.get_pressed()
-
-            if self.xbox_controller:
-                self.joy_axis_x = self.xbox_controller.get_axis(0)
-                self.joy_axis_y = self.xbox_controller.get_axis(1)
-
-                if abs(self.joy_axis_x) < DEAD_ZONE:
-                    self.joy_axis_x = 0
-                if abs(self.joy_axis_y) < DEAD_ZONE:
-                    self.joy_axis_y = 0
-            else:
-                self.joy_axis_x = 0
-                self.joy_axis_y = 0
+            # Get input (via InputManager)
+            self.input_manager.poll()
+            self.keys = self.input_manager.keys
+            self.joy_axis_x = self.input_manager.joy_axis_x
+            self.joy_axis_y = self.input_manager.joy_axis_y
 
             # Handle events
             for event in pygame.event.get():
@@ -1985,9 +1878,7 @@ class Game:
                             self.drop_dynamite()
                         elif event.key == pygame.K_ESCAPE:
                             # Stop helicopter sound
-                            if hasattr(self, 'helicopter_playing') and self.helicopter_playing:
-                                self.sounds['helicopter'].stop()
-                                self.helicopter_playing = False
+                            self.sound_manager.stop_loop('helicopter')
                             # Return to splash screen
                             self.state = STATE_SPLASH
 
@@ -2033,26 +1924,20 @@ class Game:
             # Splash theme music management
             if 'splash_theme' in self.sounds:
                 if self.state == STATE_SPLASH:
-                    # Start playing if not already
-                    if not self.splash_theme_playing:
-                        self.sounds['splash_theme'].play(loops=-1)  # Loop indefinitely
-                        self.splash_theme_playing = True
+                    self.sound_manager.start_loop('splash_theme')
                 else:
-                    # Stop playing if we're not in splash screen
-                    if self.splash_theme_playing:
-                        self.sounds['splash_theme'].stop()
-                        self.splash_theme_playing = False
+                    self.sound_manager.stop_loop('splash_theme')
 
             # Death song music management (game over screen)
             if 'death_song' in self.sounds:
                 if self.state == STATE_ENTERING_NAME and not self.is_victory:
-                    if not self.death_song_playing:
+                    if not self.sound_manager.is_looping('death_song'):
                         self.sounds['death_song'].play()
-                        self.death_song_playing = True
+                        self.sound_manager._loops['death_song'] = True
                 else:
-                    if self.death_song_playing:
+                    if self.sound_manager.is_looping('death_song'):
                         self.sounds['death_song'].stop()
-                        self.death_song_playing = False
+                        self.sound_manager._loops['death_song'] = False
 
             # Render
             self.screen.fill(COLOR_BLACK)

@@ -3,6 +3,15 @@
 
 import pygame
 
+# Importar constantes genéricas desde evgamelib (colores, estados)
+from evgamelib.constants import (
+    COLOR_BLACK, COLOR_WHITE, COLOR_RED, COLOR_GREEN, COLOR_BLUE,
+    COLOR_YELLOW, COLOR_ORANGE, COLOR_GRAY, COLOR_MAGENTA,
+    STATE_SPLASH, STATE_PLAYING, STATE_GAME_OVER, STATE_ENTERING_NAME,
+    STATE_LEVEL_COMPLETE, STATE_DYING,
+    DEFAULT_FPS, DEFAULT_DEAD_ZONE,
+)
+
 # Window dimensions
 TILE_SIZE = 32
 FPS = 60
@@ -170,13 +179,7 @@ DEFAULT_LEVEL_HEIGHT = 24  # tiles
 LEVEL_WIDTH = DEFAULT_LEVEL_WIDTH    # Alias para editor (legacy)
 LEVEL_HEIGHT = DEFAULT_LEVEL_HEIGHT  # Alias para editor (legacy)
 
-# Game States
-STATE_SPLASH = "splash"
-STATE_PLAYING = "playing"
-STATE_GAME_OVER = "game_over"
-STATE_ENTERING_NAME = "entering_name"
-STATE_LEVEL_COMPLETE = "level_complete"
-STATE_DYING = "dying"
+# Game States (importados desde evgamelib.constants)
 
 # Animación de muerte
 DEATH_FLASH_TIME = 0.35       # Segundos de flash blanco inicial (más dramático)
@@ -189,16 +192,7 @@ PROPELLER_FAST_SPEED = 20.0   # Ciclos por segundo (volando)
 PROPELLER_NUM_FRAMES = 4      # Frames de rotación
 PROPELLER_WIDTH_FACTORS = [1.0, 0.65, 0.15, 0.65]  # Factor de ancho por frame
 
-# Colors
-COLOR_BLACK = (0, 0, 0)
-COLOR_WHITE = (255, 255, 255)
-COLOR_RED = (255, 0, 0)
-COLOR_GREEN = (0, 255, 0)
-COLOR_BLUE = (0, 100, 255)
-COLOR_YELLOW = (255, 255, 0)
-COLOR_ORANGE = (255, 165, 0)
-COLOR_GRAY = (128, 128, 128)
-COLOR_MAGENTA = (255, 0, 255)
+# Colors (importados desde evgamelib.constants)
 
 # Tile types (caracter, nombre, color_fallback, puntos, sólido)
 TILE_TYPES = [
@@ -247,25 +241,5 @@ SID_BITDEPTH = 8         # bits (1-8)
 SID_LOWPASS_CUTOFF = 3500  # Hz
 SID_DISTORTION = 0.2     # 0.0 - 1.0
 
-# Helpers para mapas jagged (bandas de viewport con ancho independiente)
-
-def band_width(level_map, tile_row):
-    """Ancho en tiles de la banda de viewport que contiene tile_row"""
-    if not level_map:
-        return DEFAULT_LEVEL_WIDTH
-    if tile_row < 0:
-        return len(level_map[0])
-    band_start = (tile_row // VIEWPORT_ROWS) * VIEWPORT_ROWS
-    if band_start < len(level_map):
-        return len(level_map[band_start])
-    return VIEWPORT_COLS
-
-def row_width(level_map, tile_row):
-    """Ancho en tiles de una fila específica"""
-    if not level_map or tile_row < 0 or tile_row >= len(level_map):
-        return 0
-    return len(level_map[tile_row])
-
-def max_level_width(level_map):
-    """Ancho máximo entre todas las filas del mapa"""
-    return max(len(row) for row in level_map) if level_map else 0
+# Helpers para mapas jagged (re-exportados desde evgamelib.tilemap)
+from evgamelib.tilemap import band_width, row_width, max_level_width

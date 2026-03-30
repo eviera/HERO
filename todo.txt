@@ -39,10 +39,10 @@
 /- animacion de la helice en vuelo
 /- que los tiles de tierra expuestos queden medios jagged y no tan rectos
 /- musica muerte
-- musica victoria
 /- planear que hacer al llegar a la ultima pantalla y ganar
+- musica victoria
 - armar niveles
-
+- motor de juegos plataforma con editor
 
 AI prompts
 ------------------
@@ -133,3 +133,11 @@ El otro tile que quiero hacer con la letra W es como la Roca (R), pero teñida d
 llamados lava_broken_wall.png y lava_breakable_wall.png, que van a ser los mismos, pero teñidos de color lava. Estos tiles son rompibles, igual que los de la roca (R) y van a tener 30 puntos
 Crea ambos tiles, todos los pngs necesarios, y actualiza el editor tambien.
 
+----
+Quiero extraer a una libreria aparte todo el motor de juegos del HERO.
+La idea es poder tener una libreria que maneje los distintos tipos de pantallas (splash, game over, win, puntuaciones, juego), el juego en si mismo, con sus scores, vidas, graficos,
+sonidos, tiles, el sistema de mapas en json, las texturas aparte, la musica, el jugador, los enemigos, los disparos, las armas, la fisica, el manejo de teclas y joystick, en fin,
+todo lo que conforma el juego en si mismo, con la finalidad de poder crear otros tipos de juegos de accion, de plataformas, reusando todo lo que se pueda del juego actual de HERO.
+Quiero que armes un plan para esto, lanzando los agentes que consideres necesarios para todos los aspectos de esta migracion. Se muy cauteloso en que nada se rompa. Si es necesario arma
+tests para que luego de crear la libreria los tests corran y vean que el juego sigue funcionando. Crea un directorio llamado evgamelib donde vas a poner todo lo que sea necesario para
+esta libreria, todos los assets, los tests, el codigo, todo lo que precises. Y luego en el juego HERO vas a referenciar esta libreria.

@@ -2,18 +2,14 @@
 
 import pygame
 from constants import *
+from evgamelib.entity import PhysicsEntity
 
-class Dynamite:
+class Dynamite(PhysicsEntity):
     def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        self.vel_y = 0
+        super().__init__(x, y, 8, 16)
         self.fuse_time = DYNAMITE_FUSE_TIME
         self.exploded = False
         self.explosion_time = 0.5
-        self.active = True
-        self.width = 8
-        self.height = 16
         self.on_ground = False
         self.explosion_sprites = []  # bomb1, bomb2, bomb3 sprites
 
