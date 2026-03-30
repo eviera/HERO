@@ -32,23 +32,9 @@ if not exist "venv\Scripts\activate.bat" (
 :: Activar venv
 call venv\Scripts\activate.bat
 
-:: Verificar e instalar pygame
-python -c "import pygame" >nul 2>&1
-if errorlevel 1 (
-    echo Instalando pygame...
-    pip install pygame
-) else (
-    echo pygame ya instalado.
-)
-
-:: Verificar e instalar numpy
-python -c "import numpy" >nul 2>&1
-if errorlevel 1 (
-    echo Instalando numpy...
-    pip install numpy
-) else (
-    echo numpy ya instalado.
-)
+:: Instalar dependencias desde requirements.txt
+echo Instalando dependencias...
+pip install -r requirements.txt
 
 call deactivate
 

@@ -1,0 +1,3 @@
+pygame>=2.0
+numpy
+evgamelib @ git+https://github.com/eviera/evgamelib.git
