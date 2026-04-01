@@ -283,9 +283,10 @@ class Enemy(AnimatedEntity):
                 return pygame.Rect(wall_x + TILE_SIZE, body_y, ext, body_h)
         return pygame.Rect(self.x, self.y, self.width, self.height)
 
-    def _draw_snake(self, screen, camera_x, camera_y, wall_tile=None):
+    def _draw_snake(self, screen, camera_x, camera_y, wall_tile=None,
+                    tinted_floors=None, floor_texture=None):
         """Dibuja la víbora saliendo por detrás de la pared (estilo C64).
-        La víbora se dibuja completa desplazándose, luego el tile de tierra
+        La víbora se dibuja completa desplazándose, luego el tile de suelo
         se redibuja encima para taparla parcialmente.
         """
         ext = int(self.snake_extend)
@@ -321,11 +322,24 @@ class Enemy(AnimatedEntity):
                 head_x = wall_sx + TILE_SIZE + ext - TILE_SIZE
             screen.blit(self.snake_head_sprite, (int(head_x), wall_sy))
 
-        # Redibujar el tile de tierra ENCIMA para tapar la parte que aún está adentro
-        if wall_tile:
-            screen.blit(wall_tile, (wall_sx, wall_sy))
+        # Redibujar el tile de suelo + textura ENCIMA para tapar la parte adentro
+        # 1) Tile de suelo tintado según la fila del viewport
+        cover_tile = None
+        if tinted_floors:
+            local_row = self.wall_row % VIEWPORT_ROWS
+            if local_row < len(tinted_floors):
+                cover_tile = tinted_floors[local_row]
+        if cover_tile is None:
+            cover_tile = wall_tile
+        if cover_tile:
+            screen.blit(cover_tile, (wall_sx, wall_sy))
+        # 2) Fragmento de floor_texture (patrón negro C64) encima del tile
+        if floor_texture:
+            tile_rect = pygame.Rect(wall_x, wall_y, TILE_SIZE, TILE_SIZE)
+            screen.blit(floor_texture, (wall_sx, wall_sy), tile_rect)
 
-    def draw(self, screen, camera_x, camera_y, level_map=None, wall_tile=None):
+    def draw(self, screen, camera_x, camera_y, level_map=None, wall_tile=None,
+             tinted_floors=None, floor_texture=None):
         # Víbora se dibuja con método propio
         if self.enemy_type in ("snake_left", "snake_right"):
             if self.exploding:
@@ -343,7 +357,8 @@ class Enemy(AnimatedEntity):
                             pygame.draw.circle(screen, color,
                                              (sx + 16, sy + 16), r)
             else:
-                self._draw_snake(screen, camera_x, camera_y, wall_tile)
+                self._draw_snake(screen, camera_x, camera_y, wall_tile,
+                                 tinted_floors, floor_texture)
             return
 
         screen_x = self.x - camera_x

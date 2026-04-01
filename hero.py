@@ -670,7 +670,8 @@ class Game:
     def _generate_edge_overlay(self):
         """Genera overlay pre-computado con musgo/raíces en bordes expuestos"""
         self.edge_overlay = generate_edge_overlay(
-            self.level_map, self.edge_color, seed=self.level_num)
+            self.level_map, self.edge_color, seed=self.level_num,
+            skip_tiles=getattr(self, 'snake_tiles', None))
 
     def _generate_floor_texture(self):
         """Genera overlay pre-computado con textura porosa en tiles de suelo"""
@@ -694,10 +695,26 @@ class Game:
         self.edge_color = get_level_edge_color(self.level_num)
         self.tinted_floors = build_tinted_floors(self.tiles['floor'], self.depth_palette)
 
+        # Pre-scan: convertir tiles de víbora a suelo y guardar posiciones/dirección
+        # snake_tiles: set de (row, col) para excluir moss
+        # snake_dirs: dict de (row, col) -> '<' o '>' para crear enemigos
+        self.snake_tiles = set()
+        self._snake_dirs = {}
+        for row_index, row in enumerate(self.level_map):
+            for col_index, tile in enumerate(row):
+                if tile in ('<', '>'):
+                    self.snake_tiles.add((row_index, col_index))
+                    self._snake_dirs[(row_index, col_index)] = tile
+                    self.level_map[row_index] = (
+                        self.level_map[row_index][:col_index] + '.' +
+                        self.level_map[row_index][col_index + 1:]
+                    )
+
         # Generar fondo de caverna con pintitas
         self._generate_cave_background()
 
         # Generar overlays pre-computados (se blitean por viewport)
+        # Los tiles de víbora tienen textura de suelo pero no moss
         self._generate_edge_overlay()
         self._generate_floor_texture()
 
@@ -771,14 +788,15 @@ class Game:
                                         self.sprites['bug3'], self.sprites['bug4']]
                         enemy.image = enemy.images[0]
                     self.enemies.append(enemy)
-                elif tile in ("<", ">"):
-                    # Víbora: reemplazar tile por tierra (#) y crear enemigo
-                    etype = "snake_left" if tile == "<" else "snake_right"
+                # Víbora: tile ya convertido a '.' en pre-scan, detectar por posición
+                elif (row_index, col_index) in self._snake_dirs:
+                    orig_tile = self._snake_dirs[(row_index, col_index)]
+                    etype = "snake_left" if orig_tile == "<" else "snake_right"
                     enemy = Enemy(x, y, etype)
                     speed_variation = random.uniform(1 - ENEMY_SPEED_VARIATION, 1 + ENEMY_SPEED_VARIATION)
                     enemy.speed = SNAKE_EMERGE_SPEED * speed_variation
                     # Asignar sprites de víbora
-                    if tile == "<":
+                    if orig_tile == "<":
                         # Mira a la izquierda: cabeza tal cual
                         if 'snake_head' in self.sprites:
                             enemy.snake_head_sprite = self.sprites['snake_head']
@@ -791,11 +809,6 @@ class Game:
                         if 'snake_neck' in self.sprites:
                             enemy.snake_neck_sprite = self.sprites['snake_neck']
                     self.enemies.append(enemy)
-                    # El tile se convierte en tierra (la pared de donde sale)
-                    self.level_map[row_index] = (
-                        self.level_map[row_index][:col_index] + '#' +
-                        self.level_map[row_index][col_index + 1:]
-                    )
                 elif tile == "M":
                     self.miner = Miner(x, y)
                     if 'miner' in self.sprites:
@@ -951,14 +964,6 @@ class Game:
                 self.score += pts
                 self.add_floating_score(enemy.x + 16, enemy.y, pts)
 
-                # Víbora: al morir, el tile de pared original queda vacío
-                if enemy.enemy_type in ("snake_left", "snake_right"):
-                    r, c = enemy.wall_row, enemy.wall_col
-                    if 0 <= r < len(self.level_map) and 0 <= c < len(self.level_map[r]):
-                        self.level_map[r] = (
-                            self.level_map[r][:c] + ' ' + self.level_map[r][c + 1:]
-                        )
-
                 # Play splatter sound
                 if 'splatter' in self.sounds:
                     self.sounds['splatter'].play()
@@ -976,14 +981,6 @@ class Game:
                             enemy.exploding = True
                             self.score += EXPLOSION_KILL_SCORE
                             self.add_floating_score(enemy.x + 16, enemy.y, EXPLOSION_KILL_SCORE)
-
-                            # Víbora: al morir, el tile de pared original queda vacío
-                            if enemy.enemy_type in ("snake_left", "snake_right"):
-                                r, c = enemy.wall_row, enemy.wall_col
-                                if 0 <= r < len(self.level_map) and 0 <= c < len(self.level_map[r]):
-                                    self.level_map[r] = (
-                                        self.level_map[r][:c] + ' ' + self.level_map[r][c + 1:]
-                                    )
 
                             # Play splatter sound
                             if 'splatter' in self.sounds:
@@ -1557,7 +1554,8 @@ class Game:
 
         for enemy in self.enemies:
             enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map,
-                       wall_tile=self.tiles.get('wall'))
+                       wall_tile=self.tiles.get('wall'), tinted_floors=self.tinted_floors,
+                       floor_texture=self.floor_texture)
 
         for dynamite in self.dynamites:
             dynamite.draw(self.game_surface, self.camera_x, self.camera_y)
@@ -1803,7 +1801,8 @@ class Game:
 
         for enemy in self.enemies:
             enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map,
-                       wall_tile=self.tiles.get('wall'))
+                       wall_tile=self.tiles.get('wall'), tinted_floors=self.tinted_floors,
+                       floor_texture=self.floor_texture)
 
         for laser in self.lasers:
             laser.draw(self.game_surface, self.camera_x, self.camera_y)
@@ -1965,7 +1964,8 @@ class Game:
 
                 for enemy in self.enemies:
                     enemy.draw(self.game_surface, self.camera_x, self.camera_y, self.level_map,
-                               wall_tile=self.tiles.get('wall'))
+                               wall_tile=self.tiles.get('wall'), tinted_floors=self.tinted_floors,
+                               floor_texture=self.floor_texture)
 
                 for laser in self.lasers:
                     laser.draw(self.game_surface, self.camera_x, self.camera_y)

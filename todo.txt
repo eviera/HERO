@@ -42,6 +42,7 @@
 /- planear que hacer al llegar a la ultima pantalla y ganar
 /- musica victoria
 /- motor de juegos plataforma
+- mejorar vibora. No deberia destruirse su bloque, y deberia ser de suelo
 - armar niveles
 
 
@@ -142,3 +143,10 @@ todo lo que conforma el juego en si mismo, con la finalidad de poder crear otros
 Quiero que armes un plan para esto, lanzando los agentes que consideres necesarios para todos los aspectos de esta migracion. Se muy cauteloso en que nada se rompa. Si es necesario arma
 tests para que luego de crear la libreria los tests corran y vean que el juego sigue funcionando. Crea un directorio llamado evgamelib donde vas a poner todo lo que sea necesario para
 esta libreria, todos los assets, los tests, el codigo, todo lo que precises. Y luego en el juego HERO vas a referenciar esta libreria.
+
+
+----
+
+Vamos a mejorar la vibora.
+Primero el bloque de donde sale, tiene que ser un bloque de suelo (.). Ademas, al matar a la vibora, no se destruye el bloque de suelo, solo se muere la vibora, aparece el score, y el bloque de suelo
+se mantiene

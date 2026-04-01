@@ -165,9 +165,10 @@ def _jagged_heights(rng, count, min_h, max_h):
     return heights
 
 
-def generate_edge_overlay(level_map, edge_color, seed=42):
+def generate_edge_overlay(level_map, edge_color, seed=42, skip_tiles=None):
     """Genera superficie SRCALPHA con musgo/raíces en bordes expuestos.
-    Se llama una vez al inicio del nivel. El resultado se blitea por viewport."""
+    Se llama una vez al inicio del nivel. El resultado se blitea por viewport.
+    skip_tiles: set de (row, col) a excluir del musgo (ej: tiles de víbora)."""
     level_h = len(level_map)
     level_w = max(len(row) for row in level_map)
     width = level_w * TILE_SIZE
@@ -180,6 +181,8 @@ def generate_edge_overlay(level_map, edge_color, seed=42):
         for col in range(len(level_map[row])):
             tile = level_map[row][col]
             if tile != '.':
+                continue
+            if skip_tiles and (row, col) in skip_tiles:
                 continue
             px = col * TILE_SIZE
             py = row * TILE_SIZE
