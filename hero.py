@@ -489,6 +489,7 @@ class Game:
             sm.load('rock_crack', "sounds/rock_crack.wav")
             sm.load('death_song', "sounds/death_song.wav")
             sm.load('splash_theme', "sounds/splash_screen_theme.wav")
+            sm.load('win_song', "sounds/win_song.wav")
 
             print("Sounds loaded successfully")
         except Exception as e:
@@ -1121,6 +1122,9 @@ class Game:
             self.is_victory = True
             self.victory_palette_offset = 0
             self.state = STATE_ENTERING_NAME
+            # Reproducir canción de victoria una vez
+            if 'win_song' in self.sounds:
+                self.sounds['win_song'].play()
         else:
             self.start_level()
 
@@ -1938,6 +1942,11 @@ class Game:
                     if self.sound_manager.is_looping('death_song'):
                         self.sounds['death_song'].stop()
                         self.sound_manager._loops['death_song'] = False
+
+            # Win song management (detener al salir de victoria)
+            if 'win_song' in self.sounds:
+                if not (self.state == STATE_ENTERING_NAME and self.is_victory):
+                    self.sounds['win_song'].stop()
 
             # Render
             self.screen.fill(COLOR_BLACK)

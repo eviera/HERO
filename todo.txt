@@ -40,9 +40,10 @@
 /- que los tiles de tierra expuestos queden medios jagged y no tan rectos
 /- musica muerte
 /- planear que hacer al llegar a la ultima pantalla y ganar
-- musica victoria
+/- musica victoria
+/- motor de juegos plataforma
 - armar niveles
-- motor de juegos plataforma con editor
+
 
 AI prompts
 ------------------
