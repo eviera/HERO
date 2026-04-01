@@ -483,24 +483,31 @@ class Editor:
                     self.screen.blit(self.tiles['lava'], (int(x), int(y)))
                 elif tile == 'W':
                     self.screen.blit(self.tiles['lava_rock'], (int(x), int(y)))
+                elif tile in ('<', '>'):
+                    # Víbora: tile base es suelo
+                    self.screen.blit(tinted_floors[local_row], (int(x), int(y)))
+                    draw_tile_edges(self.screen, int(x), int(y), row_index, col_index, level_map, edge_color)
                 else:
                     self.screen.blit(self.tiles['blank'], (int(x), int(y)))
 
                 # Dibujar sprites de entidades encima
                 sprite_map = {'S': 'player', 'V': 'enemy', 'A': 'spider', 'B': 'bug', 'M': 'miner'}
                 if tile in ('<', '>'):
-                    # Víbora: cabeza asomando por detrás de la pared
+                    # Víbora: cabeza pequeña asomando por detrás del suelo
                     if 'snake_head' in self.sprites:
                         head = self.sprites['snake_head']
                         if tile == '>':
                             head = pygame.transform.flip(head, True, False)
-                        peek = 14  # cuánto asoma
+                        head_w = head.get_width()
+                        head_h = head.get_height()
+                        head_oy = (TILE_SIZE - head_h) // 2
+                        peek = head_w // 2
                         if tile == '<':
-                            self.screen.blit(head, (int(x) - peek, int(y)))
+                            self.screen.blit(head, (int(x) - peek, int(y) + head_oy))
                         else:
-                            self.screen.blit(head, (int(x) + TILE_SIZE + peek - TILE_SIZE, int(y)))
-                    # Pared encima tapando la parte interna
-                    self.screen.blit(self.tiles['wall'], (int(x), int(y)))
+                            self.screen.blit(head, (int(x) + TILE_SIZE - head_w + peek, int(y) + head_oy))
+                    # Suelo encima tapando la parte interna
+                    self.screen.blit(tinted_floors[local_row], (int(x), int(y)))
                 elif tile in sprite_map and sprite_map[tile] in self.sprites:
                     self.screen.blit(self.sprites[sprite_map[tile]], (int(x), int(y)))
                 elif tile in sprite_map:
@@ -667,17 +674,20 @@ class Editor:
 
             preview = pygame.Surface((ps, ps), pygame.SRCALPHA)
             if tc in ('<', '>'):
-                # Víbora: solo la cabeza en la paleta
-                preview.fill((30, 30, 30))
+                # Víbora: cabeza centrada sobre fondo de suelo
+                preview = pygame.transform.scale(self.tiles['floor'], (ps, ps))
                 if 'snake_head' in self.sprites:
                     head = self.sprites['snake_head']
                     if tc == '>':
                         head = pygame.transform.flip(head, True, False)
-                    head_scaled = pygame.transform.scale(head, (ps, ps))
-                    # Centrar: la cabeza izq tiene contenido a la izquierda,
-                    # la derecha (flipeada) queda corrida, compensar
-                    ox = -ps // 4 if tc == '>' else 0
-                    preview.blit(head_scaled, (ox, 0))
+                    # Escalar cabeza proporcionalmente al tamaño de la paleta
+                    scale = ps / TILE_SIZE
+                    hw = max(1, int(head.get_width() * scale))
+                    hh = max(1, int(head.get_height() * scale))
+                    head_scaled = pygame.transform.scale(head, (hw, hh))
+                    ox = (ps - hw) // 2
+                    oy = (ps - hh) // 2
+                    preview.blit(head_scaled, (ox, oy))
             elif tc in tile_for_tile:
                 preview = pygame.transform.scale(self.tiles[tile_for_tile[tc]], (ps, ps))
             elif tc in sprite_for_tile and sprite_for_tile[tc] in self.sprites:
