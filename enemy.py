@@ -274,8 +274,7 @@ class Enemy(AnimatedEntity):
                 return pygame.Rect(0, 0, 0, 0)  # No hay hitbox cuando está escondida
             wall_x = self.wall_col * TILE_SIZE
             wall_y = self.wall_row * TILE_SIZE
-            # Alto ajustado al cuerpo real de la víbora (~10px centrado en el tile)
-            body_h = 10
+            body_h = SNAKE_BODY_H
             body_y = wall_y + (TILE_SIZE - body_h) // 2
             if self.snake_facing < 0:  # sale a la izquierda
                 return pygame.Rect(wall_x - ext, body_y, ext, body_h)
@@ -304,23 +303,27 @@ class Enemy(AnimatedEntity):
             return
 
         facing_left = (self.snake_facing < 0)
+        # Centrar el cuerpo verticalmente dentro del tile
+        body_oy = (TILE_SIZE - SNAKE_BODY_H) // 2
 
         # Dibujar cuello desde el borde de la pared hasta la cabeza
-        # El cuello cubre todo el largo de extensión, la cabeza se dibuja encima
         if ext > 0 and self.snake_neck_sprite:
-            neck_scaled = pygame.transform.scale(self.snake_neck_sprite, (ext, TILE_SIZE))
+            neck_scaled = pygame.transform.scale(self.snake_neck_sprite, (ext, SNAKE_BODY_H))
             if facing_left:
-                screen.blit(neck_scaled, (int(wall_sx - ext), wall_sy))
+                screen.blit(neck_scaled, (int(wall_sx - ext), wall_sy + body_oy))
             else:
-                screen.blit(neck_scaled, (int(wall_sx + TILE_SIZE), wall_sy))
+                screen.blit(neck_scaled, (int(wall_sx + TILE_SIZE), wall_sy + body_oy))
 
-        # Cabeza en la punta (encima del cuello)
+        # Cabeza en la punta, centrada verticalmente
         if self.snake_head_sprite:
+            head_w = self.snake_head_sprite.get_width()
+            head_h = self.snake_head_sprite.get_height()
+            head_oy = (TILE_SIZE - head_h) // 2
             if facing_left:
                 head_x = wall_sx - ext
             else:
-                head_x = wall_sx + TILE_SIZE + ext - TILE_SIZE
-            screen.blit(self.snake_head_sprite, (int(head_x), wall_sy))
+                head_x = wall_sx + TILE_SIZE + ext - head_w
+            screen.blit(self.snake_head_sprite, (int(head_x), wall_sy + head_oy))
 
         # Redibujar el tile de suelo + textura ENCIMA para tapar la parte adentro
         # 1) Tile de suelo tintado según la fila del viewport

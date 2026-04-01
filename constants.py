@@ -75,6 +75,9 @@ SNAKE_HIDDEN_TIME = 2.0        # Segundos escondida antes de salir
 SNAKE_EMERGE_SPEED = 64        # Píxeles por segundo al salir/entrar
 SNAKE_EXTENDED_TIME = 1.5      # Segundos que permanece extendida
 SNAKE_KILL_SCORE = 60          # Puntos al matar la víbora
+SNAKE_BODY_H = 8               # Alto del cuerpo de la víbora en píxeles
+SNAKE_HEAD_W = 12              # Ancho de la cabeza de la víbora en píxeles
+SNAKE_HEAD_H = 10              # Alto de la cabeza de la víbora en píxeles
 
 # Agua tóxica
 TOXIC_WATER_SCROLL_SPEED = 10  # Píxeles por segundo de scroll horizontal
