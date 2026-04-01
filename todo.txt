@@ -42,7 +42,7 @@
 /- planear que hacer al llegar a la ultima pantalla y ganar
 /- musica victoria
 /- motor de juegos plataforma
-- mejorar vibora. No deberia destruirse su bloque, y deberia ser de suelo
+/- mejorar vibora. No deberia destruirse su bloque, y deberia ser de suelo
 - armar niveles
 
 
