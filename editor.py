@@ -173,6 +173,8 @@ class Editor:
         self.camera_animating = False
         self.saved_indicator = 0  # Timer para mensaje "Guardado!"
         self.confirm_shrink = None  # Pendiente de confirmacion: 'cols' o 'rows'
+        self.dirty = False          # Cambios sin guardar en el mapa
+        self.confirm_exit = False   # Dialogo de confirmacion de salida
 
         # Modo textura (F3)
         self.texture_mode = False
@@ -216,6 +218,7 @@ class Editor:
             "name": f"Level {len(self.screens) + 1}",
             "map": empty_map
         })
+        self.dirty = True
         self.current_level = len(self.screens) - 1
         self.cursor_row = 1
         self.cursor_col = 1
@@ -301,7 +304,9 @@ class Editor:
         level_map = self.get_current_map()
         if 0 <= row < len(level_map) and 0 <= col < len(level_map[row]):
             row_str = level_map[row]
-            level_map[row] = row_str[:col] + char + row_str[col + 1:]
+            if row_str[col] != char:
+                level_map[row] = row_str[:col] + char + row_str[col + 1:]
+                self.dirty = True
 
     def add_viewport_cols(self):
         """Agregar un viewport (VIEWPORT_COLS columnas) a la derecha de la banda actual"""
@@ -311,6 +316,7 @@ class Editor:
         extra = ' ' * VIEWPORT_COLS
         for i in range(band_start, band_end):
             level_map[i] = level_map[i] + extra
+        self.dirty = True
         self.invalidate_tinted_cache()
 
     def remove_viewport_col_at(self, vx):
@@ -342,6 +348,7 @@ class Editor:
         if self.camera_x > max_cam_x:
             self.camera_x = max_cam_x
             self.target_camera_x = max_cam_x
+        self.dirty = True
         return True
 
     def add_viewport_rows(self):
@@ -352,6 +359,7 @@ class Editor:
         w = len(level_map[last_band_start]) if level_map else VIEWPORT_COLS
         for _ in range(VIEWPORT_ROWS):
             level_map.append(' ' * w)
+        self.dirty = True
         self.invalidate_tinted_cache()
 
     def remove_viewport_row_at(self, vy):
@@ -377,6 +385,7 @@ class Editor:
         if self.camera_y > max_cam_y:
             self.camera_y = max_cam_y
             self.target_camera_y = max_cam_y
+        self.dirty = True
         return True
 
     def _has_content_in_region(self, start_row, end_row, start_col, end_col):
@@ -747,6 +756,16 @@ class Editor:
             hint_text = self.small_font.render(hint, True, COLOR_RED)
             hint_rect = hint_text.get_rect(center=(GAME_WIDTH // 2, self.editor_h // 2 + 10))
             self.screen.blit(hint_text, hint_rect)
+
+        # Dialogo de confirmacion de salida
+        if self.confirm_exit:
+            overlay = pygame.Surface((GAME_WIDTH, self.editor_h), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 180))
+            self.screen.blit(overlay, (0, 0))
+
+            msg_text = self.font.render("Save Changes (Y/N)", True, COLOR_YELLOW)
+            msg_rect = msg_text.get_rect(center=(GAME_WIDTH // 2, self.editor_h // 2))
+            self.screen.blit(msg_text, msg_rect)
 
     # =================================================================
     # Editor de Texturas (F3)
@@ -1339,7 +1358,7 @@ class Editor:
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
+                    self.confirm_exit = True
 
                 elif event.type == pygame.KEYDOWN:
                     mods = pygame.key.get_mods()
@@ -1369,6 +1388,20 @@ class Editor:
                             self.confirm_shrink = None
                         else:
                             self.confirm_shrink = None
+                        continue
+
+                    # Dialogo de confirmacion de salida
+                    if self.confirm_exit:
+                        if event.key == pygame.K_y:
+                            # Guardar y salir
+                            save_screens(self.screens)
+                            running = False
+                        elif event.key in (pygame.K_n, pygame.K_ESCAPE):
+                            # Salir sin guardar
+                            running = False
+                        else:
+                            # Cancelar
+                            self.confirm_exit = False
                         continue
 
                     # Toggle modo textura con F3
@@ -1412,13 +1445,14 @@ class Editor:
                                 else:
                                     color[self.palette_channel] = max(0, color[self.palette_channel] - step)
                                 self.invalidate_tinted_cache()
+                                self.dirty = True
                         continue
 
                     # Dimensiones actuales del nivel
                     w, h = self.get_level_dims()
 
                     if event.key == pygame.K_ESCAPE:
-                        running = False
+                        self.confirm_exit = True
 
                     # Movimiento del cursor (con clamp por banda)
                     elif event.key == pygame.K_UP:
@@ -1524,6 +1558,7 @@ class Editor:
                                 print(f"ADVERTENCIA: Nivel {i+1} debe tener exactamente 1 tile M (Minero)")
                         if save_screens(self.screens):
                             self.saved_indicator = 2.0
+                            self.dirty = False
                             print(f"Pantallas guardadas en {SCREENS_FILE}")
 
                     # Nuevo nivel (Ctrl+N)
@@ -1551,6 +1586,7 @@ class Editor:
                     elif event.key == pygame.K_DELETE and ctrl:
                         if len(self.screens) > 1:
                             self.screens.pop(self.current_level)
+                            self.dirty = True
                             if self.current_level >= len(self.screens):
                                 self.current_level = len(self.screens) - 1
                             self.cursor_row = 0
