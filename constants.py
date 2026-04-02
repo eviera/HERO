@@ -246,3 +246,13 @@ SID_DISTORTION = 0.2     # 0.0 - 1.0
 
 # Helpers para mapas jagged (re-exportados desde evgamelib.tilemap)
 from evgamelib.tilemap import band_width, row_width, max_level_width
+
+
+def get_viewport_bounds(x, y):
+    """Retorna (left, top, right, bottom) del viewport que contiene la posición (x, y).
+    Cada viewport es GAME_WIDTH x GAME_VIEWPORT_HEIGHT píxeles."""
+    vp_col = int(x) // GAME_WIDTH
+    vp_row = int(y) // GAME_VIEWPORT_HEIGHT
+    left = vp_col * GAME_WIDTH
+    top = vp_row * GAME_VIEWPORT_HEIGHT
+    return (left, top, left + GAME_WIDTH, top + GAME_VIEWPORT_HEIGHT)

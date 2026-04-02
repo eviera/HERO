@@ -12,6 +12,8 @@ class Dynamite(PhysicsEntity):
         self.explosion_time = 0.5
         self.on_ground = False
         self.explosion_sprites = []  # bomb1, bomb2, bomb3 sprites
+        # Límites del viewport donde se colocó (explosión no puede afectar otro viewport)
+        self.vp_left, self.vp_top, self.vp_right, self.vp_bottom = get_viewport_bounds(x, y)
 
     def check_collision(self, x, y, level_map):
         """Check collision with tiles"""
@@ -63,12 +65,17 @@ class Dynamite(PhysicsEntity):
 
     def get_explosion_rect(self):
         if self.exploded:
-            return pygame.Rect(
+            raw = pygame.Rect(
                 self.x - DYNAMITE_EXPLOSION_RADIUS/2,
                 self.y - DYNAMITE_EXPLOSION_RADIUS/2,
                 DYNAMITE_EXPLOSION_RADIUS,
                 DYNAMITE_EXPLOSION_RADIUS
             )
+            # Clipear al viewport donde se colocó la dinamita
+            vp_rect = pygame.Rect(self.vp_left, self.vp_top,
+                                  self.vp_right - self.vp_left,
+                                  self.vp_bottom - self.vp_top)
+            return raw.clip(vp_rect)
         return None
 
     def draw(self, screen, camera_x, camera_y):

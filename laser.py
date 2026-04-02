@@ -10,9 +10,16 @@ class Laser(PhysicsEntity):
         self.direction = direction  # 1 = right, -1 = left
         self.color = COLOR_YELLOW
         self.hit_rock_pos = None  # (row, col) si impactó una roca
+        # Límites del viewport donde se disparó (no puede salir)
+        self.vp_left, self.vp_top, self.vp_right, self.vp_bottom = get_viewport_bounds(x, y)
 
     def update(self, dt, level_map):
         self.x += self.direction * LASER_SPEED * dt
+
+        # Check viewport bounds (no puede pasar al siguiente viewport)
+        if self.x + self.width < self.vp_left or self.x > self.vp_right:
+            self.active = False
+            return
 
         # Check bounds (ancho por fila del mapa jagged)
         laser_tile_row = int(self.y / TILE_SIZE)

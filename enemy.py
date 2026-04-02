@@ -41,9 +41,12 @@ class Enemy(AnimatedEntity):
         self.explosion_timer = 0
         self.explosion_duration = 0.2  # Más corto para que desaparezca rápido
 
+        # Límites del viewport de spawn (entidades no pueden salir de su viewport)
+        self.vp_left, self.vp_top, self.vp_right, self.vp_bottom = get_viewport_bounds(x, y)
+
         # Araña: desciende máximo 2 tiles desde el spawn y vuelve
         if enemy_type == "spider":
-            self.spider_max_y = y + 2 * TILE_SIZE  # límite inferior
+            self.spider_max_y = min(y + 2 * TILE_SIZE, self.vp_bottom - self.height)
             self.direction = 1  # empieza bajando
 
         # Víbora: sale y entra de una pared
@@ -58,14 +61,14 @@ class Enemy(AnimatedEntity):
             self.snake_head_sprite = None
             self.snake_neck_sprite = None
 
-        # Bicho: se mueve en zona 3x3 tiles alrededor del spawn
+        # Bicho: se mueve en zona 3x3 tiles alrededor del spawn, clipeada al viewport
         if enemy_type == "bug":
             spawn_col = int(x / TILE_SIZE)
             spawn_row = int(y / TILE_SIZE)
-            self.bug_zone_min_x = (spawn_col - 1) * TILE_SIZE
-            self.bug_zone_max_x = (spawn_col + 2) * TILE_SIZE - self.width
-            self.bug_zone_min_y = (spawn_row - 1) * TILE_SIZE
-            self.bug_zone_max_y = (spawn_row + 2) * TILE_SIZE - self.height
+            self.bug_zone_min_x = max((spawn_col - 1) * TILE_SIZE, self.vp_left)
+            self.bug_zone_max_x = min((spawn_col + 2) * TILE_SIZE - self.width, self.vp_right - self.width)
+            self.bug_zone_min_y = max((spawn_row - 1) * TILE_SIZE, self.vp_top)
+            self.bug_zone_max_y = min((spawn_row + 2) * TILE_SIZE - self.height, self.vp_bottom - self.height)
             # Dirección inicial aleatoria (incluye diagonales)
             angle = random.uniform(0, 2 * 3.14159)
             import math
@@ -228,10 +231,17 @@ class Enemy(AnimatedEntity):
                     self.direction = 1  # volver abajo
                 self.y = new_y
         else:
-            # Murciélagos se mueven horizontalmente, rebotan contra bloques
+            # Murciélagos se mueven horizontalmente, rebotan contra bloques y bordes de viewport
             new_x = self.x + self.direction * self.speed * dt
 
-            if self.check_collision(new_x, self.y, level_map):
+            # Rebotar en bordes del viewport
+            if new_x < self.vp_left:
+                new_x = self.vp_left
+                self.direction = 1
+            elif new_x + self.width > self.vp_right:
+                new_x = self.vp_right - self.width
+                self.direction = -1
+            elif self.check_collision(new_x, self.y, level_map):
                 # Snap al borde del tile
                 if self.direction > 0:  # derecha
                     tile_x = int((new_x + self.width) / TILE_SIZE)
@@ -240,8 +250,8 @@ class Enemy(AnimatedEntity):
                     tile_x = int(new_x / TILE_SIZE)
                     self.x = (tile_x + 1) * TILE_SIZE
                 self.direction *= -1
-            else:
-                self.x = new_x
+                new_x = self.x
+            self.x = new_x
 
             # Alternar sprite cada 16 píxeles recorridos
             if self.images:
