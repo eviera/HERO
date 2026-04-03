@@ -761,15 +761,11 @@ class Editor:
             self.screen.blit(overlay, (0, 0))
 
             shrink = self.confirm_shrink
-            if shrink['type'] == 'both':
-                msg = "Eliminar viewport: que eje?"
-                hint = "C:Columna  F:Fila  Otro:Cancelar"
-            elif shrink['type'] == 'cols':
-                msg = f"Eliminar columna de viewports {shrink['col'] + 1}?"
-                hint = "Y:Confirmar  Otro:Cancelar"
+            if shrink['type'] == 'cols':
+                msg = f"Eliminar viewport {shrink['col'] + 1}?"
             else:
-                msg = f"Eliminar fila de viewports {shrink['row'] + 1}?"
-                hint = "Y:Confirmar  Otro:Cancelar"
+                msg = f"Eliminar viewport {shrink['row'] + 1}?"
+            hint = "Y/N"
             msg_text = self.font.render(msg, True, COLOR_YELLOW)
             msg_rect = msg_text.get_rect(center=(GAME_WIDTH // 2, self.editor_h // 2 - 20))
             self.screen.blit(msg_text, msg_rect)
@@ -1393,30 +1389,18 @@ class Editor:
                     mods = pygame.key.get_mods()
                     shift = mods & pygame.KMOD_SHIFT
                     ctrl = mods & pygame.KMOD_CTRL
+                    keys = pygame.key.get_pressed()
 
                     # Dialogo de confirmacion activo
                     if self.confirm_shrink:
                         shrink = self.confirm_shrink
-                        if shrink['type'] == 'both':
-                            # Elegir entre columna o fila
-                            if event.key == pygame.K_c:
-                                self.remove_viewport_col_at(shrink['col'])
-                                self.confirm_shrink = None
-                            elif event.key == pygame.K_f:
-                                self.remove_viewport_row_at(shrink['row'])
-                                self._clamp_cursor_col()
-                                self.confirm_shrink = None
-                            else:
-                                self.confirm_shrink = None
-                        elif event.key == pygame.K_y:
+                        if event.key == pygame.K_y:
                             if shrink['type'] == 'cols':
                                 self.remove_viewport_col_at(shrink['col'])
                             else:
                                 self.remove_viewport_row_at(shrink['row'])
                             self._clamp_cursor_col()
-                            self.confirm_shrink = None
-                        else:
-                            self.confirm_shrink = None
+                        self.confirm_shrink = None
                         continue
 
                     # Dialogo de confirmacion de salida
@@ -1532,12 +1516,13 @@ class Editor:
                             running = False
 
                     # Movimiento del cursor (con clamp por banda)
+                    # Pintar al mover: Shift o Space mantenido
                     elif event.key == pygame.K_UP:
                         if not ctrl:
                             self.cursor_row = max(0, self.cursor_row - 1)
                             # Clamp col al ancho de la nueva banda
                             self._clamp_cursor_col()
-                            if shift:
+                            if shift or keys[pygame.K_SPACE]:
                                 self.set_tile(self.cursor_row, self.cursor_col,
                                               TILE_TYPES[self.selected_tile][0])
                     elif event.key == pygame.K_DOWN:
@@ -1548,13 +1533,13 @@ class Editor:
                             self.cursor_row = min(h - 1, self.cursor_row + 1)
                             # Clamp col al ancho de la nueva banda
                             self._clamp_cursor_col()
-                            if shift:
+                            if shift or keys[pygame.K_SPACE]:
                                 self.set_tile(self.cursor_row, self.cursor_col,
                                               TILE_TYPES[self.selected_tile][0])
                     elif event.key == pygame.K_LEFT:
                         if not ctrl:
                             self.cursor_col = max(0, self.cursor_col - 1)
-                            if shift:
+                            if shift or keys[pygame.K_SPACE]:
                                 self.set_tile(self.cursor_row, self.cursor_col,
                                               TILE_TYPES[self.selected_tile][0])
                     elif event.key == pygame.K_RIGHT:
@@ -1567,7 +1552,7 @@ class Editor:
                             band_start = (self.cursor_row // VIEWPORT_ROWS) * VIEWPORT_ROWS
                             band_w = len(level_map[band_start]) if band_start < len(level_map) else VIEWPORT_COLS
                             self.cursor_col = min(band_w - 1, self.cursor_col + 1)
-                            if shift:
+                            if shift or keys[pygame.K_SPACE]:
                                 self.set_tile(self.cursor_row, self.cursor_col,
                                               TILE_TYPES[self.selected_tile][0])
 
@@ -1651,12 +1636,11 @@ class Editor:
                         band_vp_cols = band_cols[cur_band] if cur_band < len(band_cols) else 1
                         can_del_col = band_vp_cols > 1
                         can_del_row = len(band_cols) > 1
-                        if can_del_col and can_del_row:
-                            # Ambas opciones: preguntar cual
-                            self.confirm_shrink = {'type': 'both', 'col': cur_vx, 'row': cur_vy}
-                        elif can_del_col:
+                        if can_del_col:
+                            # Banda con varios viewports: eliminar columna
                             self.confirm_shrink = {'type': 'cols', 'col': cur_vx}
                         elif can_del_row:
+                            # Banda con un solo viewport: eliminar fila
                             self.confirm_shrink = {'type': 'rows', 'row': cur_vy}
 
                     # Eliminar nivel (Ctrl+Delete)
