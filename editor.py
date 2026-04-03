@@ -81,6 +81,7 @@ class Editor:
         self.screen = pygame.Surface((editor_w, self.editor_h))
         self.display = pygame.display.set_mode((editor_w * self.editor_scale, self.editor_h * self.editor_scale))
         pygame.display.set_caption("H.E.R.O. Level Editor")
+        pygame.scrap.init()
         try:
             icon = pygame.image.load("sprites/player_fly.png").convert_alpha()
             icon = pygame.transform.flip(icon, True, False)
@@ -202,6 +203,8 @@ class Editor:
         self.palette_mode = False
         self.palette_editing = 0       # 0=Color1, 1=Color2, 2=Edge
         self.palette_channel = 0       # 0=R, 1=G, 2=B
+        self.hex_input_mode = False    # Entrada de color hexadecimal
+        self.hex_input_text = ""       # Texto ingresado
         self._tinted_floors_cache = None
         self._tinted_floors_level = -1
 
@@ -741,7 +744,7 @@ class Editor:
         )
         self.screen.blit(hint3, (8, hud_y + 140))
         hint4 = self.hint_font.render(
-            "P:Paleta  F3:Texturas",
+            "F2:Paleta  F3:Texturas",
             True, COLOR_GRAY
         )
         self.screen.blit(hint4, (GAME_WIDTH - hint4.get_width() - 8, hud_y + 140))
@@ -1356,9 +1359,14 @@ class Editor:
             val_text = self.font.render(f"{channel_names[i]}:{active_color[i]:3d}", True, ch_color)
             self.screen.blit(val_text, (cx, info_y))
 
+        # Input hexadecimal
+        if self.hex_input_mode:
+            hex_label = self.font.render(f"#{self.hex_input_text}_", True, COLOR_YELLOW)
+            self.screen.blit(hex_label, (GAME_WIDTH - hex_label.get_width() - 8, info_y))
+
         # Controles hint
-        hint = self.small_font.render(
-            "Tab:Cambiar 1/2/3:RGB L/R:+-15(Sh:5) Esc:Salir",
+        hint = self.hint_font.render(
+            "Tab:Cambiar 1/2/3:RGB L/R:+-15(Sh:5) H:Hex Esc:Salir",
             True, COLOR_GRAY
         )
         self.screen.blit(hint, (8, 42))
@@ -1442,14 +1450,59 @@ class Editor:
                         continue
 
                     # Toggle modo paleta con P
-                    if event.key == pygame.K_p and not ctrl:
+                    if event.key == pygame.K_F2:
                         self.palette_mode = not self.palette_mode
                         continue
 
                     # Controles del modo paleta
                     if self.palette_mode:
+                        # Modo entrada hexadecimal
+                        if self.hex_input_mode:
+                            if event.key == pygame.K_ESCAPE:
+                                self.hex_input_mode = False
+                                self.hex_input_text = ""
+                            elif event.key == pygame.K_RETURN:
+                                # Aplicar color hex
+                                txt = self.hex_input_text.strip().lstrip('#')
+                                if len(txt) == 6:
+                                    try:
+                                        r = int(txt[0:2], 16)
+                                        g = int(txt[2:4], 16)
+                                        b = int(txt[4:6], 16)
+                                        color = self._get_editing_color()
+                                        if color is not None:
+                                            color[0], color[1], color[2] = r, g, b
+                                            self.invalidate_tinted_cache()
+                                            self.dirty = True
+                                    except ValueError:
+                                        pass
+                                self.hex_input_mode = False
+                                self.hex_input_text = ""
+                            elif event.key == pygame.K_BACKSPACE:
+                                self.hex_input_text = self.hex_input_text[:-1]
+                            elif event.key == pygame.K_v and ctrl:
+                                # Pegar desde clipboard
+                                try:
+                                    clip = pygame.scrap.get(pygame.SCRAP_TEXT)
+                                    if clip:
+                                        pasted = clip.decode('utf-8').strip().strip('\x00').lstrip('#')
+                                        # Filtrar solo caracteres hex válidos
+                                        pasted = ''.join(c for c in pasted.lower() if c in '0123456789abcdef')
+                                        self.hex_input_text = (self.hex_input_text + pasted)[:6]
+                                except Exception:
+                                    pass
+                            else:
+                                ch = event.unicode.lower()
+                                if ch in '0123456789abcdef' and len(self.hex_input_text) < 6:
+                                    self.hex_input_text += ch
+                            continue
+
                         if event.key == pygame.K_ESCAPE:
                             self.palette_mode = False
+                        elif event.key == pygame.K_h:
+                            # Entrar modo hex
+                            self.hex_input_mode = True
+                            self.hex_input_text = ""
                         elif event.key == pygame.K_TAB:
                             # Ciclar entre Color1, Color2, Edge
                             self.palette_editing = (self.palette_editing + 1) % 3
