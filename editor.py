@@ -81,6 +81,12 @@ class Editor:
         self.screen = pygame.Surface((editor_w, self.editor_h))
         self.display = pygame.display.set_mode((editor_w * self.editor_scale, self.editor_h * self.editor_scale))
         pygame.display.set_caption("H.E.R.O. Level Editor")
+        try:
+            icon = pygame.image.load("sprites/player_fly.png").convert_alpha()
+            icon = pygame.transform.flip(icon, True, False)
+            pygame.display.set_icon(icon)
+        except Exception:
+            pass
         self.clock = pygame.time.Clock()
 
         # Fuentes
@@ -90,6 +96,8 @@ class Editor:
         except:
             self.font = pygame.font.Font(None, 16)
             self.small_font = pygame.font.Font(None, 12)
+        # Fuente mas fina para texto de ayuda
+        self.hint_font = pygame.font.SysFont("consolas", 11)
 
         # Cargar tiles (mismos que el juego)
         self.tiles = {}
@@ -717,22 +725,22 @@ class Editor:
             self.screen.blit(num_text, (label_x, py + preview_size + 3))
 
         # --- Controles ---
-        hint = self.small_font.render(
+        hint = self.hint_font.render(
             "Spc:Poner ^S:Guardar PgUp/Dn:Nivel",
             True, COLOR_GRAY
         )
         self.screen.blit(hint, (8, hud_y + 120))
-        hint2 = self.small_font.render(
+        hint2 = self.hint_font.render(
             "Q/A:VP arriba/abajo Z/X:VP izq/der",
             True, COLOR_GRAY
         )
         self.screen.blit(hint2, (8, hud_y + 130))
-        hint3 = self.small_font.render(
+        hint3 = self.hint_font.render(
             "^Down/Right:+VP Del:-VP ^N:Nuevo ^Del:Borrar",
             True, COLOR_GRAY
         )
         self.screen.blit(hint3, (8, hud_y + 140))
-        hint4 = self.small_font.render(
+        hint4 = self.hint_font.render(
             "P:Paleta  F3:Texturas",
             True, COLOR_GRAY
         )
@@ -1240,7 +1248,7 @@ class Editor:
             "Ctrl+Z:Reset param  Ctrl+R:Reset todo  Ctrl+S:Guardar  Esc:Salir",
         ]
         for i, h in enumerate(hints):
-            ht = self.small_font.render(h, True, (90, 90, 110))
+            ht = self.hint_font.render(h, True, (90, 90, 110))
             self.screen.blit(ht, (8, ctrl_y + i * 11))
 
         # Indicador dirty + seed (esquina inferior)
@@ -1368,7 +1376,10 @@ class Editor:
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self.confirm_exit = True
+                    if self.dirty:
+                        self.confirm_exit = True
+                    else:
+                        running = False
 
                 elif event.type == pygame.KEYDOWN:
                     mods = pygame.key.get_mods()
@@ -1462,7 +1473,10 @@ class Editor:
                     w, h = self.get_level_dims()
 
                     if event.key == pygame.K_ESCAPE:
-                        self.confirm_exit = True
+                        if self.dirty:
+                            self.confirm_exit = True
+                        else:
+                            running = False
 
                     # Movimiento del cursor (con clamp por banda)
                     elif event.key == pygame.K_UP:
