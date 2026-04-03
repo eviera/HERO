@@ -2,6 +2,10 @@
 # Game constants shared across all modules
 
 import pygame
+import os as _os
+
+# Directorio base del proyecto (donde vive este archivo)
+_BASE_DIR = _os.path.dirname(_os.path.abspath(__file__))
 
 # Importar constantes genéricas desde evgamelib (colores, estados)
 from evgamelib.constants import (
@@ -143,7 +147,7 @@ MOSS_JAG_PEAK_CHANCE = 0.06  # Probabilidad de pico largo ocasional
 MOSS_JAG_PEAK_EXTRA = (4, 10)  # Altura extra del pico sobre la base (min, max px)
 
 # Archivo JSON de parámetros de textura (editables desde el editor)
-TEXTURE_PARAMS_FILE = "texture_params.json"
+TEXTURE_PARAMS_FILE = _os.path.join(_BASE_DIR, "texture_params.json")
 
 # Constantes que son tuplas (min, max) - se convierten desde listas JSON
 TEXTURE_TUPLE_KEYS = {
@@ -233,10 +237,10 @@ BOMB_REMAINING_SCORE = 50
 ENEMY_TILE_CHARS = {'bat': 'V', 'spider': 'A', 'bug': 'B', 'snake_left': '<', 'snake_right': '>'}
 
 # Scores file
-SCORES_FILE = "scores.json"
+SCORES_FILE = _os.path.join(_BASE_DIR, "scores.json")
 
 # Screens file (niveles del juego)
-SCREENS_FILE = "screens.json"
+SCREENS_FILE = _os.path.join(_BASE_DIR, "screens.json")
 
 # SID Audio Effects (Commodore 64 emulation)
 SID_INTENSITY = 'light'  # 'light', 'medium', o 'heavy'

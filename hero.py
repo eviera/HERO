@@ -9,6 +9,9 @@ import array
 import random
 import argparse
 
+# Asegurar que el cwd sea el directorio del script (necesario en Mac cuando se ejecuta desde Finder)
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 # Import constants
 from constants import *
 
@@ -500,14 +503,19 @@ class Game:
         self.splash_surface = pygame.Surface((self._splash_w, self._splash_h))
 
         # Load background image (al tamaño original del splash)
+        # Nota: en Mac algunos PNGs con perfil ICC fallan con convert_alpha(), se intenta convert() como fallback
         try:
-            self.background_image = pygame.image.load("images/hero_background.png").convert_alpha()
+            raw = pygame.image.load("images/hero_background.png")
+            try:
+                self.background_image = raw.convert_alpha()
+            except Exception:
+                self.background_image = raw.convert()
             self.background_image = pygame.transform.scale(self.background_image, (self._splash_w, self._splash_h))
 
-            self.gray_overlay = pygame.Surface((self._splash_w, self._splash_h))
-            self.gray_overlay.set_alpha(140)
-            self.gray_overlay.fill((128, 128, 128))
-            
+            # Usar SRCALPHA en lugar de set_alpha() para compatibilidad con Mac
+            self.gray_overlay = pygame.Surface((self._splash_w, self._splash_h), pygame.SRCALPHA)
+            self.gray_overlay.fill((128, 128, 128, 140))
+
             print("Background image loaded successfully")
         except Exception as e:
             print(f"Error loading background image: {e}")
@@ -1701,8 +1709,12 @@ class Game:
         s = self.splash_surface
         cx = self._splash_w // 2
 
-        s.blit(self.background_image, (0, 0))
-        s.blit(self.gray_overlay, (0, 0))
+        if self.background_image:
+            s.blit(self.background_image, (0, 0))
+        else:
+            s.fill(COLOR_BLACK)
+        if self.gray_overlay:
+            s.blit(self.gray_overlay, (0, 0))
 
         """
         title = self.font.render("H.E.R.O.", True, COLOR_WHITE)
