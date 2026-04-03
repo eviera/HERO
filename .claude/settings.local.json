@@ -24,7 +24,8 @@
       "Bash(venv/Scripts/pip.exe install:*)",
       "Bash(venv/Scripts/python.exe -c \":*)",
       "Bash(C:/Users/emi/workspace/pyTests/hero/venv/Scripts/python.exe -m pytest evgamelib/tests/ -v)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(chmod +x:*)"
     ]
   }
 }

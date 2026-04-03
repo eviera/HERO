@@ -6,6 +6,10 @@ import pygame
 import json
 import os
 import random
+
+# Asegurar que el cwd sea el directorio del script (necesario en Mac cuando se ejecuta desde Finder)
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 from constants import *
 import palette as palette_module
 from palette import (get_depth_palette, get_edge_color, build_tinted_floors,
